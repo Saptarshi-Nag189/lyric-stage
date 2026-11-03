@@ -83,13 +83,21 @@ unzip, install.
 ## Releases
 
 Bump `VERSION` (and add a section to `CHANGELOG.md`), push, and
-`.github/workflows/lyricstage-release.yml` builds a release APK and publishes it as a GitHub
-Release tagged `lyricstage-vX.Y.Z`, with `SHA256SUMS.txt` and the changelog as notes.
+`.github/workflows/release.yml` builds a release APK and publishes it as a GitHub
+Release tagged `vX.Y.Z`, with `SHA256SUMS.txt` and the changelog as notes.
 
 Signing uses these repository secrets when present: `LYRICSTAGE_KEYSTORE_BASE64`,
 `LYRICSTAGE_KEYSTORE_PASSWORD`, `LYRICSTAGE_KEY_ALIAS`, `LYRICSTAGE_KEY_PASSWORD`.
 Without them it signs with a throwaway key, so each release must be installed fresh
 (uninstall the previous one first).
+
+## Installing
+
+Download the APK from the latest GitHub Release and open it. Google Play Protect blocks
+sideloaded apps that request notification access ("App blocked to protect your device").
+LyricStage needs that access: it is the only way Android shares what other players are
+playing. Either turn off Play Store > profile > Play Protect > settings > "Scan apps with
+Play Protect", install, and turn it back on, or install with `adb install`.
 
 ## Credits
 

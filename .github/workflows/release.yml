@@ -1,13 +1,12 @@
 name: LyricStage Release
 
-# Publishes a GitHub Release when VERSION changes (or a lyricstage-vX.Y.Z tag is pushed).
+# Publishes a GitHub Release when VERSION changes (or a vX.Y.Z tag is pushed).
 # The workflow creates the tag itself, so nobody has to push tags by hand.
-# Tags are prefixed "lyricstage-" so they never clash with other apps in this repository.
 on:
   push:
     branches: ["**"]
-    paths: ["VERSION", ".github/workflows/lyricstage-release.yml"]
-    tags: ["lyricstage-v*.*.*"]
+    paths: ["VERSION", ".github/workflows/release.yml"]
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 permissions:
@@ -26,12 +25,12 @@ jobs:
         run: |
           FILE="$(tr -d '[:space:]' < VERSION)"
           echo "VERSION=$FILE" >> "$GITHUB_ENV"
-          echo "TAG=lyricstage-v$FILE" >> "$GITHUB_ENV"
-          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "${GITHUB_REF_NAME#lyricstage-v}" != "$FILE" ]; then
+          echo "TAG=v$FILE" >> "$GITHUB_ENV"
+          if [ "$GITHUB_REF_TYPE" = "tag" ] && [ "${GITHUB_REF_NAME#v}" != "$FILE" ]; then
             echo "Tag $GITHUB_REF_NAME does not match VERSION $FILE"; exit 1
           fi
-          if gh release view "lyricstage-v$FILE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "lyricstage-v$FILE is already released; nothing to do."
+          if gh release view "v$FILE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v$FILE is already released; nothing to do."
             echo "SKIP=1" >> "$GITHUB_ENV"
           fi
 
@@ -109,6 +108,11 @@ jobs:
             echo "### Install"
             echo "Download \`LyricStage-v$VERSION.apk\` below and open it on your phone."
             echo "Then open LyricStage and allow notification access when asked."
+            echo
+            echo "If Google Play Protect blocks the install (\"App blocked to protect your device\"):"
+            echo "it blocks any sideloaded app that asks for notification access. Turn off"
+            echo "Play Store > profile > Play Protect > settings > Scan apps with Play Protect,"
+            echo "install, then turn it back on. Or install with \`adb install\`."
             echo
             echo "### Verify"
             echo '```'
