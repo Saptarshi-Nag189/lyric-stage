@@ -54,14 +54,14 @@ class LyricsSources(private val sources: List<Source>) {
 
     private fun aligned(word: LyricsLookup.Found, ref: LyricsLookup.Found?): LyricsLookup.Found {
         if (ref == null) return word
-        val d = LineAligner.offset(word.raw, ref.raw) ?: return word
-        return word.copy(raw = LineAligner.shift(word.raw, d))
+        val raw = LineAligner.align(word.raw, ref.raw)
+        return if (raw == word.raw) word else word.copy(raw = raw)
     }
 
     companion object {
         const val TIMEOUT_MS = 9_000L
         /** How long a word-timed answer waits for a line-timed one to align against. */
-        const val ALIGN_WAIT_MS = 2_000L
+        const val ALIGN_WAIT_MS = 4_000L
 
         fun rank(r: LyricsLookup): Int = when {
             r !is LyricsLookup.Found -> 0

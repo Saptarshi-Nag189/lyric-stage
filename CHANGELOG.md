@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.5]
+
+### Fixed
+- Musixmatch word timing could still run early or late (Copines by Aya Nakamura, 1.5 s
+  early). The check against LRCLIB's line timing now waits longer for LRCLIB, matches
+  lines that are split differently, and when the lines are off by different amounts it
+  corrects each line on its own, keeping the word spacing inside it. Word timing saved by
+  1.0.4 or earlier is fetched again once.
+
 ## [1.0.4]
 
 ### Fixed

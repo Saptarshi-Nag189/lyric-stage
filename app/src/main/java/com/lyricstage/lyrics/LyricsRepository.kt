@@ -90,7 +90,7 @@ class LyricsRepository(
         }
         // cached with line timing only: look once (per app run) for word timing to upgrade to
         val cached = dao.get(key)
-        // word timing saved before 1.0.4 may sit a second or two off (no alignment then): refresh once
+        // word timing saved before 1.0.5 may sit a second or two off (weaker alignment then): refresh once
         val stale = cached != null && rankOf(cached) == WORD_RANK && cached.updatedAt < ALIGNED_SINCE
         if (cached != null && (rankOf(cached) < WORD_RANK || stale) && cached.source != SOURCE_IMPORT && online.value && upgradeTried.add(key)) {
             launch { runCatching { fetch(track.copy(key = key), replaceStale = stale) } }
@@ -190,8 +190,8 @@ class LyricsRepository(
         private val BOM = Char(0xFEFF).toString()
         const val SOURCE_LRCLIB = "lrclib"
         private const val WORD_RANK = 4
-        /** Word timing cached before this time (1.0.4) was never aligned; it is fetched again once. */
-        private const val ALIGNED_SINCE = 1_793_806_000_000L
+        /** Word timing cached before this time (1.0.5) was aligned less well or not at all; it is fetched again once. */
+        private const val ALIGNED_SINCE = 1_793_808_000_000L
 
         /** Same scale as [LyricsSources.rank]. */
         fun rankOf(e: LyricsEntity): Int = when {

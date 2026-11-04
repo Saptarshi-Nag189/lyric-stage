@@ -61,6 +61,34 @@ class AlignAndKugouTest {
         assertEquals(18_000L, LrcParser.parse(r.raw)[0].startMs)
     }
 
+    @Test fun wanderingOffsetsAreFixedLineByLine() {
+        // early by 1.5 s at first, then by 0.5 s: no single shift fits
+        val wandering = """
+            [00:16.50]<00:16.50>Never <00:16.90>gonna <00:17.30>give <00:17.60>you <00:17.90>up
+            [00:18.70]<00:18.70>Never <00:19.10>gonna <00:19.50>let <00:19.80>you <00:20.10>down
+            [00:21.90]<00:21.90>Never <00:22.30>gonna <00:22.70>run <00:23.10>around and desert you
+            [00:26.30]<00:26.30>Never <00:26.70>gonna <00:27.10>make <00:27.40>you <00:27.70>cry
+            [00:28.50]<00:28.50>Never <00:28.90>gonna <00:29.30>say <00:29.70>goodbye
+        """.trimIndent()
+        assertNull(LineAligner.offset(wandering, lineTimed))
+        val fixed = LrcParser.parse(LineAligner.align(wandering, lineTimed))
+        assertEquals(listOf(18_000L, 20_200L, 22_400L, 26_800L, 29_000L), fixed.map { it.startMs })
+        // word spacing inside a line is kept
+        assertEquals(18_400L, fixed[0].wordStarts!![1].startMs)
+        assertEquals(29_800L, fixed[4].wordStarts!![2].startMs)
+    }
+
+    @Test fun waitsForASlowLineTimedCopy() = runBlocking {
+        val sources = LyricsSources(
+            listOf(
+                LyricsSources.Source { _, _, _, _ -> delay(2_500); LyricsLookup.Found(true, lineTimed, false, "lrclib") },
+                LyricsSources.Source { _, _, _, _ -> LyricsLookup.Found(true, wordTimedEarly, false, "musixmatch") },
+            ),
+        )
+        val r = sources.find("t", "a", null, null) as LyricsLookup.Found
+        assertEquals(18_000L, LrcParser.parse(r.raw)[0].startMs)
+    }
+
     @Test fun krcDecodesAndParsesToWordTiming() {
         val krc = "﻿[ti:Never Gonna Give You Up]\n[language:eyJjb250ZW50IjpbXX0=]\n" +
             "[18000,2100]<0,400,0>Never <400,600,0>gonna <1000,300,0>give <1300,300,0>you <1600,500,0>up\n"
