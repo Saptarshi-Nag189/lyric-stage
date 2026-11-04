@@ -84,9 +84,9 @@ jobs:
           cp "$SRC" "$OUT"
           "$BT/aapt2" dump badging "$OUT" | head -1 | tee badging.txt
           grep -q "versionName='$VERSION'" badging.txt || { echo "versionName mismatch"; exit 1; }
-          # LRCLIB is the only network use: INTERNET is expected, nothing else that is dangerous
+          # expected: INTERNET (lyrics lookups) and RECORD_AUDIO (opt-in audio sync); nothing else sensitive
           "$BT/aapt2" dump permissions "$OUT" | tee perms.txt
-          if grep -E "READ_CONTACTS|ACCESS_FINE_LOCATION|RECORD_AUDIO|READ_SMS|CAMERA" perms.txt; then
+          if grep -E "READ_CONTACTS|ACCESS_FINE_LOCATION|ACCESS_COARSE_LOCATION|READ_SMS|CAMERA|READ_CALL_LOG|READ_MEDIA" perms.txt; then
             echo "Unexpected permission"; exit 1
           fi
           "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee signer.txt
