@@ -62,7 +62,7 @@ animation stay as they are.
 Found by reading the code; each item keeps every feature as it is. Nothing here changes
 how the lyrics look or move.
 
-Already done (in the next release): in the background the app stops audio listening,
+Already done, ships with 1.1.0: in the background the app stops audio listening,
 the background animation, ripples and the controls' position updates. Lyrics are still
 fetched and saved, and the prepared stage stays in memory. The lyrics drawing loop
 already pauses by itself when the screen is not visible.
