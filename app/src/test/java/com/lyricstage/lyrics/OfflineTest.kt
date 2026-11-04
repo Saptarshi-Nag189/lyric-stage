@@ -64,11 +64,20 @@ class OfflineTest {
         assertEquals(0, calls.get())
     }
 
-    @Test fun uncachedSongOfflineSaysSoWithoutCallingSources() = runBlocking {
+    @Test fun uncachedSongOfflineSaysSo() = runBlocking {
         val repo = LyricsRepository(FakeLyricsDao(), FakeOffsets(), FakeMisses(), failing, MutableStateFlow(false), scope)
-        val state = withTimeout(2_000) { repo.observe(track, MutableStateFlow(true)).first { it != LyricsState.Loading } }
+        val state = withTimeout(4_000) { repo.observe(track, MutableStateFlow(true)).first { it != LyricsState.Loading } }
         assertEquals(LyricsState.Offline, state)
-        assertEquals(0, calls.get())
+    }
+
+    @Test fun staleOfflineFlagDoesNotBlockLookups() = runBlocking {
+        // the connection callback last said offline, but a fresh check says online
+        val dao = FakeLyricsDao()
+        val found = LyricsSources(listOf(LyricsSources.Source { _, _, _, _ -> calls.incrementAndGet(); LyricsLookup.Found(true, "[00:01.00]Hello there", false, "lrclib") }))
+        val repo = LyricsRepository(dao, FakeOffsets(), FakeMisses(), found, MutableStateFlow(false), scope, checkOnline = { true })
+        val state = withTimeout(4_000) { repo.observe(track, MutableStateFlow(true)).first { it != LyricsState.Loading } }
+        assertTrue(state is LyricsState.Ready)
+        assertEquals(1, calls.get())
     }
 
     @Test fun prefetchSkipsWhileOffline() = runBlocking {

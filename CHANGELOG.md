@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.6]
+
+### Fixed
+- The stage could say "Offline" with the internet on, for example after Delete cache. The
+  app trusted the last connection report from Android, which can be stale after the app
+  was in the background. It now always tries the lookup and only says Offline when that
+  fails and a fresh check finds no connection; once back online it retries at once.
+
 ## [1.0.5]
 
 ### Fixed

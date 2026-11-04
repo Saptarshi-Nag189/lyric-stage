@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.abs
 
@@ -49,6 +50,8 @@ class LyricsRepository(
     private val client: LyricsSources,
     private val online: StateFlow<Boolean>,
     private val scope: CoroutineScope,
+    /** A fresh check of the connection; the flow alone can be stale. */
+    private val checkOnline: () -> Boolean = { online.value },
 ) {
     /** Keys already checked for a word-timed upgrade in this run. */
     private val upgradeTried = ConcurrentHashMap.newKeySet<String>()
@@ -75,15 +78,18 @@ class LyricsRepository(
                         delay(RETRY_MS)
                         isPlaying.first { it }
                     }
-                    if (!online.value) {
-                        // offline: wait for the connection instead of failing every minute
-                        send(LyricsState.Offline)
-                        online.first { it }
-                    }
+                    // always try: only a lookup that fails with no connection means offline
                     when (fetch(track)) {
                         is LyricsLookup.Found -> break
                         LyricsLookup.NotFound -> send(LyricsState.NotFound)
-                        LyricsLookup.Unavailable -> send(if (online.value) LyricsState.Unavailable else LyricsState.Offline)
+                        LyricsLookup.Unavailable -> if (checkOnline()) {
+                            send(LyricsState.Unavailable)
+                        } else {
+                            // offline: wait for the connection, then try again at once
+                            send(LyricsState.Offline)
+                            while (!checkOnline()) withTimeoutOrNull(OFFLINE_RECHECK_MS) { online.first { it } }
+                            attempt = 0
+                        }
                     }
                 }
             }
@@ -92,7 +98,7 @@ class LyricsRepository(
         val cached = dao.get(key)
         // word timing saved before 1.0.5 may sit a second or two off (weaker alignment then): refresh once
         val stale = cached != null && rankOf(cached) == WORD_RANK && cached.updatedAt < ALIGNED_SINCE
-        if (cached != null && (rankOf(cached) < WORD_RANK || stale) && cached.source != SOURCE_IMPORT && online.value && upgradeTried.add(key)) {
+        if (cached != null && (rankOf(cached) < WORD_RANK || stale) && cached.source != SOURCE_IMPORT && checkOnline() && upgradeTried.add(key)) {
             launch { runCatching { fetch(track.copy(key = key), replaceStale = stale) } }
         }
         dao.observe(key).collect { e ->
@@ -105,7 +111,7 @@ class LyricsRepository(
      * prefetch). Does nothing when they are cached already.
      */
     suspend fun prefetch(track: TrackQuery) {
-        if (!online.value || cachedRow(track) != null || recentMiss(track.key)) return
+        if (!checkOnline() || cachedRow(track) != null || recentMiss(track.key)) return
         fetch(track)
     }
 
@@ -190,6 +196,7 @@ class LyricsRepository(
         private val BOM = Char(0xFEFF).toString()
         const val SOURCE_LRCLIB = "lrclib"
         private const val WORD_RANK = 4
+        private const val OFFLINE_RECHECK_MS = 10_000L
         /** Word timing cached before this time (1.0.5) was aligned less well or not at all; it is fetched again once. */
         private const val ALIGNED_SINCE = 1_793_808_000_000L
 

@@ -18,14 +18,24 @@ class Connectivity(context: Context) {
         // never let connectivity checks take the app down; assume online if they fail
         runCatching {
             cm?.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-                override fun onAvailable(network: Network) { _online.value = check() }
+                // use what each callback reports: activeNetwork can lag behind it, or read
+                // null while the app is in the background, which left the app stuck "offline"
+                override fun onAvailable(network: Network) { _online.value = true }
                 override fun onLost(network: Network) { _online.value = check() }
-                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { _online.value = check() }
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) {
+                    _online.value = caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                }
+                override fun onBlockedStatusChanged(network: Network, blocked: Boolean) {
+                    _online.value = !blocked
+                }
             })
         }
     }
 
     val metered: Boolean get() = runCatching { cm?.isActiveNetworkMetered }.getOrNull() ?: true
+
+    /** Asks the system again now (rather than trusting the last callback) and updates [online]. */
+    fun refresh(): Boolean = check().also { _online.value = it }
 
     private fun check(): Boolean = runCatching {
         val caps = cm?.getNetworkCapabilities(cm.activeNetwork) ?: return@runCatching false

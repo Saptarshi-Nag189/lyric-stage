@@ -43,7 +43,7 @@ class AppContainer(context: Context) {
             LyricsSources.Source { t, a, _, d -> kugou.find(t, a, d) },
         ),
     )
-    val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), database.missDao(), sources, connectivity.online, appScope)
+    val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), database.missDao(), sources, connectivity.online, appScope, connectivity::refresh)
     val settings = SettingsStore(context)
     val sessions = ActiveSessionTracker(context)
 }
