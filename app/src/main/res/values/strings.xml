@@ -15,6 +15,10 @@
     <string name="state_unavailable">Lyrics service unreachable</string>
     <string name="state_offline">Offline</string>
     <string name="state_instrumental">Instrumental</string>
+    <string name="timing_word">%1$s · word timed</string>
+    <string name="timing_line">%1$s · line timed</string>
+    <string name="timing_none">%1$s · not timed</string>
+    <string name="audio_sync_silent">Audio sync can\'t hear this output</string>
     <string name="import_lrc">Import .lrc</string>
     <string name="import_done">Lyrics imported for this track</string>
     <string name="import_failed">That file doesn\'t look like lyrics</string>

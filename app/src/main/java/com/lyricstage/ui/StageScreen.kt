@@ -73,6 +73,36 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         if (audioActive) audio.start() else audio.stop()
         onDispose { audio.stop() }
     }
+    // say once per song when audio sync hears nothing (Bluetooth output, usually)
+    var audioDeaf by remember { mutableStateOf(false) }
+    LaunchedEffect(audioActive, np?.trackKey) {
+        audioDeaf = false
+        if (!audioActive) return@LaunchedEffect
+        delay(AUDIO_CHECK_MS)
+        if (audio.isDeaf()) {
+            audioDeaf = true
+            delay(INFO_PILL_MS)
+            audioDeaf = false
+        }
+    }
+
+    // where this song's lyrics came from and how they are timed, shown briefly as a song starts
+    val readySource = (state as? LyricsState.Ready)?.source
+    var sourceInfo by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(np?.trackKey, readySource, readyLyrics?.kind) {
+        sourceInfo = null
+        val lyrics = readyLyrics ?: return@LaunchedEffect
+        val timing = when (lyrics.kind) {
+            LyricsKind.WORD_SYNCED -> R.string.timing_word
+            LyricsKind.LINE_SYNCED -> R.string.timing_line
+            LyricsKind.PLAIN -> R.string.timing_none
+            LyricsKind.INSTRUMENTAL -> return@LaunchedEffect
+        }
+        if (lyrics.kind != LyricsKind.PLAIN && lyrics.lines.isEmpty()) return@LaunchedEffect
+        sourceInfo = context.getString(timing, sourceName(readySource))
+        delay(INFO_PILL_MS)
+        sourceInfo = null
+    }
 
     val bgClock = remember { BackgroundClock() }
     val ripples = remember { RippleEmitter() }
@@ -177,6 +207,13 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                 onAction = pickLrc,
                 modifier = Modifier.align(Alignment.BottomCenter),
             )
+        } else if (!controlsVisible) {
+            val info = if (audioDeaf) stringResource(R.string.audio_sync_silent) else sourceInfo
+            var shown by remember { mutableStateOf("") }
+            if (info != null) shown = info
+            AnimatedVisibility(info != null, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
+                StagePill(shown)
+            }
         }
 
         // without the kinetic stage (nothing playing, no lyrics) Settings stays one tap away
@@ -206,4 +243,15 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
 }
 
 private const val CONTROLS_MS = 3_000L
+private const val INFO_PILL_MS = 3_500L
+private const val AUDIO_CHECK_MS = 8_000L
+
+private fun sourceName(source: String?): String = when (source) {
+    "lrclib" -> "LRCLIB"
+    "netease" -> "NetEase"
+    "musixmatch" -> "Musixmatch"
+    "import" -> "Imported"
+    null -> ""
+    else -> source
+}
 private const val SCREEN_PAUSE_MS = 120_000L

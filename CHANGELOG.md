@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.3]
+
+### Fixed
+- Musixmatch had stopped giving word timings: its desktop app access was retired in
+  September 2026 and now returns the same decoy for every song. LyricStage now uses the
+  Android app access, refuses empty or all-zero tokens and keeps session cookies.
+- NetEase was asked for lyrics in a way that could skip its word timings. It now always asks
+  for the latest lyrics, word timings included.
+- Songs cached with line timing are checked again for word timing the first time they play.
+
+### New
+- A small pop-up as each song starts names the lyrics source and its timing, for example
+  "LRCLIB · line timed".
+- Audio sync says when it cannot hear the music. Bluetooth earphones often send audio
+  past the part of Android that apps can listen to.
+
 ## [1.0.2]
 
 ### Fixed

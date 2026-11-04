@@ -57,7 +57,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 
 ## Privacy
 
-The app makes lyrics lookups only: lrclib.net, music.163.com (NetEase) and apic-desktop.musixmatch.com, sending the song title, artist, album and length. With background fetching on, this happens for each new song you play and the next two in the queue, even when LyricStage is closed. NetEase and Musixmatch are reached through their unofficial web endpoints, so they may stop working at any time; LRCLIB still answers when they do.
+The app makes lyrics lookups only: lrclib.net, music.163.com (NetEase) and apic.musixmatch.com, sending the song title, artist, album and length. With background fetching on, this happens for each new song you play and the next two in the queue, even when LyricStage is closed. NetEase and Musixmatch are reached through unofficial endpoints, so they may stop working at any time; LRCLIB still answers when they do.
 
 Audio sync is off by default. Turning it on asks for the microphone permission, which Android requires for reading the phone's audio output. The audio is analysed on the phone and never stored or sent.
 

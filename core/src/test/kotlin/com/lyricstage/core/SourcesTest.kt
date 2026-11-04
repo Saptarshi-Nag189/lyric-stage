@@ -16,6 +16,37 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class SourcesTest {
+    @Test fun musixmatchRefusesRetiredIdentityToken() = runBlocking {
+        val server = okhttp3.mockwebserver.MockWebServer()
+        val zeros = "0".repeat(56)
+        server.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"message":{"header":{"status_code":200},"body":{"user_token":"$zeros"}}}"""))
+        server.start()
+        val store = MusixmatchClient.TokenStore.InMemory().apply { token = "old-desktop-token" }
+        val client = MusixmatchClient(okhttp3.OkHttpClient(), server.url("/ws/1.1/"), store = store)
+        assertEquals(LyricsLookup.Unavailable, client.find("Song", "Artist", null, 200_000))
+        val req = server.takeRequest()
+        // the stored desktop-era token is not reused; a new one is asked for under the Android identity
+        assertTrue(req.path!!.startsWith("/ws/1.1/token.get"))
+        assertEquals("android-player-v1.0", req.requestUrl!!.queryParameter("app_id"))
+        assertEquals(null, req.requestUrl!!.queryParameter("usertoken"))
+        // the all-zero token is never kept
+        assertEquals("old-desktop-token", store.token)
+        server.shutdown()
+    }
+
+    @Test fun neteaseAsksForLatestLyricVersions() = runBlocking {
+        val server = okhttp3.mockwebserver.MockWebServer()
+        server.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"result":{"songs":[{"id":7,"name":"Never Gonna Give You Up","artists":[{"name":"Rick Astley"}],"duration":214018}]},"code":200}"""))
+        server.enqueue(okhttp3.mockwebserver.MockResponse().setBody("""{"code":200,"yrc":{"lyric":"[18000,2100](18000,400,0)Never (18400,600,0)gonna (19000,300,0)give"}}"""))
+        server.start()
+        val r = NeteaseClient(okhttp3.OkHttpClient(), server.url("/")).find("Never Gonna Give You Up", "Rick Astley", 214_000)
+        assertTrue(r is LyricsLookup.Found && r.synced)
+        server.takeRequest()
+        val lyric = server.takeRequest().requestUrl!!
+        for (k in listOf("lv", "kv", "rv", "yv")) assertEquals(k, "-1", lyric.queryParameter(k))
+        server.shutdown()
+    }
+
     @Test fun yrcBecomesWordTimedLyrics() {
         val yrc = """
             {"t":0,"c":[{"tx":"作词: "},{"tx":"Someone"}]}

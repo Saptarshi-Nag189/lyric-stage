@@ -17,13 +17,13 @@ import okhttp3.Request
 import java.io.IOException
 
 /**
- * Musixmatch, through the endpoints its desktop app uses. It has word-by-word "richsync"
+ * Musixmatch, through the endpoints its Android app uses. It has word-by-word "richsync"
  * timings for many popular songs (the same data Spotify shows). Unofficial: the token can be
  * refused or rate limited, in which case this source rests for a while and the others carry on.
  */
 class MusixmatchClient(
-    private val http: OkHttpClient,
-    private val baseUrl: HttpUrl = "https://apic-desktop.musixmatch.com/ws/1.1/".toHttpUrl(),
+    http: OkHttpClient,
+    private val baseUrl: HttpUrl = "https://apic.musixmatch.com/ws/1.1/".toHttpUrl(),
     private val now: () -> Long = System::currentTimeMillis,
     /** Keeps the token across app starts, so it is not requested on every launch. */
     private val store: TokenStore = TokenStore.InMemory(),
@@ -39,11 +39,15 @@ class MusixmatchClient(
         }
     }
 
+    /** Musixmatch sets session cookies while redirecting token requests; keep them, like a browser. */
+    private val http: OkHttpClient = http.newBuilder().cookieJar(MemoryCookieJar()).build()
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val tokenLock = Mutex()
+    // a token only works for the client identity it was issued to, so it is stored with it;
+    // tokens from the retired desktop identity are dropped and a new one is requested
     private var token: String?
-        get() = store.token
-        set(v) { store.token = v }
+        get() = store.token?.takeIf { it.startsWith("$APP_ID:") }?.removePrefix("$APP_ID:")
+        set(v) { store.token = v?.let { "$APP_ID:$it" } }
     private var restUntil: Long
         get() = store.restUntil
         set(v) { store.restUntil = v }
@@ -113,7 +117,7 @@ class MusixmatchClient(
         if (now() < restUntil) return null
         val r = call("token.get", null) { addQueryParameter("user_language", "en") }
         val t = r.body?.str("user_token")
-        if (r.status != 200 || t.isNullOrBlank() || t.startsWith("UpgradeOnly")) {
+        if (r.status != 200 || t.isNullOrBlank() || t.startsWith("UpgradeOnly") || isDegenerate(t)) {
             // captcha or refusal: try again later instead of hammering the service
             restUntil = now() + REST_MS
             return null
@@ -133,9 +137,8 @@ class MusixmatchClient(
             .apply(params)
             .build()
         val req = Request.Builder().url(url)
-            .header("authority", "apic-desktop.musixmatch.com")
-            .header("cookie", "AWSELBCORS=0; AWSELB=0")
-            .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Musixmatch/3.14.4564 Chrome/124.0 Electron Safari/537.36")
+            .header("authority", baseUrl.host)
+            .header("User-Agent", "Dalvik/2.1.0 (Linux; U; Android 14)")
             .build()
         val (code, text) = http.fetch(req)
         if (code !in 200..299 || text.isNullOrBlank()) throw IOException("Musixmatch HTTP $code")
@@ -146,7 +149,12 @@ class MusixmatchClient(
 
     companion object {
         const val SOURCE = "musixmatch"
-        private const val APP_ID = "web-desktop-app-v1.0"
+        // The desktop identity (apic-desktop, web-desktop-app-v1.0) was retired in September
+        // 2026: it hands out an all-zero token and the same decoy lyrics for every song.
+        private const val APP_ID = "android-player-v1.0"
+
+        /** Empty or one repeated character, as the retired identity returns. */
+        internal fun isDegenerate(token: String): Boolean = token.isBlank() || token.all { it == token[0] }
         private const val REST_MS = 10 * 60_000L
 
         private val parser = Json { ignoreUnknownKeys = true; isLenient = true }
@@ -184,5 +192,22 @@ class MusixmatchClient(
         private fun JsonObject.int(key: String): Int? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.intOrNull
         private fun JsonObject.long(key: String): Long? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.longOrNull
         private fun JsonObject.dbl(key: String): Double? = (this[key] as? kotlinx.serialization.json.JsonPrimitive)?.doubleOrNull
+    }
+}
+
+/** Cookies held in memory, so Musixmatch's session cookies survive its redirects like in a browser. */
+internal class MemoryCookieJar : okhttp3.CookieJar {
+    private val cookies = LinkedHashMap<String, okhttp3.Cookie>()
+
+    @Synchronized
+    override fun saveFromResponse(url: HttpUrl, cookies: List<okhttp3.Cookie>) {
+        for (c in cookies) this.cookies[c.domain + "|" + c.path + "|" + c.name] = c
+    }
+
+    @Synchronized
+    override fun loadForRequest(url: HttpUrl): List<okhttp3.Cookie> {
+        val now = System.currentTimeMillis()
+        this.cookies.values.removeAll { it.expiresAt < now }
+        return this.cookies.values.filter { it.matches(url) }
     }
 }

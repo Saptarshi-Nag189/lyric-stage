@@ -28,8 +28,23 @@ class AudioOnsets {
 
     val running: Boolean get() = visualizer != null
 
+    @Volatile private var startedAt = 0L
+    @Volatile private var lastSoundAt = 0L
+    @Volatile private var failed = false
+
+    /**
+     * True when audio sync cannot hear the music: the output could not be opened, or it has
+     * delivered only silence for a while. Common with Bluetooth earphones, whose audio often
+     * bypasses the mix the Visualizer reads.
+     */
+    fun isDeaf(now: Long = SystemClock.elapsedRealtime()): Boolean =
+        failed || (visualizer != null && now - startedAt > DEAF_MS && now - lastSoundAt > DEAF_MS)
+
     fun start() {
         if (visualizer != null) return
+        failed = false
+        startedAt = SystemClock.elapsedRealtime()
+        lastSoundAt = 0L
         try {
             val v = Visualizer(0)
             v.captureSize = Visualizer.getCaptureSizeRange()[1].coerceAtMost(1024)
@@ -45,6 +60,7 @@ class AudioOnsets {
             // no permission, or the device does not allow output capture
             Log.w(TAG, "Audio sync unavailable: ${e.message}")
             stop()
+            failed = true
         }
     }
 
@@ -69,9 +85,11 @@ class AudioOnsets {
         val hi = (HIGH_HZ / hzPerBin).toInt().coerceIn(lo + 1, bins - 1)
         if (prev.size != hi - lo) prev = FloatArray(hi - lo)
         var flux = 0f
+        var loud = false
         for (k in lo until hi) {
             val re = fft[2 * k].toFloat()
             val im = fft[2 * k + 1].toFloat()
+            if (re != 0f || im != 0f) loud = true
             val mag = ln(1f + sqrt(re * re + im * im))
             val i = k - lo
             flux += max(0f, mag - prev[i])
@@ -82,6 +100,7 @@ class AudioOnsets {
         mean += ALPHA * d
         variance = (1 - ALPHA) * (variance + ALPHA * d * d)
         val now = SystemClock.elapsedRealtime()
+        if (loud) lastSoundAt = now
         if (flux > mean + K * sqrt(variance) && flux > MIN_FLUX && now - lastOnset > MIN_GAP_MS) {
             lastOnset = now
             onsets.add(now)
@@ -97,5 +116,6 @@ class AudioOnsets {
         const val K = 1.6f
         const val MIN_FLUX = 4f
         const val MIN_GAP_MS = 110L
+        const val DEAF_MS = 6_000L
     }
 }

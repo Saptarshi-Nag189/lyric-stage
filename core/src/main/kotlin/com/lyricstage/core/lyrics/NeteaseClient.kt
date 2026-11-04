@@ -69,7 +69,10 @@ class NeteaseClient(
     private suspend fun lyrics(id: Long): LyricsLookup {
         val url = baseUrl.newBuilder().addPathSegments("api/song/lyric/v1")
             .addQueryParameter("id", id.toString())
-            .apply { for (k in listOf("lv", "kv", "tv", "rv", "yv", "ytv", "yrv")) addQueryParameter(k, if (k == "lv" || k == "kv" || k == "yv") "1" else "-1") }
+            // each value is the version the client already holds; -1 asks for the latest.
+            // lrc, karaoke, romanisation and yrc (word timing); no translations.
+            .apply { for (k in listOf("lv", "kv", "rv", "yv")) addQueryParameter(k, "-1") }
+            .addQueryParameter("cp", "false")
             .build()
         val o = getObject(url) ?: return LyricsLookup.NotFound
         if (o["pureMusic"]?.jsonPrimitive?.booleanOrNull == true) {
