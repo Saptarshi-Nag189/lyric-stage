@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Settings shows the version under its title.
+- In the background the app stops listening to audio, stops the background animation and
+  ripples and closes the controls, to save battery. Lyrics keep being fetched and saved
+  as songs change, and the stage stays ready in memory, so it is back at once.
+
 ## [1.0.11]
 
 ### New

@@ -24,7 +24,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.compose.currentStateAsState
 import androidx.core.content.ContextCompat
 import com.lyricstage.R
 import com.lyricstage.audio.AudioOnsets
@@ -51,7 +54,10 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     val reduceMotion = settings.reduceMotion || systemReduceMotion
 
     val saver = settings.batterySaver
-    val playing = np?.isPlaying == true
+    // in the background nothing is seen: stop listening and animating, but keep the lyrics,
+    // palette and prepared layouts in memory so the stage is back at once on return
+    val foreground = LocalLifecycleOwner.current.lifecycle.currentStateAsState().value.isAtLeast(Lifecycle.State.STARTED)
+    val playing = np?.isPlaying == true && foreground
     val readyLyrics = (state as? LyricsState.Ready)?.lyrics
 
     // audio sync: listen only when it can help, line-timed lyrics on stage while playing
@@ -126,6 +132,8 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     var controlsVisible by remember { mutableStateOf(false) }
     var interactions by remember { mutableIntStateOf(0) }
     var visibleTemplate by remember { mutableStateOf<TemplateId?>(null) }
+    // controls poll the position while open; close them when the app goes to the background
+    LaunchedEffect(foreground) { if (!foreground) controlsVisible = false }
     LaunchedEffect(controlsVisible, interactions) {
         if (controlsVisible) {
             delay(CONTROLS_MS)
