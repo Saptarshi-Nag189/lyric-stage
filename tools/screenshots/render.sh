@@ -14,5 +14,5 @@ python3 -m fontTools.varLib.instancer -q $RES/noto_sans_devanagari.ttf wght=900 
 python3 -m fontTools.varLib.instancer -q $RES/noto_sans_bengali.ttf wght=900 wdth=100 -o $FONTS/noto_sans_bengali_900.ttf
 python3 -m fontTools.varLib.instancer -q $RES/noto_sans_jp.ttf wght=900 -o $FONTS/noto_sans_jp_900.ttf
 $ROOT/gradlew -p . -q installDist
-JAVA_OPTS="-Djava.awt.headless=true -Dfonts=$FONTS -Dout=$ROOT/docs/screenshots -Dsamples=$ROOT/core/src/test/resources/samples -Xmx3g" \
+JAVA_OPTS="-Djava.awt.headless=true -Dfonts=$FONTS -Dout=$ROOT/docs/screenshots -Dsamples=$ROOT/core/src/test/resources/samples -DextraSamples=samples -Xmx3g" \
   build/install/shots/bin/shots

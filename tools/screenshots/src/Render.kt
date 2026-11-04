@@ -221,13 +221,19 @@ class Shot(
     val at: Float,
     val seed: Int,
     val playSeed: Int,
+    /** How far through that word's sung time the frame is. */
+    val fill: Float = 0.5f,
 )
 
 const val W = 1080
 const val H = 2340
 
+/** Extra sample files that only the screenshots use. */
+val EXTRA_SAMPLES = File(System.getProperty("extraSamples") ?: "samples")
+
 fun findLine(file: String, prefix: String): LyricLine {
-    val lyrics = LyricsBuilder.fromLrc(File(SAMPLES, "$file.lrc").readText(), 180_000)
+    val src = File(EXTRA_SAMPLES, "$file.lrc").takeIf { it.exists() } ?: File(SAMPLES, "$file.lrc")
+    val lyrics = LyricsBuilder.fromLrc(src.readText(), 213_000)
     return lyrics.lines.first { it.text.startsWith(prefix) }
 }
 
@@ -240,7 +246,7 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
     val layout = template.layout(measured, stage, s.seed)
     val k = (line.words.size * s.at).toInt().coerceIn(0, line.words.lastIndex)
     val word = line.words[k]
-    val pos = word.startMs + (word.durationMs * 0.5).toLong()
+    val pos = word.startMs + (word.durationMs * s.fill).toLong()
     val highlights = Highlights.pick(line, s.playSeed)
     val accent = s.pal.accents[Highlights.accentIndex(line, s.playSeed)]
 
@@ -406,10 +412,10 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
     g.fill(RoundRectangle2D.Float(pad, y, thumb, thumb, 16 * dp, 16 * dp))
     g.color = Color.WHITE
     g.font = fSemi.deriveFont(18 * dp)
-    g.drawString("Paper Lanterns", pad + thumb + 14 * dp, y + 24 * dp)
+    g.drawString("Never Gonna Give You Up", pad + thumb + 14 * dp, y + 24 * dp)
     g.color = Color(255, 255, 255, 178)
     g.font = fRegular.deriveFont(14 * dp)
-    g.drawString("Test Artist", pad + thumb + 14 * dp, y + 46 * dp)
+    g.drawString("Rick Astley", pad + thumb + 14 * dp, y + 46 * dp)
     g.color = Color.WHITE
     g.font = fSemi.deriveFont(14 * dp)
     val st = "Settings"
@@ -418,7 +424,7 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
 
     // seek bar
     val trackW = W - pad * 2
-    val prog = 0.38f
+    val prog = 0.094f
     g.color = Color(255, 255, 255, 60)
     g.fill(RoundRectangle2D.Float(pad, y - 2 * dp, trackW, 4 * dp, 4 * dp, 4 * dp))
     g.color = Color.WHITE
@@ -427,8 +433,8 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
     y += 26 * dp
     g.color = Color(255, 255, 255, 178)
     g.font = fRegular.deriveFont(12 * dp)
-    g.drawString("1:12", pad, y)
-    val tot = "3:08"
+    g.drawString("0:20", pad, y)
+    val tot = "3:33"
     g.drawString(tot, W - pad - g.fontMetrics.stringWidth(tot), y)
     y += 40 * dp
 
@@ -534,8 +540,8 @@ fun main() {
     val rose = Pal(0xFF160812.toInt(), listOf(0xFFBF5AF2.toInt(), 0xFFFF375F.toInt(), 0xFFFF9F0A.toInt()))
 
     val shots = listOf(
-        Shot("stack", "english", "Every little light", TemplateId.STACK, sunset, 0.5f, 11, 4),
-        Shot("zoom", "english", "We lit the paper", TemplateId.ZOOM, dusk, 0.62f, 3, 9),
+        Shot("stack", "rickroll", "Never gonna", TemplateId.STACK, sunset, 0.85f, 11, 4),
+        Shot("zoom", "rickroll", "Never gonna", TemplateId.ZOOM, dusk, 0.85f, 3, 9, fill = -0.12f),
         Shot("graph", "hindi", "तेरी यादों", TemplateId.GRAPH, ember, 0.7f, 21, 2),
         Shot("flow", "japanese", "夜空に", TemplateId.FLOW, ocean, 0.55f, 5, 6),
         Shot("letters", "bengali", "তোমার গানে", TemplateId.LETTERS, rose, 0.6f, 8, 3),
@@ -548,7 +554,7 @@ fun main() {
         phones[s.name] = ph
         save(scale(ph, 360), "stage-${s.name}.png")
     }
-    val ctrlBase = renderStage(Shot("controls", "english", "Every little light", TemplateId.STACK, sunset, 0.5f, 11, 4))
+    val ctrlBase = renderStage(Shot("controls", "rickroll", "Never gonna", TemplateId.STACK, sunset, 0.85f, 11, 4))
     val controls = phone(renderControls(ctrlBase, sunset))
     phones["controls"] = controls
     save(scale(controls, 360), "controls.png")
