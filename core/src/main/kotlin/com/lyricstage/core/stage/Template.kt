@@ -28,9 +28,6 @@ class Pose {
         dx = 0f; dy = 0f; scaleX = 1f; scaleY = 1f; rotationDeg = 0f; skewX = 0f; alpha = 1f; blurPx = 0f
         return this
     }
-
-    val isIdentity: Boolean
-        get() = dx == 0f && dy == 0f && scaleX == 1f && scaleY == 1f && rotationDeg == 0f && skewX == 0f && blurPx == 0f
 }
 
 /** A fitted line: settled positions inside the stage, ready to draw. */

@@ -1,7 +1,6 @@
 package com.lyricstage.core.lyrics
 
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.delay
@@ -83,17 +82,14 @@ class LrclibClient(
             .build()
 
         // Each result is null for "not found" and a failure for "LRCLIB unreachable".
-        val exactJob = async { runCatching { getJson(getUrl)?.let { json.decodeFromString(LrclibRecord.serializer(), it) } } }
-        val searchJob = async { runCatching { getJson(searchUrl)?.let { json.decodeFromString<List<LrclibRecord>>(it) } ?: emptyList() } }
-
-        val exact = exactJob.await()
+        // The exact match answers most songs, so the search is only sent when it does not.
+        val exact = runCatching { getJson(getUrl)?.let { json.decodeFromString(LrclibRecord.serializer(), it) } }
         val exactResult = exact.getOrNull()?.let(::toResult)
         if (exactResult != null && (exactResult.synced || exactResult.instrumental)) {
-            searchJob.cancel()
             return@coroutineScope exactResult
         }
 
-        val search = searchJob.await()
+        val search = runCatching { getJson(searchUrl)?.let { json.decodeFromString<List<LrclibRecord>>(it) } ?: emptyList() }
         val results = search.getOrNull() ?: return@coroutineScope exactResult ?: LyricsLookup.Unavailable
         if (exact.isFailure && results.isEmpty()) return@coroutineScope LyricsLookup.Unavailable
 

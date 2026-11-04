@@ -98,8 +98,14 @@ class LyricsRepository(
         val cached = dao.get(key)
         // word timing saved before 1.0.5 may sit a second or two off (weaker alignment then): refresh once
         val stale = cached != null && rankOf(cached) == WORD_RANK && cached.updatedAt < ALIGNED_SINCE
-        if (cached != null && (rankOf(cached) < WORD_RANK || stale) && cached.source != SOURCE_IMPORT && checkOnline() && upgradeTried.add(key)) {
-            launch { runCatching { fetch(track.copy(key = key), replaceStale = stale) } }
+        if (cached != null && (rankOf(cached) < WORD_RANK || stale) && cached.source != SOURCE_IMPORT && upgradeTried.add(key) &&
+            (stale || !recentUpgradeCheck(key)) && checkOnline()
+        ) {
+            launch {
+                runCatching { fetch(track.copy(key = key), replaceStale = stale) }
+                // asked all sources for word timing: don't ask again for a week
+                misses.upsert(MissEntity(UPGRADE_PREFIX + key, System.currentTimeMillis()))
+            }
         }
         dao.observe(key).collect { e ->
             if (e != null) send(LyricsState.Ready(toLyrics(e, track.durationMs), e.source))
@@ -114,6 +120,10 @@ class LyricsRepository(
         if (!checkOnline() || cachedRow(track) != null || recentMiss(track.key)) return
         fetch(track)
     }
+
+    /** True when all sources were asked for word timing for [key] within [UPGRADE_TTL_MS]. */
+    private suspend fun recentUpgradeCheck(key: String): Boolean =
+        misses.at(UPGRADE_PREFIX + key)?.let { System.currentTimeMillis() - it < UPGRADE_TTL_MS } == true
 
     /** True when no source had lyrics for [key] within [MISS_TTL_MS]. */
     private suspend fun recentMiss(key: String): Boolean =
@@ -194,9 +204,11 @@ class LyricsRepository(
         const val MISS_TTL_MS = 24 * 60 * 60_000L
         const val DURATION_SLACK_S = 3L
         private val BOM = Char(0xFEFF).toString()
-        const val SOURCE_LRCLIB = "lrclib"
         private const val WORD_RANK = 4
         private const val OFFLINE_RECHECK_MS = 10_000L
+        /** Word-timing checks are remembered in the misses table under this prefix. */
+        private const val UPGRADE_PREFIX = "upgrade|"
+        private const val UPGRADE_TTL_MS = 7 * 24 * 60 * 60 * 1000L
         /** Word timing cached before this time (1.0.5) was aligned less well or not at all; it is fetched again once. */
         private const val ALIGNED_SINCE = 1_793_808_000_000L
 

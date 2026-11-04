@@ -42,7 +42,10 @@ fun AmbientRipples(
         var lastBeatAt = 0L
         var nextGentle = SystemClock.elapsedRealtime() + 600 + rnd.nextLong(900)
         while (true) {
-            delay(TICK_MS)
+            // with a beat listener, check often for new beats; otherwise sleep until the next
+            // gentle ripple is due (at most a second, so a change of song or gap is noticed)
+            val b0 = beats
+            delay(if (b0 != null && b0.running) TICK_MS else (nextGentle - SystemClock.elapsedRealtime()).coerceIn(TICK_MS, 1_000L))
             if (!currentAlways && !wanted(currentLyrics, clock.smoothedPositionMs())) continue
             val now = SystemClock.elapsedRealtime()
             val b = beats

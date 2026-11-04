@@ -30,10 +30,16 @@ class KugouClient(
 ) {
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 
+    /** Index in [baseUrls] of the address that answered last. */
+    @Volatile private var working = 0
+
     suspend fun find(title: String, artist: String, durationMs: Long?): LyricsLookup {
-        for (base in baseUrls) {
+        // start with the address that worked last time, so a failing one is not retried per song
+        val first = working
+        val order = baseUrls.indices.sortedBy { if (it == first) -1 else it }
+        for (i in order) {
             try {
-                return findAt(base, title, artist, durationMs)
+                return findAt(baseUrls[i], title, artist, durationMs).also { working = i }
             } catch (e: IOException) {
                 // try the next address
             }

@@ -31,9 +31,10 @@ class AppContainer(context: Context) {
 
     val database = LyricsDatabase.create(context)
     val lrclib = LrclibClient(http)
-    private val netease = NeteaseClient(http)
-    private val musixmatch = MusixmatchClient(http, store = MusixmatchTokenStore(context))
-    private val kugou = KugouClient(http)
+    // created on first lookup rather than at start
+    private val netease by lazy { NeteaseClient(http) }
+    private val musixmatch by lazy { MusixmatchClient(http, store = MusixmatchTokenStore(context)) }
+    private val kugou by lazy { KugouClient(http) }
     val connectivity = Connectivity(context)
     val output = AudioOutput(context)
 

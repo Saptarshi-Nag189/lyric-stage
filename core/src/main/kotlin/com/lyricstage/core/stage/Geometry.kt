@@ -59,7 +59,6 @@ class MeasuredLine(
 ) {
     val lineHeight: Float = words.maxOfOrNull { it.height } ?: REF_PX * 1.2f
     val ascent: Float = words.maxOfOrNull { it.ascent } ?: REF_PX
-    val totalWidth: Float = words.sumOf { it.width.toDouble() }.toFloat() + spaceWidth * (words.size - 1).coerceAtLeast(0)
 
     companion object {
         fun measure(line: LyricLine, measure: TextMeasure): MeasuredLine {

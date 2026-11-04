@@ -36,7 +36,6 @@ class Spring(val dampingRatio: Float = 0.6f, val stiffness: Float = 380f) {
     companion object {
         const val EPSILON = 0.001
         val Bouncy = Spring(0.6f, 380f)
-        val Soft = Spring(0.75f, 160f)
     }
 }
 

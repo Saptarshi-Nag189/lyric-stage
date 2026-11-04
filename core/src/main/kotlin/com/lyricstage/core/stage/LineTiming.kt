@@ -11,8 +11,6 @@ object LineTiming {
 
     fun enterAtMs(line: LyricLine): Long = (line.words.firstOrNull()?.startMs ?: line.startMs) - ENTRY_LEAD_MS
 
-    fun wordEnterAtMs(word: LyricWord): Long = word.startMs - ENTRY_LEAD_MS
-
     /** 0 while the line is fully shown, rising to 1 as it leaves. */
     fun exitProgress(line: LyricLine, positionMs: Long): Float =
         ((positionMs - (line.endMs - EXIT_MS)).toFloat() / EXIT_MS).coerceIn(0f, 1f)

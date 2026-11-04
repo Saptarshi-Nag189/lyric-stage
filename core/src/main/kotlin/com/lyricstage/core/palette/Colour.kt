@@ -83,6 +83,4 @@ object Colour {
         }
         return fromHsl(h, s, hi)
     }
-
-    fun withAlpha(c: Int, a: Float): Int = (((a.coerceIn(0f, 1f) * 255).toInt()) shl 24) or (c and 0xFFFFFF)
 }
