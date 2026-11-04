@@ -1,5 +1,15 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- Lines now wrap onto whichever row count gives the largest text, so long Japanese or
+  Flow lines no longer shrink into one small row.
+
+### Fixed
+- A line could be fitted at a size that row balancing then laid out slightly wider than
+  the screen. FitCheck caught it for one Japanese line in the Slide layout.
+
 ## [0.1.0]
 
 First release.
