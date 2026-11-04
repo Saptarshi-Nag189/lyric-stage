@@ -81,7 +81,7 @@
     <string name="hint_audio_sync">Listens through the microphone</string>
     <string name="hint_prefetch">Saves lyrics as songs change</string>
     <string name="hint_lookahead">Next two songs in the queue</string>
-    <string name="settings_version">LyricStage %1$s</string>
+    <string name="settings_version">Version %1$s</string>
     <string name="settings_cache_cleared">Cache deleted</string>
     <string name="settings_debug">Debug</string>
     <string name="debug_now_playing">Now playing</string>

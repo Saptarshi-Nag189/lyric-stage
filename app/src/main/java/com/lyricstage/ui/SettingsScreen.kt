@@ -91,14 +91,16 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     ) {
         Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
-            Text(
-                stringResource(R.string.settings),
-                color = Ui.Text,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp,
-                modifier = Modifier.padding(start = 16.dp),
-            )
+            Column(Modifier.padding(start = 16.dp)) {
+                Text(
+                    stringResource(R.string.settings),
+                    color = Ui.Text,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.5).sp,
+                )
+                Text(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), color = Ui.Muted, fontSize = 13.sp)
+            }
         }
         Spacer(Modifier.height(16.dp))
 
@@ -232,12 +234,7 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             LinkRow(stringResource(R.string.debug_fitcheck), { onOpen(Screen.FIT_CHECK) })
         }
 
-        Text(
-            stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
-            color = Ui.Muted,
-            fontSize = 13.sp,
-            modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 24.dp),
-        )
+        Spacer(Modifier.height(24.dp))
     }
 }
 
