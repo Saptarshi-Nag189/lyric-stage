@@ -30,7 +30,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 
 Tap the stage to show the controls for three seconds: seek bar, play and pause, skip, layout picker and sync nudge.
 
-The images above are drawn by the app's own layout engine (`core`) with the bundled fonts, from the sample lyrics in `core/src/test/resources/samples` plus one line of Rick Astley's "Never Gonna Give You Up" for the English shots. The background is an approximation of the shader. `tools/screenshots/render.sh` regenerates them.
+The images above are drawn by the app's own layout engine (`core`) with the bundled fonts, from the sample lyrics in `core/src/test/resources/samples` plus the first two lines of Rick Astley's "Never Gonna Give You Up" for the English shots. The background is an approximation of the shader. `tools/screenshots/render.sh` regenerates them.
 
 ## Install
 

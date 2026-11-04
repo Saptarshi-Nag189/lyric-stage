@@ -541,7 +541,7 @@ fun main() {
 
     val shots = listOf(
         Shot("stack", "rickroll", "Never gonna", TemplateId.STACK, sunset, 0.85f, 11, 4),
-        Shot("zoom", "rickroll", "Never gonna", TemplateId.ZOOM, dusk, 0.85f, 3, 9, fill = -0.12f),
+        Shot("zoom", "rickroll", "Never gonna let", TemplateId.ZOOM, dusk, 0.85f, 3, 9, fill = -0.04f),
         Shot("graph", "hindi", "तेरी यादों", TemplateId.GRAPH, ember, 0.7f, 21, 2),
         Shot("flow", "japanese", "夜空に", TemplateId.FLOW, ocean, 0.55f, 5, 6),
         Shot("letters", "bengali", "তোমার গানে", TemplateId.LETTERS, rose, 0.6f, 8, 3),
