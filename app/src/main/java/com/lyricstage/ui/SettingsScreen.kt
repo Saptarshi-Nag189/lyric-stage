@@ -54,6 +54,7 @@ import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.settings.RippleMode
 import com.lyricstage.ui.theme.Ui
+import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -66,6 +67,7 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     val offset by vm.offset.collectAsStateWithLifecycle()
     val cached by vm.cachedCount.collectAsStateWithLifecycle()
     val cacheBytes by vm.cachedBytes.collectAsStateWithLifecycle()
+    val bluetooth by vm.bluetooth.collectAsStateWithLifecycle()
     val accent = Ui.accent(palette)
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -127,12 +129,18 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                     }
                 }
                 Spacer(Modifier.height(18.dp))
-                LabelValue(stringResource(R.string.sync_title), stringResource(R.string.sync_label, offset / 1000f), valueColour = accent)
+                // a positive offset shows the lyrics earlier
+                val syncText = when {
+                    offset > 0 -> stringResource(R.string.sync_value_earlier, offset / 1000f)
+                    offset < 0 -> stringResource(R.string.sync_value_later, -offset / 1000f)
+                    else -> stringResource(R.string.sync_value_none)
+                }
+                LabelValue(stringResource(R.string.sync_title), syncText, valueColour = accent)
                 Spacer(Modifier.height(10.dp))
                 GapRow(8) {
-                    PillButton(stringResource(R.string.sync_earlier), { vm.nudge(-250) }, Modifier.weight(1f))
+                    PillButton(stringResource(R.string.sync_earlier), { vm.nudge(250) }, Modifier.weight(1f))
                     PillButton(stringResource(R.string.sync_reset), { vm.resetOffset() }, Modifier.weight(1f), style = PillStyle.OUTLINE, enabled = offset != 0L)
-                    PillButton(stringResource(R.string.sync_later), { vm.nudge(250) }, Modifier.weight(1f))
+                    PillButton(stringResource(R.string.sync_later), { vm.nudge(-250) }, Modifier.weight(1f))
                 }
                 Spacer(Modifier.height(10.dp))
                 PillButton(
@@ -205,6 +213,24 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                 hint = stringResource(R.string.hint_prefetch), divider = false)
             ToggleRow(stringResource(R.string.settings_lookahead_wifi), s.lookAheadWifiOnly, accent, { on -> vm.updateSettings { it.copy(lookAheadWifiOnly = on) } },
                 hint = stringResource(R.string.hint_lookahead), enabled = s.backgroundPrefetch)
+            HorizontalDivider(color = Ui.Raised)
+            Column(Modifier.padding(top = 14.dp, bottom = 6.dp)) {
+                LabelValue(stringResource(R.string.settings_bt_delay), stringResource(R.string.bt_delay_value, s.bluetoothDelayMs))
+                Text(
+                    stringResource(if (bluetooth) R.string.hint_bt_delay_on else R.string.hint_bt_delay_off),
+                    color = Ui.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp),
+                )
+                Slider(
+                    s.bluetoothDelayMs.toFloat(),
+                    onValueChange = { v -> vm.updateSettings { it.copy(bluetoothDelayMs = (v / 25f).roundToInt() * 25) } },
+                    valueRange = 0f..500f,
+                    steps = 19,
+                    colors = SliderDefaults.colors(
+                        thumbColor = Ui.Text, activeTrackColor = accent, inactiveTrackColor = Ui.Track,
+                        activeTickColor = Ui.OnAccent.copy(alpha = 0.4f), inactiveTickColor = Ui.Muted.copy(alpha = 0.4f),
+                    ),
+                )
+            }
             HorizontalDivider(color = Ui.Raised)
             Row(Modifier.fillMaxWidth().heightIn(min = 72.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {

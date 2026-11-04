@@ -36,6 +36,8 @@ data class StageSettings(
     /** Pure black background and simple fades only, to save battery. */
     val batterySaver: Boolean = false,
     val ripples: RippleMode = RippleMode.WORDS,
+    /** Extra delay for Bluetooth audio, in ms, applied only while it is connected. */
+    val bluetoothDelayMs: Int = 0,
 )
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
@@ -58,6 +60,7 @@ class SettingsStore(private val context: Context) {
             putBoolean(K_WIFI, next.lookAheadWifiOnly)
             putBoolean(K_SAVER, next.batterySaver)
             putString(K_RIPPLES, next.ripples.name)
+            putInt(K_BT_DELAY, next.bluetoothDelayMs)
         }
         _settings.value = next
     }
@@ -78,6 +81,7 @@ class SettingsStore(private val context: Context) {
         lookAheadWifiOnly = prefs.getBoolean(K_WIFI, true),
         batterySaver = prefs.getBoolean(K_SAVER, false),
         ripples = prefs.getString(K_RIPPLES, null)?.let { runCatching { RippleMode.valueOf(it) }.getOrNull() } ?: RippleMode.WORDS,
+        bluetoothDelayMs = prefs.getInt(K_BT_DELAY, 0),
     )
 
     private companion object {
@@ -92,5 +96,6 @@ class SettingsStore(private val context: Context) {
         const val K_WIFI = "look_ahead_wifi_only"
         const val K_SAVER = "battery_saver"
         const val K_RIPPLES = "ripples"
+        const val K_BT_DELAY = "bluetooth_delay_ms"
     }
 }

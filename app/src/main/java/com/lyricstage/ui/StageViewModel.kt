@@ -51,8 +51,19 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     /** Per-track sync offset; also pushed into the clock. */
     val offset: StateFlow<Long> = query
         .flatMapLatest { q -> if (q == null) flowOf(0L) else c.lyrics.offset(q.key) }
-        .onEach { clock.userOffsetMs = it }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+
+    /** Whether the Bluetooth delay applies right now. */
+    val bluetooth: StateFlow<Boolean> = c.output.bluetooth
+
+    init {
+        // the clock's offset: this song's sync, minus the Bluetooth delay while it applies
+        // (a positive offset shows lyrics earlier; Bluetooth audio arrives later)
+        viewModelScope.launch {
+            combine(offset, settings, bluetooth) { o, s, bt -> o - if (bt) s.bluetoothDelayMs else 0 }
+                .collect { clock.userOffsetMs = it }
+        }
+    }
 
     /** New random seed each time a track starts: highlights and templates vary per play. */
     val playSeed: StateFlow<Int> = query.map { Random.nextInt() }
@@ -71,13 +82,11 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     fun nudge(deltaMs: Long) {
         val key = query.value?.key ?: return
         val next = (offset.value + deltaMs).coerceIn(-10_000, 10_000)
-        clock.userOffsetMs = next
         viewModelScope.launch { c.lyrics.setOffset(key, next) }
     }
 
     fun resetOffset() {
         val key = query.value?.key ?: return
-        clock.userOffsetMs = 0
         viewModelScope.launch { c.lyrics.setOffset(key, 0) }
     }
 

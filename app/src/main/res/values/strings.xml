@@ -38,7 +38,13 @@
     <string name="template_auto">Auto</string>
     <string name="sync_earlier">Earlier</string>
     <string name="sync_later">Later</string>
-    <string name="sync_label">%1$+.2f s</string>
+    <string name="sync_value_earlier">%1$.2f s earlier</string>
+    <string name="sync_value_later">%1$.2f s later</string>
+    <string name="sync_value_none">In time</string>
+    <string name="settings_bt_delay">Bluetooth delay</string>
+    <string name="bt_delay_value">%1$d ms</string>
+    <string name="hint_bt_delay_on">Bluetooth audio is connected, so this applies now</string>
+    <string name="hint_bt_delay_off">Applies only while Bluetooth audio is connected</string>
     <string name="sync_title">Sync</string>
     <string name="import_lrc_file">Import .lrc file</string>
     <string name="sync_reset">Reset</string>

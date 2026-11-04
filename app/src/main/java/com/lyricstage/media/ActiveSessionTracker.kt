@@ -67,6 +67,14 @@ class ActiveSessionTracker(private val context: Context) {
         started = false
     }
 
+    /**
+     * Reads the shown session's position again. Players report it only on changes; a
+     * periodic re-read catches a missed or stale report so the lyrics don't stay off.
+     */
+    fun refresh() {
+        handler.post { if (active != null) publish() }
+    }
+
     // Transport controls on the shown session.
     fun play() = active?.transportControls?.play()
     fun pause() = active?.transportControls?.pause()

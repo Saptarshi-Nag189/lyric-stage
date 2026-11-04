@@ -1,5 +1,7 @@
 package com.lyricstage
 
+import com.lyricstage.audio.AudioOutput
+
 import android.content.Context
 import com.lyricstage.core.lyrics.LrclibClient
 import com.lyricstage.core.lyrics.LyricsSources
@@ -33,6 +35,7 @@ class AppContainer(context: Context) {
     private val musixmatch = MusixmatchClient(http, store = MusixmatchTokenStore(context))
     private val kugou = KugouClient(http)
     val connectivity = Connectivity(context)
+    val output = AudioOutput(context)
 
     /** All sources are asked at once; LRCLIB first so it wins ties. */
     private val sources = LyricsSources(

@@ -66,6 +66,14 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         readyLyrics.lines.isNotEmpty() &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 
+    // re-read the player's position now and then while the stage is in front
+    LaunchedEffect(playing) {
+        while (playing) {
+            delay(CLOCK_CHECK_MS)
+            vm.sessions.refresh()
+        }
+    }
+
     // keep the screen on while playing, and for two minutes after a pause
     var keepAwake by remember { mutableStateOf(true) }
     LaunchedEffect(playing) {
@@ -282,6 +290,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
 private data class StatePill(val text: Int, val glyph: Glyph? = null, val import: Boolean = false)
 
 private const val CONTROLS_MS = 3_000L
+private const val CLOCK_CHECK_MS = 5_000L
 private const val INFO_PILL_MS = 3_500L
 private const val AUDIO_CHECK_MS = 8_000L
 
