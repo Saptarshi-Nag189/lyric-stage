@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.9]
+
+### Fixed
+- Ripples were hard to see when the liquid background is dark. They now glow in a light
+  shade of the album's main colour, more strongly where the background is darkest.
+
 ## [1.0.8]
 
 ### Fixed

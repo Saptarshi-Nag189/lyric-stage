@@ -3,7 +3,8 @@ package com.lyricstage.background
 /**
  * AGSL "liquid glass": pools of the artwork's accent colours drift behind a slowly
  * undulating glass slab that refracts them. Sung words send ripples through the glass and
- * each new line sweeps a soft band of light across it. Tone mapped so the brightest spots
+ * each new line sweeps a soft band of light across it. Ripples are lit in a light shade of
+ * the main accent, more strongly where the glass is dark, so they stay visible on dark covers. Tone mapped so the brightest spots
  * stay well below white text.
  *
  * Coordinates: fragCoord has a top-left origin; p is centred, y down, aspect corrected.
@@ -102,7 +103,14 @@ half4 main(float2 fragCoord) {
     float3 n = normalize(float3(-slope * 14.0, 1.0));
     float3 L = normalize(float3(-0.45, -0.55, 0.7));
     float spec = pow(max(dot(reflect(-L, n), float3(0.0, 0.0, 1.0)), 0.0), 40.0);
-    col += half(spec * 0.2 + ring * 0.05 + sweep * 0.1);
+    col += half(spec * 0.2 + sweep * 0.1);
+
+    // ripples glow in a light shade of the main accent; where the glass is dark there is
+    // nothing bright to refract, so the ring itself is drawn stronger there
+    half lum0 = dot(col, half3(0.299, 0.587, 0.114));
+    half dark = 1.0 - smoothstep(0.04, 0.3, lum0);
+    half3 rippleTint = mix(uC0, half3(1.0), 0.45);
+    col += rippleTint * half(ring) * (0.06 + 0.24 * dark);
 
     // vignette, then a filmic roll-off that keeps highlights under the white type
     col *= half(mix(0.4, 1.0, smoothstep(1.2, 0.3, length(p * float2(0.85, 1.1)))));
