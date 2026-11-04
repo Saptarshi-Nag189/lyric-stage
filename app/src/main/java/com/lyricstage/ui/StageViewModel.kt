@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.random.Random
@@ -59,7 +60,12 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
 
     val palette: StateFlow<StagePalette> = nowPlaying.map { it?.art }.distinctUntilChanged()
         .combine(playSeed) { art, seed -> art to seed }
-        .mapLatest { (art, seed) -> ArtworkPalette.from(art, seed) }
+        .mapLatest { (art, seed) ->
+            // players often send a new song's title a moment before its artwork: keep the last
+            // colours for that moment instead of flashing made-up ones
+            if (art == null) delay(ART_WAIT_MS)
+            ArtworkPalette.from(art, seed)
+        }
         .stateIn(viewModelScope, SharingStarted.Eagerly, StagePalette.fallback(0))
 
     fun nudge(deltaMs: Long) {
@@ -119,6 +125,7 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     }
 
     private companion object {
+        const val ART_WAIT_MS = 1_500L
         const val MAX_IMPORT_BYTES = 512 * 1024
     }
 }

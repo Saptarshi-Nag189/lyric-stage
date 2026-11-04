@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.8]
+
+### Fixed
+- The background and highlight colours could stray far from the album art. A cover with
+  one or two strong colours had its missing accents filled with unrelated ones; they are
+  now neighbours of the cover's own hue. Black-and-white and grey covers keep soft tones
+  of their own instead of bright made-up colours. When a song's artwork arrives a moment
+  after its title, the previous colours stay for that moment instead of flashing others.
+
 ## [1.0.7]
 
 ### Changed

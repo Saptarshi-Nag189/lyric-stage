@@ -55,22 +55,40 @@ object PaletteBuilder {
             if (chosen.all { Colour.hueDistance(it[0], hsl[0]) > 0.07f }) chosen += hsl
             if (chosen.size == 3) break
         }
-        val fb = StagePalette.fallback(seed)
-        if (chosen.isEmpty()) return fb.copy(base = darkBase(swatches, null))
+        // a grey or nearly colourless cover keeps its own muted tones, never made-up colours
+        if (chosen.isEmpty()) return muted(swatches)
 
         val base0 = darkBase(swatches, chosen[0][0])
         // body text: near white, faintly tinted with the cover's main hue
         val (h0, s0, _) = chosen[0]
         val tint = Colour.fromHsl(h0, (s0 * 0.45f).coerceAtMost(0.4f), 0.93f)
         val base = Colour.darkenForContrast(base0, tint, MIN_CONTRAST)
-        // highlights: the cover's colours, saturated, and bright enough to read on the base
+        // highlights: the cover's colours, saturated, and bright enough to read on the base;
+        // a cover with fewer than three hues gets neighbours of its own, not unrelated colours
         val accents = (0 until 3).map { i ->
-            val a = chosen.getOrNull(i)?.let { (h, s, l) ->
-                Colour.fromHsl(h, (s * 1.25f).coerceIn(0.65f, 1f), l.coerceIn(0.55f, 0.72f))
-            } ?: fb.accents[i]
+            val (h, s, l) = chosen.getOrNull(i) ?: chosen[0].let { c ->
+                floatArrayOf((c[0] + NEIGHBOUR[i] + 1f) % 1f, c[1], c[2] + if (i == 1) 0.08f else -0.06f)
+            }
+            val a = Colour.fromHsl(h, (s * 1.25f).coerceIn(0.65f, 1f), l.coerceIn(0.55f, 0.72f))
             Colour.lightenForContrast(a, base, ACCENT_CONTRAST)
         }
         return StagePalette(base, accents, tint)
+    }
+
+    /** Hue steps for accents made from the main hue when a cover has only one or two. */
+    private val NEIGHBOUR = floatArrayOf(0f, 0.045f, -0.045f)
+
+    /** Black, white, grey or sepia covers: the cover's own hue, kept soft. */
+    private fun muted(swatches: List<Swatch>): StagePalette {
+        val main = swatches.maxBy { it.population }
+        val (h, s, _) = Colour.toHsl(main.rgb)
+        val sat = s.coerceIn(0f, 0.22f)
+        val base = Colour.darkenForContrast(darkBase(swatches, h), Colour.fromHsl(h, sat * 0.5f, 0.93f), MIN_CONTRAST)
+        val text = Colour.fromHsl(h, sat * 0.5f, 0.93f)
+        val accents = listOf(0.80f, 0.70f, 0.88f).map { l ->
+            Colour.lightenForContrast(Colour.fromHsl(h, sat, l), base, ACCENT_CONTRAST)
+        }
+        return StagePalette(base, accents, text)
     }
 
     /** Average hue of the darker swatches, at very low lightness. */

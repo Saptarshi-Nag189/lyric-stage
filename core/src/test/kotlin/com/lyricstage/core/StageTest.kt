@@ -72,6 +72,17 @@ class StageTest {
         assertTrue(Colour.darkenForContrast(0xFFFFFF00.toInt(), -1, 7.0).let { Colour.contrast(it, -1) >= 7.0 })
     }
 
+    @Test fun paletteStaysWithTheCover() {
+        // one blue hue: every accent stays blue-ish, none is a made-up colour
+        val blue = PaletteBuilder.build(listOf(Swatch(0xFF2050D0.toInt(), 800), Swatch(0xFF101828.toInt(), 900)), 4)
+        blue.accents.forEach { assertTrue(Colour.hueDistance(Colour.toHsl(it)[0], Colour.toHsl(0xFF2050D0.toInt())[0]) < 0.08f) }
+        // a black and white cover: soft greys, nothing saturated
+        val grey = PaletteBuilder.build(listOf(Swatch(0xFF202020.toInt(), 900), Swatch(0xFFD0D0D0.toInt(), 400)), 4)
+        grey.accents.forEach { assertTrue(Colour.toHsl(it)[1] <= 0.25f) }
+        grey.accents.forEach { assertTrue(Colour.contrast(it, grey.base) >= PaletteBuilder.ACCENT_CONTRAST - 0.05) }
+        assertTrue(Colour.contrast(grey.base, grey.text) >= PaletteBuilder.MIN_CONTRAST)
+    }
+
     @Test fun templatesKeepWordsApart() {
         // settled words of row templates never overlap each other
         val line = MeasuredLine.measure(LyricsBuilder.fromLrc(Samples.read("english"), 60_000).lines[0], Samples.measure)
