@@ -3,6 +3,10 @@
 ## [Unreleased]
 
 ### Changed
+- The controls overlay is simpler: sync nudge and .lrc import moved to a "This song" section
+  in Settings, and the lyrics fade back while the controls are open.
+- Long runs of hiragana are split into short phrases even when the system word breaker
+  returns them as one word.
 - Lines now wrap onto whichever row count gives the largest text, so long Japanese or
   Flow lines no longer shrink into one small row.
 

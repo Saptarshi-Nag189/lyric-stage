@@ -13,6 +13,13 @@ object Tokenizer {
     private fun isKana(s: String) = s.all { it in '぀'..'ゟ' }
     private fun isPunct(s: String) = s.all { !Character.isLetterOrDigit(it) }
 
+    /** Particles a phrase usually ends on: ha ga wo ni de to mo he ba ya. */
+    private const val PARTICLES = "はがをにでともへばや"
+
+    /** Small kana and the long vowel mark belong to the character before them. */
+    private const val TRAILING = "ゃゅょぁぃぅぇぉっ" +
+        "ャュョァィゥェォッー"
+
     /** Japanese has no spaces: group word-break segments into short phrases (2 to 7 chars). */
     private fun splitJapanese(text: String): List<String> {
         val chunks = ArrayList<String>()
@@ -23,11 +30,16 @@ object Tokenizer {
             }
             val it = BreakIterator.getWordInstance(Locale.JAPANESE)
             it.setText(part)
+            val segs = ArrayList<String>()
             var start = it.first()
             var end = it.next()
-            var current = ""
             while (end != BreakIterator.DONE) {
-                val seg = part.substring(start, end)
+                segs += splitLongKana(part.substring(start, end))
+                start = end
+                end = it.next()
+            }
+            var current = ""
+            for (seg in segs) {
                 val attach = current.isNotEmpty() && (isPunct(seg) || (isKana(seg) && seg.length <= 2) || current.length < 2)
                 if (attach && current.length + seg.length <= 7) {
                     current += seg
@@ -35,11 +47,31 @@ object Tokenizer {
                     if (current.isNotEmpty()) chunks += current
                     current = seg
                 }
-                start = end
-                end = it.next()
             }
             if (current.isNotEmpty()) chunks += current
         }
         return chunks
+    }
+
+    /**
+     * Some word breakers (the JVM's, for one) return a whole run of hiragana as one word.
+     * Split runs longer than 7 characters after a particle, or else every 4 characters,
+     * never in front of a small kana.
+     */
+    internal fun splitLongKana(seg: String): List<String> {
+        if (seg.length <= 7 || !isKana(seg)) return listOf(seg)
+        val out = ArrayList<String>()
+        var cur = StringBuilder()
+        for ((i, ch) in seg.withIndex()) {
+            cur.append(ch)
+            val next = seg.getOrNull(i + 1) ?: break
+            if (next in TRAILING) continue
+            if ((ch in PARTICLES && cur.length >= 2) || cur.length >= 4) {
+                out += cur.toString()
+                cur = StringBuilder()
+            }
+        }
+        if (cur.isNotEmpty()) out += cur.toString()
+        return out
     }
 }

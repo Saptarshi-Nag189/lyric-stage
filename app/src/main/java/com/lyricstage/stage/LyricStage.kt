@@ -59,6 +59,8 @@ fun LyricStage(
     highlightIntensity: Float,
     reduceMotion: Boolean,
     isPlaying: Boolean,
+    /** Controls are open: the lyrics step back so the overlay stays readable. */
+    dimmed: Boolean,
     showFps: Boolean,
     onRipple: (Ripple) -> Unit,
     onVisibleTemplate: (TemplateId?) -> Unit,
@@ -120,8 +122,13 @@ fun LyricStage(
         }
     }
 
-    // the stage dims while paused and holds the current line
-    val dim by animateFloatAsState(if (isPlaying) 1f else 0.55f, tween(400), label = "pause-dim")
+    // the stage dims while paused (holding the current line) and while the controls are open
+    val target = when {
+        dimmed -> 0.3f
+        !isPlaying -> 0.55f
+        else -> 1f
+    }
+    val dim by animateFloatAsState(target, tween(300), label = "stage-dim")
 
     Box(
         modifier

@@ -379,16 +379,15 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
     g.hq()
     val fp = layout.words.firstOrNull()?.fontPx ?: 80f
     val shadowBlur = blur(shadow, (fp * 0.08f).toInt().coerceAtLeast(2))
+    // like LyricStage, dimming fades the lyrics layer only, not the background
+    g.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, dim)
     g.drawImage(shadowBlur, 0, (fp * 0.035f).toInt(), null)
     val glowBlur = blur(glow, (fp * 0.14f).toInt().coerceAtLeast(3))
-    g.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.75f)
+    g.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.75f * dim)
     g.drawImage(glowBlur, 0, 0, null)
-    g.composite = AlphaComposite.SrcOver
+    g.composite = AlphaComposite.getInstance(AlphaComposite.SRC_OVER, dim)
     g.drawImage(type, 0, 0, null)
-    if (dim < 1f) {
-        g.color = Color(0, 0, 0, ((1 - dim) * 255).toInt())
-        g.fillRect(0, 0, W, H)
-    }
+    g.composite = AlphaComposite.SrcOver
     g.dispose()
     println("${s.name}: ${s.template} '${line.text}' word ${k + 1}/${line.words.size}, fits=${layout.fits}")
     return img
@@ -404,7 +403,7 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
     g.paint = GradientPaint(0f, H * 0.45f, Color(0, 0, 0, 0), 0f, H.toFloat(), Color(0, 0, 0, 217))
     g.fillRect(0, 0, W, H)
     val pad = 20 * dp
-    var y = H - 48 * dp - 300 * dp
+    var y = H - 48 * dp - 230 * dp
 
     // artwork thumb, title, artist, settings
     val thumb = 56 * dp
@@ -473,22 +472,6 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
         g.drawString(label, x + 16 * dp, y + 5 * dp)
         x += tw + 8 * dp
     }
-    y += 44 * dp
-
-    // sync nudge
-    g.color = Color.WHITE
-    g.font = fSemi.deriveFont(14 * dp)
-    g.drawString("−250 ms", pad + 8 * dp, y)
-    g.font = fRegular.deriveFont(13 * dp)
-    g.drawString("Sync +250 ms", pad + 92 * dp, y)
-    g.font = fSemi.deriveFont(14 * dp)
-    g.drawString("+250 ms", pad + 196 * dp, y)
-    val imp = "Import .lrc"
-    g.drawString(imp, W - pad - g.fontMetrics.stringWidth(imp) - 8 * dp, y)
-    y += 22 * dp
-    g.color = Color(255, 255, 255, 128)
-    g.font = fRegular.deriveFont(11 * dp)
-    g.drawString("Lyrics late? Tap +. Early? Tap −.", pad, y)
     g.dispose()
     return img
 }
@@ -542,10 +525,10 @@ fun main() {
     val shots = listOf(
         Shot("stack", "rickroll", "Never gonna", TemplateId.STACK, sunset, 0.85f, 11, 4),
         Shot("zoom", "rickroll", "Never gonna let", TemplateId.ZOOM, dusk, 0.85f, 3, 9, fill = -0.04f),
-        Shot("graph", "hindi", "तेरी यादों", TemplateId.GRAPH, ember, 0.7f, 21, 2),
-        Shot("flow", "japanese", "夜空に", TemplateId.FLOW, ocean, 0.55f, 5, 6),
-        Shot("letters", "bengali", "তোমার গানে", TemplateId.LETTERS, rose, 0.6f, 8, 3),
-        Shot("scatter", "rap", "Count the bars", TemplateId.SCATTER, forest, 0.62f, 13, 5),
+        Shot("graph", "tumhiho", "हम तेरे", TemplateId.GRAPH, ember, 0.7f, 21, 2),
+        Shot("flow", "lemon", "夢ならば", TemplateId.FLOW, ocean, 0.55f, 5, 6),
+        Shot("letters", "sonarbangla", "আমার", TemplateId.LETTERS, rose, 0.6f, 8, 3),
+        Shot("scatter", "loseyourself", "Look,", TemplateId.SCATTER, forest, 0.62f, 13, 5),
     )
     val phones = HashMap<String, BufferedImage>()
     for (s in shots) {
@@ -554,7 +537,7 @@ fun main() {
         phones[s.name] = ph
         save(scale(ph, 360), "stage-${s.name}.png")
     }
-    val ctrlBase = renderStage(Shot("controls", "rickroll", "Never gonna", TemplateId.STACK, sunset, 0.85f, 11, 4))
+    val ctrlBase = renderStage(Shot("controls", "rickroll", "Never gonna", TemplateId.STACK, sunset, 0.85f, 11, 4), dim = 0.3f)
     val controls = phone(renderControls(ctrlBase, sunset))
     phones["controls"] = controls
     save(scale(controls, 360), "controls.png")

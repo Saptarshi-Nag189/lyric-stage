@@ -26,11 +26,11 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 | **Flow** | **Letters** | **Scatter** |
 | ![Flow layout with Japanese lyrics and a romanised line](docs/screenshots/stage-flow.png) | ![Letters layout with Bengali lyrics](docs/screenshots/stage-letters.png) | ![Scatter layout](docs/screenshots/stage-scatter.png) |
 
-<p align="center"><img src="docs/screenshots/controls.png" width="300" alt="Controls overlay with seek bar, playback buttons, layout picker and sync nudge"></p>
+<p align="center"><img src="docs/screenshots/controls.png" width="300" alt="Controls overlay with seek bar, playback buttons and layout picker"></p>
 
-Tap the stage to show the controls for three seconds: seek bar, play and pause, skip, layout picker and sync nudge.
+Tap the stage to show the controls for three seconds: seek bar, play and pause, skip and the layout picker. The lyrics fade back while the controls are open.
 
-The images above are drawn by the app's own layout engine (`core`) with the bundled fonts, from the sample lyrics in `core/src/test/resources/samples` plus the first two lines of Rick Astley's "Never Gonna Give You Up" for the English shots. The background is an approximation of the shader. `tools/screenshots/render.sh` regenerates them.
+The images above are drawn by the app's own layout engine (`core`) with the bundled fonts. The background is an approximation of the shader. The lyric lines are short excerpts quoted to show the layouts: Rick Astley, "Never Gonna Give You Up"; Arijit Singh, "Tum Hi Ho"; Kenshi Yonezu, "Lemon"; Rabindranath Tagore, "Amar Shonar Bangla"; Eminem, "Lose Yourself". `tools/screenshots/render.sh` regenerates them.
 
 ## Install
 
@@ -48,10 +48,10 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 
 - Tap the stage to show or hide the controls.
 - Long-press the stage to lock the current layout. Long-press again to go back to automatic.
-- If the words run early or late, use the sync buttons. Each tap moves the lyrics by 250 ms, and the setting is saved for that song.
-- If LRCLIB has no lyrics for a song, use "Import .lrc" to pick a file from the phone. It is saved for that song.
+- If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms, and the setting is saved for that song.
+- If LRCLIB has no lyrics for a song, use "Import .lrc" on the stage or under "This song" in Settings to pick a file from the phone. It is saved for that song.
 - Songs with lyrics but no timings scroll slowly with the song and are labelled as unsynced.
-- Settings has the layout lock, background style, text size, highlight strength and reduce motion. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
+- Settings also has the layout lock, background style, text size, highlight strength and reduce motion. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
 
 ## Privacy
 

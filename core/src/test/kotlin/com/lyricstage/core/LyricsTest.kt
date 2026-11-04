@@ -73,6 +73,14 @@ class LyricsTest {
         assertTrue(lyrics.lines[0].words.size in 2..8)
     }
 
+    @Test fun longKanaRunsAreSplit() {
+        val line = "\u5922\u306A\u3089\u3070\u3069\u308C\u307B\u3069\u3088\u304B\u3063\u305F\u3067\u3057\u3087\u3046"
+        val words = com.lyricstage.core.text.Tokenizer.tokenize(line, Script.JAPANESE)
+        assertEquals(line, words.joinToString(""))
+        assertTrue("got $words", words.size >= 3 && words.all { it.length <= 7 })
+        assertTrue("got $words", words.none { it.first() in "\u3083\u3085\u3087\u3063\u30FC" })
+    }
+
     @Test fun chorusRepeatsCounted() {
         val lyrics = LyricsBuilder.fromLrc(Samples.read("english"), 60_000)
         assertEquals(2, lyrics.lines.first().repeats)

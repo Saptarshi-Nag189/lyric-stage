@@ -1,5 +1,8 @@
 package com.lyricstage.ui
 
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -27,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -39,6 +44,16 @@ import com.lyricstage.settings.BackgroundMode
 @Composable
 fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit, onOpen: (Screen) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
+    val track by vm.query.collectAsStateWithLifecycle()
+    val offset by vm.offset.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            vm.import(uri, context.contentResolver) { ok ->
+                Toast.makeText(context, if (ok) R.string.import_done else R.string.import_failed, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     Column(
         Modifier
             .fillMaxSize()
@@ -50,6 +65,26 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
         Row(verticalAlignment = Alignment.CenterVertically) {
             TextButton(onClick = onBack) { Text(stringResource(R.string.back)) }
             Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+
+        // per-song tools: only meaningful while something is playing
+        Section(stringResource(R.string.settings_this_song))
+        val current = track
+        if (current == null) {
+            Text(stringResource(R.string.settings_no_song), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodyMedium)
+        } else {
+            Text(current.title + " · " + current.artist, style = MaterialTheme.typography.bodyLarge)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(onClick = { vm.nudge(-250) }) { Text(stringResource(R.string.sync_earlier)) }
+                Text(
+                    stringResource(R.string.sync_label, offset.toInt()),
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
+                OutlinedButton(onClick = { vm.nudge(250) }) { Text(stringResource(R.string.sync_later)) }
+            }
+            Text(stringResource(R.string.sync_hint), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(8.dp))
+            OutlinedButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.import_lrc)) }
         }
 
         Section(stringResource(R.string.settings_template))

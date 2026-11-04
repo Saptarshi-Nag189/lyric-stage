@@ -39,7 +39,6 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     val settings by vm.settings.collectAsStateWithLifecycle()
     val palette by vm.palette.collectAsStateWithLifecycle()
     val seed by vm.playSeed.collectAsStateWithLifecycle()
-    val offset by vm.offset.collectAsStateWithLifecycle()
     val reduceMotion = settings.reduceMotion || systemReduceMotion
 
     val bgClock = remember { BackgroundClock() }
@@ -133,6 +132,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         highlightIntensity = settings.highlightIntensity,
                         reduceMotion = reduceMotion,
                         isPlaying = current.isPlaying,
+                        dimmed = controlsVisible,
                         showFps = settings.showFps,
                         onRipple = { ripples.emit(it, bgClock.seconds()) },
                         onVisibleTemplate = { visibleTemplate = it },
@@ -147,15 +147,12 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     nowPlaying = current,
                     clock = vm.clock,
                     settings = settings,
-                    offsetMs = offset,
                     onInteract = { interactions++ },
                     onPlayPause = { if (current.isPlaying) vm.sessions.pause() else vm.sessions.play() },
                     onPrevious = { vm.sessions.previous() },
                     onNext = { vm.sessions.next() },
                     onSeek = { vm.sessions.seekTo(it) },
                     onTemplate = { vm.setTemplate(it) },
-                    onNudge = { vm.nudge(it) },
-                    onImport = pickLrc,
                     onSettings = onOpenSettings,
                 )
             }

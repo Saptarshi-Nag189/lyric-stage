@@ -50,21 +50,18 @@ import com.lyricstage.media.NowPlaying
 import com.lyricstage.settings.StageSettings
 import kotlinx.coroutines.delay
 
-/** Tap-to-show controls: artwork, title, seek bar, transport, template picker, sync nudge. */
+/** Tap-to-show controls: artwork, title, seek bar, transport and template picker. Sync and import live in Settings. */
 @Composable
 fun ControlsOverlay(
     nowPlaying: NowPlaying,
     clock: PlaybackClock,
     settings: StageSettings,
-    offsetMs: Long,
     onInteract: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     onSeek: (Long) -> Unit,
     onTemplate: (TemplateId?) -> Unit,
-    onNudge: (Long) -> Unit,
-    onImport: () -> Unit,
     onSettings: () -> Unit,
 ) {
     val position by produceState(clock.smoothedPositionMs()) {
@@ -150,20 +147,6 @@ fun ControlsOverlay(
                 }
             }
 
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { onNudge(-250); onInteract() }) { Text(stringResource(R.string.sync_earlier), color = Color.White) }
-                Text(
-                    stringResource(R.string.sync_label, offsetMs.toInt()),
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                )
-                TextButton(onClick = { onNudge(250); onInteract() }) { Text(stringResource(R.string.sync_later), color = Color.White) }
-                Spacer(Modifier.weight(1f))
-                TextButton(onClick = onImport) { Text(stringResource(R.string.import_lrc), color = Color.White) }
-            }
-            Text(stringResource(R.string.sync_hint), color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp)
         }
     }
 }
