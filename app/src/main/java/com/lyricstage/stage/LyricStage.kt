@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.compose.currentStateAsState
 import android.os.SystemClock
 import com.lyricstage.audio.AudioOnsets
 import com.lyricstage.core.clock.PlaybackClock
@@ -79,8 +82,26 @@ fun LyricStage(
     val density = LocalDensity.current
     val resolver = LocalFontFamilyResolver.current
     var size by remember { mutableStateOf(IntSize.Zero) }
+    // The size the stage is laid out for. The swipe-up gesture and the system bars briefly
+    // change the window size; following each change re-laid every line mid-song (a line
+    // could jump to other rows or vanish for a moment). Size changes are taken only while
+    // the app is in front and once the size has held still, and the stage being shown
+    // stays up until the new layout is ready.
+    val resumed = LocalLifecycleOwner.current.lifecycle.currentStateAsState().value.isAtLeast(Lifecycle.State.RESUMED)
+    var stageSize by remember { mutableStateOf(IntSize.Zero) }
+    LaunchedEffect(size, resumed) {
+        if (size == stageSize || size.width == 0 || size.height == 0) return@LaunchedEffect
+        if (stageSize != IntSize.Zero) {
+            if (!resumed) return@LaunchedEffect
+            delay(SIZE_SETTLE_MS)
+        }
+        stageSize = size
+    }
 
-    val prepared by produceState<PreparedStage?>(null, lyrics, size, playSeed, lockedTemplate, reduceMotion, fontScale, density) {
+    val prepared by produceState<PreparedStage?>(null, lyrics, stageSize, playSeed, lockedTemplate, reduceMotion, fontScale, density) {
+        val size = stageSize
+        // another song's lines must never show while this one is prepared
+        if (value?.plan?.lyrics !== lyrics) value = null
         if (size.width == 0 || size.height == 0 || lyrics.lines.isEmpty()) {
             value = null
             return@produceState
@@ -216,5 +237,7 @@ private fun alignWords(frame: StageFrame, audio: AudioOnsets?, prep: PreparedSta
 
 /** After pausing, keep drawing this long so the dim and any entrance can finish. */
 private const val PAUSED_TAIL_NS = 700_000_000L
+/** How long a new stage size must hold before the lines are laid out again. */
+private const val SIZE_SETTLE_MS = 350L
 private const val IDLE_MIN_MS = 40L
 private const val IDLE_MAX_MS = 1_000L
