@@ -30,8 +30,14 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match VERSION $FILE"; exit 1
           fi
           if gh release view "v$FILE" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "v$FILE is already released; nothing to do."
+            echo "v$FILE is already released; nothing to build."
             echo "SKIP=1" >> "$GITHUB_ENV"
+            # older releases lack the fixed-name copy that releases/latest/download/LyricStage.apk needs
+            if ! gh release view "v$FILE" --repo "$GITHUB_REPOSITORY" --json assets -q '.assets[].name' | grep -qx "LyricStage.apk"; then
+              gh release download "v$FILE" --repo "$GITHUB_REPOSITORY" -p "LyricStage-v$FILE.apk" -D fixed
+              cp "fixed/LyricStage-v$FILE.apk" fixed/LyricStage.apk
+              gh release upload "v$FILE" fixed/LyricStage.apk --repo "$GITHUB_REPOSITORY"
+            fi
           fi
 
       - uses: actions/setup-java@v4
@@ -94,6 +100,8 @@ jobs:
           "$BT/apksigner" verify --verbose --print-certs "$OUT" | tee signer.txt
           CERT=$(grep -m1 "certificate SHA-256 digest" signer.txt | awk '{print $NF}')
           echo "CERT_SHA256=$CERT" >> "$GITHUB_ENV"
+          # the same file under a fixed name, so releases/latest/download/LyricStage.apk always works
+          cp "$OUT" dist/LyricStage.apk
           (cd dist && sha256sum "LyricStage-v$VERSION.apk" > SHA256SUMS.txt && cat SHA256SUMS.txt)
 
       - name: Write release notes
@@ -133,7 +141,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$TAG" "dist/LyricStage-v$VERSION.apk" dist/SHA256SUMS.txt \
+          gh release create "$TAG" "dist/LyricStage-v$VERSION.apk" dist/LyricStage.apk dist/SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" \
             --title "LyricStage v$VERSION" \
             --notes-file notes.md \

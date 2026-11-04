@@ -4,7 +4,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 
 ![LyricStage showing lyrics in four layouts](docs/screenshots/hero.png)
 
-**[Download the latest release](https://github.com/Saptarshi-Nag189/lyric-stage/releases/latest)** (APK, Android 10 or later)
+**[Download LyricStage](https://github.com/Saptarshi-Nag189/lyric-stage/releases/latest/download/LyricStage.apk)** (APK, Android 10 or later). This link always gives the newest version; past versions are on the [releases page](https://github.com/Saptarshi-Nag189/lyric-stage/releases).
 
 ## Features
 
@@ -28,15 +28,17 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 | **Flow** | **Letters** | **Scatter** |
 | ![Flow layout with Japanese lyrics and a romanised line](docs/screenshots/stage-flow.png) | ![Letters layout with Bengali lyrics](docs/screenshots/stage-letters.png) | ![Scatter layout](docs/screenshots/stage-scatter.png) |
 
-<p align="center"><img src="docs/screenshots/controls.png" width="300" alt="Controls overlay with seek bar, playback buttons and layout picker"></p>
+| Controls | Settings |
+|:---:|:---:|
+| <img src="docs/screenshots/controls.png" width="300" alt="Controls over the stage: song and layout pills at the top, seek bar and playback buttons in a card at the bottom"> | <img src="docs/screenshots/settings.png" width="300" alt="Settings with the playing song's card, sync buttons, layout and background choices and switches"> |
 
-Tap the stage to show the controls for three seconds: seek bar, play and pause, skip and the layout picker. The lyrics fade back while the controls are open.
+Tap the stage to show the controls for three seconds: the song and the layout pills at the top, and the seek bar, play and pause and skip in a card at the bottom. The lyrics fade back while the controls are open. The buttons and switches take their colour from the album art.
 
 The images above are drawn by the app's own layout engine (`core`) with the bundled fonts. The background is an approximation of the shader. The lyric lines are short excerpts quoted to show the layouts: Rick Astley, "Never Gonna Give You Up"; Arijit Singh, "Tum Hi Ho"; Kenshi Yonezu, "Lemon"; Rabindranath Tagore, "Ekla Chalo Re"; Eminem, "Lose Yourself". `tools/screenshots/render.sh` regenerates them.
 
 ## Install
 
-1. Download `LyricStage-vX.Y.Z.apk` from the [releases page](https://github.com/Saptarshi-Nag189/lyric-stage/releases) and open it on your phone.
+1. Download [LyricStage.apk](https://github.com/Saptarshi-Nag189/lyric-stage/releases/latest/download/LyricStage.apk) and open it on your phone.
 2. Open LyricStage and tap "Open notification access". Turn LyricStage on in the list and go back.
 3. Play a song in any music app.
 

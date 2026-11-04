@@ -399,91 +399,271 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
     return img
 }
 
+// colours of the screens around the stage, as in ui/theme/Ui.kt
+val UI_GROUND = Color(0x0B, 0x0B, 0x0D)
+val UI_CARD = Color(0x17, 0x18, 0x1C)
+val UI_RAISED = Color(0x26, 0x27, 0x2D)
+val UI_LINE = Color(0x3A, 0x3B, 0x42)
+val UI_TEXT = Color(0xF3, 0xF1, 0xEC)
+val UI_MUTED = Color(0xA7, 0xA6, 0xAE)
+val UI_ON_ACCENT = Color(0x16, 0x0C, 0x07)
+
+/** The UI accent, as Ui.accent(): the album's first accent, lifted when too dark for dark text. */
+fun uiAccent(pal: Pal): Color {
+    val c = pal.accents[0]
+    val l = Colour.luminance(c).toFloat()
+    if (l >= 0.35f) return hex(c)
+    val t = ((0.35f - l) / 0.65f + 0.15f).coerceIn(0f, 0.7f)
+    return Color(
+        (Colour.red(c) + (255 - Colour.red(c)) * t).toInt(),
+        (Colour.green(c) + (255 - Colour.green(c)) * t).toInt(),
+        (Colour.blue(c) + (255 - Colour.blue(c)) * t).toInt(),
+    )
+}
+
+private fun Graphics2D.pill(x: Float, y: Float, w: Float, h: Float, fill: Color?, stroke: Color? = null, dp: Float = 2.625f) {
+    val r = RoundRectangle2D.Float(x, y, w, h, h, h)
+    if (fill != null) { color = fill; fill(r) }
+    if (stroke != null) { color = stroke; this.stroke = BasicStroke(1f * dp); draw(r) }
+}
+
+private fun Graphics2D.centred(text: String, cx: Float, baseline: Float) {
+    drawString(text, cx - fontMetrics.stringWidth(text) / 2f, baseline)
+}
+
+private fun Graphics2D.moreDots(cx: Float, cy: Float, dp: Float, c: Color) {
+    color = c
+    for (i in -1..1) fill(Ellipse2D.Float(cx - 2.2f * dp, cy + i * 7 * dp - 2.2f * dp, 4.4f * dp, 4.4f * dp))
+}
+
+/** Artwork stand-in: the album's accents, as a soft square. */
+private fun Graphics2D.art(x: Float, y: Float, size: Float, radius: Float, pal: Pal) {
+    paint = GradientPaint(x, y, hex(pal.accents[0]), x + size, y + size, hex(pal.accents[1]))
+    fill(RoundRectangle2D.Float(x, y, size, size, radius, radius))
+}
+
 /** Controls overlay, drawn to the same proportions as ControlsOverlay.kt (2.625 px per dp). */
 fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
     val dp = 2.625f
+    val accent = uiAccent(pal)
     val img = BufferedImage(W, H, BufferedImage.TYPE_INT_ARGB)
     val g = img.createGraphics()
     g.hq()
     g.drawImage(base, 0, 0, null)
-    g.paint = GradientPaint(0f, H * 0.45f, Color(0, 0, 0, 0), 0f, H.toFloat(), Color(0, 0, 0, 217))
-    g.fillRect(0, 0, W, H)
-    val pad = 20 * dp
-    // settings menu: three dots in the top right, as in MoreButton
-    g.color = Color.WHITE
-    val dotR = 2.2f * dp
-    val dx = W - 8 * dp - 8 * dp - 12 * dp
-    for (i in 0..2) {
-        val cy = 24 * dp + 8 * dp + 24 * dp * (0.22f + i * 0.28f) + 12 * dp
-        g.fill(Ellipse2D.Float(dx - dotR, cy - dotR, dotR * 2, dotR * 2))
-    }
-    var y = H - 72 * dp - 280 * dp
+    g.paint = GradientPaint(0f, 0f, Color(0, 0, 0, 140), 0f, H * 0.3f, Color(0, 0, 0, 0))
+    g.fillRect(0, 0, W, (H * 0.3f).toInt())
+    g.paint = GradientPaint(0f, H * 0.7f, Color(0, 0, 0, 0), 0f, H.toFloat(), Color(0, 0, 0, 115))
+    g.fillRect(0, (H * 0.7f).toInt(), W, H - (H * 0.7f).toInt())
 
-    // artwork thumb, title, artist, settings
-    val thumb = 56 * dp
-    g.paint = GradientPaint(pad, y, hex(pal.accents[0]), pad + thumb, y + thumb, hex(pal.accents[1]))
-    g.fill(RoundRectangle2D.Float(pad, y, thumb, thumb, 16 * dp, 16 * dp))
-    g.color = Color.WHITE
-    g.font = fSemi.deriveFont(18 * dp)
-    g.drawString("Never Gonna Give You Up", pad + thumb + 14 * dp, y + 24 * dp)
-    g.color = Color(255, 255, 255, 178)
+    // top: artwork, title, artist, settings
+    val pad = 16 * dp
+    var y = 44 * dp
+    g.art(pad, y, 56 * dp, 28 * dp, pal)
+    g.color = UI_TEXT
+    g.font = fSemi.deriveFont(17 * dp)
+    g.drawString("Never Gonna Give You Up", pad + 68 * dp, y + 24 * dp)
+    g.color = Color(0xF3, 0xF1, 0xEC, 184)
     g.font = fRegular.deriveFont(14 * dp)
-    g.drawString("Rick Astley", pad + thumb + 14 * dp, y + 46 * dp)
-    y += thumb + 10 * dp
+    g.drawString("Rick Astley", pad + 68 * dp, y + 44 * dp)
+    g.color = Color(0, 0, 0, 90)
+    g.fill(Ellipse2D.Float(W - pad - 48 * dp, y + 4 * dp, 48 * dp, 48 * dp))
+    g.moreDots(W - pad - 24 * dp, y + 28 * dp, dp, UI_TEXT)
+    y += 56 * dp + 14 * dp
 
-    // template chips
+    // layout pills
     var x = pad
-    y += 16 * dp
     g.font = fSemi.deriveFont(14 * dp)
-    for ((i, label) in listOf("Auto", "Stack", "Slide", "Zoom", "Letters", "Scatter").withIndex()) {
+    for ((i, label) in listOf("Auto", "Stack", "Slide", "Zoom", "Letters", "Scatter", "Graph").withIndex()) {
         val tw = g.fontMetrics.stringWidth(label) + 32 * dp
-        val chip = RoundRectangle2D.Float(x, y - 16 * dp, tw, 32 * dp, 16 * dp, 16 * dp)
-        if (i == 0) {
-            g.color = Color.WHITE; g.fill(chip); g.color = Color.BLACK
-        } else {
-            g.color = Color(255, 255, 255, 120); g.stroke = BasicStroke(1.2f * dp); g.draw(chip); g.color = Color.WHITE
-        }
-        g.drawString(label, x + 16 * dp, y + 5 * dp)
+        if (i == 0) g.pill(x, y, tw, 44 * dp, UI_TEXT) else g.pill(x, y, tw, 44 * dp, Color(0, 0, 0, 90))
+        g.color = if (i == 0) UI_GROUND else UI_TEXT
+        g.drawString(label, x + 16 * dp, y + 27.5f * dp)
         x += tw + 8 * dp
     }
-    y += 40 * dp
 
-
-    // seek bar
-    val trackW = W - pad * 2
+    // bottom card: seek bar, times, transport
+    val cardX = 12 * dp
+    val cardW = W - cardX * 2
+    val cardH = 186 * dp
+    val cardY = H - 36 * dp - 20 * dp - cardH
+    g.color = Color(0x17, 0x18, 0x1C, 220)
+    g.fill(RoundRectangle2D.Float(cardX, cardY, cardW, cardH, 64 * dp, 64 * dp))
+    val inX = cardX + 20 * dp
+    val trackW = cardW - 40 * dp
+    var cy = cardY + 34 * dp
     val prog = 0.094f
-    g.color = Color(255, 255, 255, 60)
-    g.fill(RoundRectangle2D.Float(pad, y - 2 * dp, trackW, 4 * dp, 4 * dp, 4 * dp))
-    g.color = Color.WHITE
-    g.fill(RoundRectangle2D.Float(pad, y - 2 * dp, trackW * prog, 4 * dp, 4 * dp, 4 * dp))
-    g.fill(Ellipse2D.Float(pad + trackW * prog - 10 * dp, y - 10 * dp, 20 * dp, 20 * dp))
-    y += 26 * dp
-    g.color = Color(255, 255, 255, 178)
-    g.font = fRegular.deriveFont(12 * dp)
-    g.drawString("0:20", pad, y)
+    g.color = Color(0xF3, 0xF1, 0xEC, 64)
+    g.fill(RoundRectangle2D.Float(inX, cy - 2 * dp, trackW, 4 * dp, 4 * dp, 4 * dp))
+    g.color = accent
+    g.fill(RoundRectangle2D.Float(inX, cy - 2 * dp, trackW * prog, 4 * dp, 4 * dp, 4 * dp))
+    g.color = UI_TEXT
+    g.fill(Ellipse2D.Float(inX + trackW * prog - 10 * dp, cy - 10 * dp, 20 * dp, 20 * dp))
+    cy += 30 * dp
+    g.color = Color(0xF3, 0xF1, 0xEC, 184)
+    g.font = fRegular.deriveFont(13 * dp)
+    g.drawString("0:20", inX, cy)
     val tot = "3:33"
-    g.drawString(tot, W - pad - g.fontMetrics.stringWidth(tot), y)
-    y += 40 * dp
+    g.drawString(tot, inX + trackW - g.fontMetrics.stringWidth(tot), cy)
+    cy += 52 * dp
 
-    // transport: previous, play/pause, next
     val mid = W / 2f
-    g.color = hex(0xFFFF375F.toInt())
-    g.fill(Ellipse2D.Float(mid - 30 * dp, y - 30 * dp, 60 * dp, 60 * dp))
-    g.color = Color.WHITE
-    val bar = 5.3f * dp
-    g.fill(RoundRectangle2D.Float(mid - 8 * dp, y - 8.4f * dp, bar, 16.8f * dp, 2f, 2f))
-    g.fill(RoundRectangle2D.Float(mid + 2.7f * dp, y - 8.4f * dp, bar, 16.8f * dp, 2f, 2f))
+    g.color = accent
+    g.fill(Ellipse2D.Float(mid - 38 * dp, cy - 38 * dp, 76 * dp, 76 * dp))
+    g.color = UI_ON_ACCENT
+    val bar = 7f * dp
+    g.fill(RoundRectangle2D.Float(mid - 10 * dp, cy - 11 * dp, bar, 22 * dp, 3f, 3f))
+    g.fill(RoundRectangle2D.Float(mid + 3 * dp, cy - 11 * dp, bar, 22 * dp, 3f, 3f))
     fun tri(x0: Float, y0: Float, x1: Float, y1: Float, x2: Float, y2: Float) {
         val path = java.awt.geom.Path2D.Float()
         path.moveTo(x0, y0); path.lineTo(x1, y1); path.lineTo(x2, y2); path.closePath()
         g.fill(path)
     }
-    val px = mid - 74 * dp
-    g.fillRect((px - 7 * dp).toInt(), (y - 7 * dp).toInt(), (2.4f * dp).toInt(), (14.4f * dp).toInt())
-    tri(px + 7 * dp, y - 7 * dp, px + 7 * dp, y + 7 * dp, px - 5 * dp, y)
-    val nx = mid + 74 * dp
-    g.fillRect((nx + 5 * dp).toInt(), (y - 7 * dp).toInt(), (2.4f * dp).toInt(), (14.4f * dp).toInt())
-    tri(nx - 7 * dp, y - 7 * dp, nx - 7 * dp, y + 7 * dp, nx + 5 * dp, y)
+    g.color = UI_TEXT
+    val px = mid - 38 * dp - 28 * dp - 28 * dp
+    g.fillRect((px - 9 * dp).toInt(), (cy - 9 * dp).toInt(), (3f * dp).toInt(), (18f * dp).toInt())
+    tri(px + 9 * dp, cy - 9 * dp, px + 9 * dp, cy + 9 * dp, px - 5 * dp, cy)
+    val nx = mid + 38 * dp + 28 * dp + 28 * dp
+    g.fillRect((nx + 6 * dp).toInt(), (cy - 9 * dp).toInt(), (3f * dp).toInt(), (18f * dp).toInt())
+    tri(nx - 9 * dp, cy - 9 * dp, nx - 9 * dp, cy + 9 * dp, nx + 5 * dp, cy)
+    g.dispose()
+    return img
+}
+
+/** Settings, drawn to the proportions of SettingsScreen.kt: the song card, Look and switches. */
+fun renderSettings(pal: Pal): BufferedImage {
+    val dp = 2.625f
+    val accent = uiAccent(pal)
+    val img = BufferedImage(W, H, BufferedImage.TYPE_INT_ARGB)
+    val g = img.createGraphics()
+    g.hq()
+    g.color = UI_GROUND
+    g.fillRect(0, 0, W, H)
+    val pad = 16 * dp
+    val inner = W - pad * 2
+    var y = 44 * dp
+
+    // header
+    g.color = UI_CARD
+    g.fill(Ellipse2D.Float(pad, y, 48 * dp, 48 * dp))
+    g.color = UI_TEXT
+    g.stroke = BasicStroke(2.2f * dp, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
+    g.draw(Line2D.Float(pad + 27 * dp, y + 17 * dp, pad + 20 * dp, y + 24 * dp))
+    g.draw(Line2D.Float(pad + 20 * dp, y + 24 * dp, pad + 27 * dp, y + 31 * dp))
+    g.font = fBlack.getValue(Script.LATIN).deriveFont(30 * dp)
+    g.drawString("Settings", pad + 64 * dp, y + 35 * dp)
+    y += 48 * dp + 16 * dp
+
+    // this song
+    val cardH = 270 * dp
+    g.color = UI_CARD
+    g.fill(RoundRectangle2D.Float(pad, y, inner, cardH, 48 * dp, 48 * dp))
+    val cx = pad + 16 * dp
+    var cy = y + 16 * dp
+    g.art(cx, cy, 64 * dp, 32 * dp, pal)
+    g.color = UI_TEXT
+    g.font = fSemi.deriveFont(18 * dp)
+    g.drawString("Never Gonna Give You Up", cx + 78 * dp, cy + 20 * dp)
+    g.color = UI_MUTED
+    g.font = fRegular.deriveFont(14 * dp)
+    g.drawString("Rick Astley", cx + 78 * dp, cy + 40 * dp)
+    g.font = fSemi.deriveFont(12 * dp)
+    var tx = cx + 78 * dp
+    for (tag in listOf("Musixmatch", "Word timed")) {
+        val tw = g.fontMetrics.stringWidth(tag) + 20 * dp
+        g.pill(tx, cy + 48 * dp, tw, 22 * dp, UI_RAISED)
+        g.color = UI_TEXT
+        g.drawString(tag, tx + 10 * dp, cy + 63.5f * dp)
+        tx += tw + 6 * dp
+    }
+    cy += 64 * dp + 18 * dp + 16 * dp
+    g.font = fSemi.deriveFont(15 * dp)
+    g.color = UI_TEXT
+    g.drawString("Sync", cx, cy)
+    g.color = accent
+    val off = "+0.00 s"
+    g.drawString(off, cx + inner - 32 * dp - g.fontMetrics.stringWidth(off), cy)
+    cy += 12 * dp
+    val bw = (inner - 32 * dp - 16 * dp) / 3f
+    for ((i, label) in listOf("Earlier", "Reset", "Later").withIndex()) {
+        val bx = cx + i * (bw + 8 * dp)
+        if (i == 1) g.pill(bx, cy, bw, 48 * dp, null, UI_LINE) else g.pill(bx, cy, bw, 48 * dp, UI_RAISED)
+        g.color = if (i == 1) UI_MUTED else UI_TEXT
+        g.centred(label, bx + bw / 2f, cy + 29.5f * dp)
+    }
+    cy += 48 * dp + 10 * dp
+    g.pill(cx, cy, inner - 32 * dp, 48 * dp, accent)
+    g.color = UI_ON_ACCENT
+    g.centred("Import .lrc file", cx + (inner - 32 * dp) / 2f, cy + 29.5f * dp)
+    y += cardH
+
+    fun header(text: String) {
+        y += 24 * dp + 13 * dp
+        g.color = UI_MUTED
+        g.font = fSemi.deriveFont(13 * dp)
+        g.drawString(text.uppercase(), pad + 4 * dp, y)
+        y += 10 * dp
+    }
+
+    // look
+    header("Look")
+    val lookH = 212 * dp
+    g.color = UI_CARD
+    g.fill(RoundRectangle2D.Float(pad, y, inner, lookH, 48 * dp, 48 * dp))
+    cy = y + 16 * dp + 15 * dp
+    g.color = UI_TEXT
+    g.font = fSemi.deriveFont(15 * dp)
+    g.drawString("Layout", cx, cy)
+    cy += 10 * dp
+    var px = cx
+    g.font = fSemi.deriveFont(14 * dp)
+    for ((i, label) in listOf("Auto", "Stack", "Slide", "Zoom").withIndex()) {
+        val tw = g.fontMetrics.stringWidth(label) + 32 * dp
+        if (i == 0) g.pill(px, cy, tw, 44 * dp, accent) else g.pill(px, cy, tw, 44 * dp, null, UI_LINE)
+        g.color = if (i == 0) UI_ON_ACCENT else UI_TEXT
+        g.drawString(label, px + 16 * dp, cy + 27.5f * dp)
+        px += tw + 8 * dp
+    }
+    cy += 44 * dp + 20 * dp + 15 * dp
+    g.color = UI_TEXT
+    g.font = fSemi.deriveFont(15 * dp)
+    g.drawString("Background", cx, cy)
+    cy += 10 * dp
+    val segW = inner - 32 * dp
+    g.pill(cx, cy, segW, 52 * dp, UI_GROUND)
+    val sw = (segW - 8 * dp - 8 * dp) / 3f
+    g.font = fSemi.deriveFont(14 * dp)
+    for ((i, label) in listOf("Liquid", "Artwork", "Solid").withIndex()) {
+        val sx = cx + 4 * dp + i * (sw + 4 * dp)
+        if (i == 0) g.pill(sx, cy + 4 * dp, sw, 44 * dp, UI_TEXT)
+        g.color = if (i == 0) UI_GROUND else UI_MUTED
+        g.centred(label, sx + sw / 2f, cy + 31.5f * dp)
+    }
+    y += lookH
+
+    // motion and battery
+    header("Motion and battery")
+    val rows = listOf(
+        Triple("Battery saver", "Black background, simple fades", false),
+        Triple("Audio sync", "Listens through the microphone", true),
+    )
+    val rowsH = 72 * dp * rows.size
+    g.color = UI_CARD
+    g.fill(RoundRectangle2D.Float(pad, y, inner, rowsH, 48 * dp, 48 * dp))
+    for ((i, r) in rows.withIndex()) {
+        val ry = y + i * 72 * dp
+        if (i > 0) { g.color = UI_RAISED; g.fillRect(cx.toInt(), ry.toInt(), (inner - 32 * dp).toInt(), (1 * dp).toInt()) }
+        g.color = UI_TEXT
+        g.font = fSemi.deriveFont(16 * dp)
+        g.drawString(r.first, cx, ry + 32 * dp)
+        g.color = UI_MUTED
+        g.font = fRegular.deriveFont(13 * dp)
+        g.drawString(r.second, cx, ry + 52 * dp)
+        val sx = pad + inner - 16 * dp - 52 * dp
+        val sy = ry + 20 * dp
+        g.pill(sx, sy, 52 * dp, 32 * dp, if (r.third) accent else UI_LINE)
+        g.color = if (r.third) UI_ON_ACCENT else UI_TEXT
+        g.fill(Ellipse2D.Float(sx + (if (r.third) 24 else 4) * dp, sy + 4 * dp, 24 * dp, 24 * dp))
+    }
     g.dispose()
     return img
 }
@@ -553,6 +733,9 @@ fun main() {
     val controls = phone(renderControls(ctrlBase, sunset))
     phones["controls"] = controls
     save(scale(controls, 360), "controls.png")
+    val settings = phone(renderSettings(sunset))
+    phones["settings"] = settings
+    save(scale(settings, 360), "settings.png")
 
     // hero: four phones on a dark band
     val hero = listOf("stack", "graph", "flow", "zoom").map { scale(phones.getValue(it), 300) }
