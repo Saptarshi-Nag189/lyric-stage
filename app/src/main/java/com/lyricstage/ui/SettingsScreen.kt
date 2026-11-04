@@ -123,6 +123,17 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
 
         ToggleRow(stringResource(R.string.settings_fps), s.showFps) { vm.updateSettings { st -> st.copy(showFps = it) } }
 
+        Section(stringResource(R.string.settings_lyrics))
+        val cached by vm.cachedCount.collectAsStateWithLifecycle()
+        ToggleRow(stringResource(R.string.settings_prefetch), s.backgroundPrefetch) { vm.updateSettings { st -> st.copy(backgroundPrefetch = it) } }
+        Text(stringResource(R.string.settings_prefetch_hint), color = Color.White.copy(alpha = 0.6f), style = MaterialTheme.typography.bodyMedium)
+        Spacer(Modifier.height(10.dp))
+        Text(stringResource(R.string.settings_cached, cached), style = MaterialTheme.typography.bodyLarge)
+        Spacer(Modifier.height(6.dp))
+        OutlinedButton(onClick = {
+            vm.clearFetchedLyrics { Toast.makeText(context, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show() }
+        }) { Text(stringResource(R.string.settings_clear_cache)) }
+
         Spacer(Modifier.height(12.dp))
         HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
         Section(stringResource(R.string.settings_debug))

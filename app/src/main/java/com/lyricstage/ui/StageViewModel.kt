@@ -91,6 +91,15 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
 
     suspend fun cachedSongs() = c.lyrics.cached()
 
+    val cachedCount: StateFlow<Int> = c.lyrics.cachedCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
+
+    fun clearFetchedLyrics(onDone: () -> Unit) {
+        viewModelScope.launch {
+            c.lyrics.clearFetched()
+            onDone()
+        }
+    }
+
     private fun java.io.InputStream.readNBytesCompat(max: Int): ByteArray {
         val out = java.io.ByteArrayOutputStream()
         val buf = ByteArray(8192)

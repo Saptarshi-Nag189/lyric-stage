@@ -1,16 +1,23 @@
 package com.lyricstage.core.lyrics
 
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import java.io.IOException
+import kotlin.coroutines.resumeWithException
 import kotlin.math.abs
 import kotlin.math.roundToLong
 
@@ -45,48 +52,51 @@ class LrclibClient(
 
     private class UpstreamDown : IOException("LRCLIB unavailable")
 
-    suspend fun find(title: String, artist: String, album: String?, durationMs: Long?): LyricsLookup {
+    /**
+     * Looks a track up. The exact `/get` lookup and the fuzzy `/search` run in parallel, so a
+     * miss on `/get` costs no extra round trip; the search is cancelled when `/get` already
+     * returns synced lyrics.
+     */
+    suspend fun find(title: String, artist: String, album: String?, durationMs: Long?): LyricsLookup = coroutineScope {
         val cleanTitle = TitleCleaner.cleanTitle(title)
         val cleanArtist = TitleCleaner.cleanArtist(artist)
         val durationSec = durationMs?.takeIf { it > 0 }?.let { (it / 1000.0).roundToLong() }
 
-        // 1. exact lookup
-        var exactDown = false
-        val exact: LrclibRecord? = try {
-            val url = baseUrl.newBuilder().addPathSegment("get")
-                .addQueryParameter("track_name", cleanTitle)
-                .addQueryParameter("artist_name", cleanArtist)
-                .apply {
-                    if (!album.isNullOrBlank()) addQueryParameter("album_name", album)
-                    if (durationSec != null) addQueryParameter("duration", durationSec.toString())
-                }.build()
-            getJson(url)?.let { json.decodeFromString(LrclibRecord.serializer(), it) }
-        } catch (e: UpstreamDown) {
-            exactDown = true
-            null
-        }
-        val exactResult = exact?.let(::toResult)
-        if (exactResult != null && (exactResult.synced || exactResult.instrumental)) return exactResult
+        val getUrl = baseUrl.newBuilder().addPathSegment("get")
+            .addQueryParameter("track_name", cleanTitle)
+            .addQueryParameter("artist_name", cleanArtist)
+            .apply {
+                if (!album.isNullOrBlank()) addQueryParameter("album_name", album)
+                if (durationSec != null) addQueryParameter("duration", durationSec.toString())
+            }.build()
+        val searchUrl = baseUrl.newBuilder().addPathSegment("search")
+            .addQueryParameter("q", "$cleanArtist $cleanTitle")
+            .build()
 
-        // 2. fuzzy search; prefer synced results closest in length to the playing track
-        val results: List<LrclibRecord> = try {
-            val url = baseUrl.newBuilder().addPathSegment("search")
-                .addQueryParameter("q", "$cleanArtist $cleanTitle")
-                .build()
-            getJson(url)?.let { json.decodeFromString<List<LrclibRecord>>(it) } ?: emptyList()
-        } catch (e: UpstreamDown) {
-            return exactResult ?: LyricsLookup.Unavailable
-        }
-        if (exactDown && results.isEmpty()) return LyricsLookup.Unavailable
+        // Each result is null for "not found" and a failure for "LRCLIB unreachable".
+        val exactJob = async { runCatching { getJson(getUrl)?.let { json.decodeFromString(LrclibRecord.serializer(), it) } } }
+        val searchJob = async { runCatching { getJson(searchUrl)?.let { json.decodeFromString<List<LrclibRecord>>(it) } ?: emptyList() } }
 
+        val exact = exactJob.await()
+        val exactResult = exact.getOrNull()?.let(::toResult)
+        if (exactResult != null && (exactResult.synced || exactResult.instrumental)) {
+            searchJob.cancel()
+            return@coroutineScope exactResult
+        }
+
+        val search = searchJob.await()
+        val results = search.getOrNull() ?: return@coroutineScope exactResult ?: LyricsLookup.Unavailable
+        if (exact.isFailure && results.isEmpty()) return@coroutineScope LyricsLookup.Unavailable
+
+        // prefer synced results closest in length to the playing track
         val candidates = results
             .filter { durationSec == null || abs(it.duration - durationSec) <= 8 }
             .sortedWith(
                 compareBy<LrclibRecord> { if (it.syncedLyrics.isNullOrBlank()) 1 else 0 }
                     .thenBy { if (durationSec == null) 0.0 else abs(it.duration - durationSec) },
             )
-        for (c in candidates) toResult(c)?.let { return it }
-        return exactResult ?: LyricsLookup.NotFound
+        for (c in candidates) toResult(c)?.let { return@coroutineScope it }
+        exactResult ?: LyricsLookup.NotFound
     }
 
     private fun toResult(rec: LrclibRecord): LyricsLookup.Found? = when {
@@ -96,21 +106,32 @@ class LrclibClient(
         else -> null
     }
 
-    /** Body text, null on 404, [UpstreamDown] after retries on errors. */
-    private suspend fun getJson(url: HttpUrl, attempts: Int = 3): String? = withContext(Dispatchers.IO) {
+    /** Body text, null on 404, [UpstreamDown] after retries on errors. Cancellable. */
+    private suspend fun getJson(url: HttpUrl, attempts: Int = 2): String? {
         repeat(attempts) { attempt ->
             try {
                 val req = Request.Builder().url(url).header("User-Agent", userAgent).build()
-                http.newCall(req).execute().use { res ->
-                    if (res.code == 404) return@withContext null
-                    if (res.isSuccessful) return@withContext res.body?.string()
+                http.newCall(req).await().use { res ->
+                    if (res.code == 404) return null
+                    if (res.isSuccessful) return withContext(Dispatchers.IO) { res.body?.string() }
                 }
-            } catch (_: IOException) {
+            } catch (e: IOException) {
                 // network error or timeout: retry
             }
-            delay(400L * (attempt + 1))
+            if (attempt < attempts - 1) delay(400L * (attempt + 1))
         }
         throw UpstreamDown()
+    }
+
+    /** Runs the call asynchronously; cancelling the coroutine cancels the HTTP call. */
+    private suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
+        cont.invokeOnCancellation { cancel() }
+        enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) = cont.resume(response) { _, r, _ -> r.close() }
+            override fun onFailure(call: Call, e: IOException) {
+                if (!cont.isCancelled) cont.resumeWithException(e)
+            }
+        })
     }
 
     companion object {

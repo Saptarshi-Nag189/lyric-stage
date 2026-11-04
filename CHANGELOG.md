@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0]
+
+### New
+- Lyrics are fetched in the background as songs change, plus the next two songs in the
+  player's queue when it shares one, so they are usually ready the moment you open the app.
+  Runs inside the notification listener Android already keeps alive; switch it off in
+  Settings > Lyrics.
+- Settings > Lyrics shows how many songs have lyrics saved and can clear downloaded lyrics
+  (imported files are kept).
+
+### Faster
+- LRCLIB's exact lookup and search now run at the same time instead of one after the other.
+- The first lookup starts as soon as the track is known, even while paused. Shorter
+  timeouts (5 s to connect, 8 s per request) and fewer retries.
+- A cached song is found even when a player reports its length a few seconds differently.
+- The stage and the background prefetch share one lookup per song instead of fetching twice.
+
 ## [0.1.1]
 
 ### Changed

@@ -44,6 +44,17 @@ interface LyricsDao {
     @Query("SELECT * FROM lyrics ORDER BY updatedAt DESC")
     suspend fun all(): List<LyricsEntity>
 
+    /** Rows for the same artist and title with any duration (keys are `artist|title|seconds`). */
+    @Query("SELECT * FROM lyrics WHERE substr(trackKey, 1, length(:prefix)) = :prefix")
+    suspend fun withPrefix(prefix: String): List<LyricsEntity>
+
+    @Query("SELECT COUNT(*) FROM lyrics")
+    fun count(): Flow<Int>
+
+    /** Drops lyrics fetched from LRCLIB; imported files stay. */
+    @Query("DELETE FROM lyrics WHERE source = 'lrclib'")
+    suspend fun clearFetched()
+
     @Upsert
     suspend fun upsert(entity: LyricsEntity)
 }

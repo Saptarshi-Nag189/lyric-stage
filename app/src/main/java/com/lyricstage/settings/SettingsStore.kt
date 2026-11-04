@@ -19,6 +19,8 @@ data class StageSettings(
     val highlightIntensity: Float = 0.85f,
     val reduceMotion: Boolean = false,
     val showFps: Boolean = false,
+    /** Fetch lyrics in the background as songs change, so they are ready when the app opens. */
+    val backgroundPrefetch: Boolean = true,
 )
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
@@ -36,6 +38,7 @@ class SettingsStore(private val context: Context) {
             putFloat(K_HIGHLIGHT, next.highlightIntensity)
             putBoolean(K_REDUCE, next.reduceMotion)
             putBoolean(K_FPS, next.showFps)
+            putBoolean(K_PREFETCH, next.backgroundPrefetch)
         }
         _settings.value = next
     }
@@ -51,6 +54,7 @@ class SettingsStore(private val context: Context) {
         highlightIntensity = prefs.getFloat(K_HIGHLIGHT, 0.85f),
         reduceMotion = prefs.getBoolean(K_REDUCE, false),
         showFps = prefs.getBoolean(K_FPS, false),
+        backgroundPrefetch = prefs.getBoolean(K_PREFETCH, true),
     )
 
     private companion object {
@@ -60,5 +64,6 @@ class SettingsStore(private val context: Context) {
         const val K_HIGHLIGHT = "highlight"
         const val K_REDUCE = "reduce_motion"
         const val K_FPS = "show_fps"
+        const val K_PREFETCH = "background_prefetch"
     }
 }

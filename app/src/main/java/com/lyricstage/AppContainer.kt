@@ -17,13 +17,13 @@ class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     private val http = OkHttpClient.Builder()
-        .connectTimeout(8, TimeUnit.SECONDS)
-        .callTimeout(12, TimeUnit.SECONDS)
+        .connectTimeout(5, TimeUnit.SECONDS)
+        .callTimeout(8, TimeUnit.SECONDS)
         .build()
 
     val database = LyricsDatabase.create(context)
     val lrclib = LrclibClient(http)
-    val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), lrclib)
+    val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), lrclib, appScope)
     val settings = SettingsStore(context)
     val sessions = ActiveSessionTracker(context)
 }

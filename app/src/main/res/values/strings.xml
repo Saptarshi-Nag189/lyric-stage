@@ -52,6 +52,12 @@
     <string name="settings_reduce_motion_hint">Fades only: no blur, no scatter. Also on automatically when system animations are off.</string>
     <string name="settings_reduce_motion_system">System animations are off, so motion is reduced.</string>
     <string name="settings_fps">Show FPS</string>
+    <string name="settings_lyrics">Lyrics</string>
+    <string name="settings_prefetch">Fetch lyrics in the background</string>
+    <string name="settings_prefetch_hint">Looks up lyrics as songs change, plus the next two in the player\'s queue, so they are ready when you open LyricStage.</string>
+    <string name="settings_cached">Songs with lyrics saved: %1$d</string>
+    <string name="settings_clear_cache">Clear downloaded lyrics</string>
+    <string name="settings_cache_cleared">Downloaded lyrics cleared. Imported files were kept.</string>
     <string name="settings_debug">Debug</string>
     <string name="debug_now_playing">Now playing and clock</string>
     <string name="debug_lyrics">Lyrics line list</string>

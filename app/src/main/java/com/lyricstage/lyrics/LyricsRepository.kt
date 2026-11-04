@@ -9,7 +9,11 @@ import com.lyricstage.lyrics.db.LyricsDao
 import com.lyricstage.lyrics.db.LyricsEntity
 import com.lyricstage.lyrics.db.OffsetDao
 import com.lyricstage.lyrics.db.OffsetEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +22,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.math.abs
 
 /** What the stage knows about the current track's lyrics. */
 sealed interface LyricsState {
@@ -35,32 +41,85 @@ class LyricsRepository(
     private val dao: LyricsDao,
     private val offsets: OffsetDao,
     private val client: LrclibClient,
+    private val scope: CoroutineScope,
 ) {
+    /** Lookups in flight, so the stage and the background prefetcher never fetch twice. */
+    private val inFlight = ConcurrentHashMap<String, Deferred<LyricsLookup>>()
+
     /**
-     * Lyrics for [track], from the cache when possible. Missing lyrics are retried every
-     * [RETRY_MS] while [isPlaying]. A manual import updates the flow immediately.
+     * Lyrics for [track]. A cached row (also one stored under a duration a few seconds off)
+     * shows at once. Otherwise LRCLIB is asked straight away, and missing lyrics are retried
+     * every [RETRY_MS] while [isPlaying]. A manual import updates the flow immediately.
      */
     fun observe(track: TrackQuery, isPlaying: StateFlow<Boolean>): Flow<LyricsState> = channelFlow {
         send(LyricsState.Loading)
-        launch {
-            while (true) {
-                if (dao.get(track.key) != null) break
-                isPlaying.first { it }
-                when (val r = client.find(track.title, track.artist, track.album, track.durationMs)) {
-                    is LyricsLookup.Found -> {
-                        dao.upsert(entity(track, r.raw, r.synced, r.instrumental, SOURCE_LRCLIB))
-                        break
+        val key = cachedRow(track)?.trackKey ?: track.key
+        if (key == track.key && dao.get(key) == null) {
+            launch {
+                // players often send title first and duration a moment later; let it settle
+                delay(SETTLE_MS)
+                var attempt = 0
+                while (dao.get(track.key) == null) {
+                    if (attempt++ > 0) {
+                        delay(RETRY_MS)
+                        isPlaying.first { it }
                     }
-                    LyricsLookup.NotFound -> send(LyricsState.NotFound)
-                    LyricsLookup.Unavailable -> send(LyricsState.Unavailable)
+                    when (fetch(track)) {
+                        is LyricsLookup.Found -> break
+                        LyricsLookup.NotFound -> send(LyricsState.NotFound)
+                        LyricsLookup.Unavailable -> send(LyricsState.Unavailable)
+                    }
                 }
-                delay(RETRY_MS)
             }
         }
-        dao.observe(track.key).collect { e ->
+        dao.observe(key).collect { e ->
             if (e != null) send(LyricsState.Ready(toLyrics(e, track.durationMs), e.source))
         }
     }.flowOn(Dispatchers.Default)
+
+    /**
+     * Fetches and caches lyrics for a track that may play soon (background and queue
+     * prefetch). Does nothing when they are cached already.
+     */
+    suspend fun prefetch(track: TrackQuery) {
+        if (cachedRow(track) == null) fetch(track)
+    }
+
+    /** One shared LRCLIB lookup per track key; stores a hit in the cache. */
+    private suspend fun fetch(track: TrackQuery): LyricsLookup {
+        val job = inFlight.computeIfAbsent(track.key) {
+            // lazy, so it cannot finish (and unregister) before computeIfAbsent stores it
+            scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
+                try {
+                    val r = client.find(track.title, track.artist, track.album, track.durationMs)
+                    if (r is LyricsLookup.Found) dao.upsert(entity(track, r.raw, r.synced, r.instrumental, SOURCE_LRCLIB))
+                    r
+                } finally {
+                    inFlight.remove(track.key)
+                }
+            }
+        }
+        return job.await()
+    }
+
+    /**
+     * The cached row for [track]: its exact key, or the same artist and title stored with a
+     * duration within [DURATION_SLACK_S] seconds, or with no duration at all (queue prefetch).
+     */
+    private suspend fun cachedRow(track: TrackQuery): LyricsEntity? {
+        dao.get(track.key)?.let { return it }
+        val prefix = track.key.substringBeforeLast('|') + "|"
+        val wanted = track.key.substringAfterLast('|').toLongOrNull() ?: 0
+        return dao.withPrefix(prefix)
+            .map { it to (it.trackKey.substringAfterLast('|').toLongOrNull() ?: 0) }
+            .filter { (_, d) -> d == 0L || wanted == 0L || abs(d - wanted) <= DURATION_SLACK_S }
+            .minByOrNull { (_, d) -> if (d == 0L || wanted == 0L) DURATION_SLACK_S + 1 else abs(d - wanted) }
+            ?.first
+    }
+
+    fun cachedCount(): Flow<Int> = dao.count()
+
+    suspend fun clearFetched() = dao.clearFetched()
 
     /** Bind a user-picked .lrc (or plain text) to [track]. Returns false if it is empty. */
     suspend fun import(track: TrackQuery, raw: String): Boolean {
@@ -81,6 +140,8 @@ class LyricsRepository(
 
     companion object {
         const val RETRY_MS = 60_000L
+        const val SETTLE_MS = 250L
+        const val DURATION_SLACK_S = 3L
         private val BOM = Char(0xFEFF).toString()
         const val SOURCE_LRCLIB = "lrclib"
         const val SOURCE_IMPORT = "import"

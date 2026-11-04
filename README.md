@@ -11,7 +11,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 - Follows the active player through Android's media sessions. No account and no player integration needed.
 - Seven layouts: Stack, Slide, Zoom, Letters, Scatter, Graph and Flow. The app picks one per line from how fast it is sung, how long it is and whether it repeats as a chorus, and never uses the same one twice in a row. You can lock a favourite.
 - Words fill from left to right while they are sung. One to three words per line take a colour from the album art.
-- Lyrics come from [LRCLIB](https://lrclib.net) and are cached on the phone. Missing lyrics are retried every minute while the song plays.
+- Lyrics come from [LRCLIB](https://lrclib.net) and are cached on the phone. They are fetched in the background as songs change, along with the next two songs in the player's queue, so they are usually ready when you open the app. Missing lyrics are retried every minute while the song plays.
 - Uses per-word timings when the lyrics have them (enhanced LRC). Otherwise it estimates them from syllables, or from aksharas for Hindi and Bengali.
 - Shows a romanised line under Japanese, Hindi or Bengali lyrics when the lyrics file includes one.
 - On Android 13 and later the background is a moving "liquid glass" shader in the artwork's colours, with a ripple from each sung word. Older phones get an animated gradient. Artwork blur and a plain colour are also available.
@@ -55,7 +55,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 
 ## Privacy
 
-The app's only network request is the lyrics lookup on lrclib.net, which sends the song title, artist, album and length. There are no accounts, analytics or ads. Lyrics and sync settings are stored on the phone and excluded from backups.
+The app's only network request is the lyrics lookup on lrclib.net, which sends the song title, artist, album and length. With background fetching on (Settings > Lyrics), this happens for each new song you play and the next two in the queue, even when LyricStage is closed. There are no accounts, analytics or ads. Lyrics and sync settings are stored on the phone and excluded from backups.
 
 ## Building
 
