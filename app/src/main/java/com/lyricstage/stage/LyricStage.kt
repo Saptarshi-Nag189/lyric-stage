@@ -32,7 +32,10 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import android.os.SystemClock
+import com.lyricstage.audio.AudioOnsets
 import com.lyricstage.core.clock.PlaybackClock
+import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.core.lyrics.Lyrics
 import com.lyricstage.core.palette.StagePalette
 import com.lyricstage.core.stage.LineTiming
@@ -62,6 +65,8 @@ fun LyricStage(
     /** Controls are open: the lyrics step back so the overlay stays readable. */
     dimmed: Boolean,
     showFps: Boolean,
+    /** Vocal onsets for audio sync, or null when it is off. */
+    audio: AudioOnsets?,
     onRipple: (Ripple) -> Unit,
     onVisibleTemplate: (TemplateId?) -> Unit,
     modifier: Modifier = Modifier,
@@ -91,6 +96,7 @@ fun LyricStage(
     val ripple by rememberUpdatedState(onRipple)
     val visibleTemplate by rememberUpdatedState(onVisibleTemplate)
     val calm by rememberUpdatedState(reduceMotion)
+    val onsets by rememberUpdatedState(audio)
     val prep = prepared
 
     LaunchedEffect(prep, clock) {
@@ -103,7 +109,8 @@ fun LyricStage(
                 if (prep != null) {
                     val li = LineTiming.visibleLine(prep.plan.lyrics, pos)
                     frame.line = li
-                    frame.blur.floatValue = renderer.motionBlur(prep, li, pos, calm)
+                    frame.wordShiftMs = alignWords(frame, onsets, prep, li, pos)
+                    frame.blur.floatValue = renderer.motionBlur(prep, li, pos - frame.wordShiftMs, calm)
                     frame.ripples.clear()
                     if (!calm) frame.tracker.update(prep.plan, pos, frame.ripples)
                     for (r in frame.ripples) ripple(r)
@@ -141,7 +148,7 @@ fun LyricStage(
             val p = prep ?: return@Canvas
             with(renderer) {
                 if (frame.line < 0) drawGapDots(p, frame.positionMs, colours, reduceMotion)
-                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED)
+                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -155,7 +162,7 @@ fun LyricStage(
             ) {
                 frame.tick.longValue
                 val p = prep ?: return@Canvas
-                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION) }
+                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs) }
             }
         }
         if (showFps) {
@@ -168,4 +175,24 @@ fun LyricStage(
             )
         }
     }
+}
+
+/**
+ * Audio sync: converts fresh vocal onsets to playback time and lets the aligner nudge the
+ * current line's estimated words. Lyrics with real word timings are left alone.
+ */
+private fun alignWords(frame: StageFrame, audio: AudioOnsets?, prep: PreparedStage, li: Int, pos: Long): Long {
+    if (audio == null || li < 0 || prep.plan.lyrics.kind != LyricsKind.LINE_SYNCED) {
+        frame.aligner.reset()
+        audio?.onsets?.clear()
+        return 0
+    }
+    val now = SystemClock.elapsedRealtime()
+    frame.onsetScratch.clear()
+    while (true) {
+        val t = audio.onsets.poll() ?: break
+        frame.onsetScratch += pos - (now - t)
+    }
+    frame.aligner.update(li, prep.plan.lines[li], frame.onsetScratch)
+    return frame.aligner.shiftMs
 }

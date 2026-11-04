@@ -39,7 +39,7 @@ class StagePlan(
             }
             return StagePlan(
                 lyrics, stage, playSeed, templates,
-                lines.map { Highlights.pick(it, playSeed) },
+                Highlights.songCounts(lines).let { counts -> lines.map { Highlights.pick(it, playSeed, counts) } },
                 lines.map { Highlights.accentIndex(it, playSeed) },
                 measured, layouts,
             )

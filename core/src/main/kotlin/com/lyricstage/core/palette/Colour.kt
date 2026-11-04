@@ -71,5 +71,18 @@ object Colour {
         return fromHsl(h, s, lo)
     }
 
+    /** Raise [fg]'s HSL lightness (keeping hue) until it reaches [minRatio] against [bg]. */
+    fun lightenForContrast(fg: Int, bg: Int, minRatio: Double): Int {
+        if (contrast(fg, bg) >= minRatio) return fg
+        val (h, s, l) = toHsl(fg)
+        var lo = l
+        var hi = 1f
+        repeat(14) {
+            val mid = (lo + hi) / 2
+            if (contrast(fromHsl(h, s, mid), bg) >= minRatio) hi = mid else lo = mid
+        }
+        return fromHsl(h, s, hi)
+    }
+
     fun withAlpha(c: Int, a: Float): Int = (((a.coerceIn(0f, 1f) * 255).toInt()) shl 24) or (c and 0xFFFFFF)
 }

@@ -152,6 +152,12 @@ fun Graphics2D.hq() {
 
 data class Pal(val base: Int, val accents: List<Int>)
 
+/** Body text colour, as PaletteBuilder makes it: near white with a hint of the cover's hue. */
+fun textTint(p: Pal): Color {
+    val (h, sat, _) = Colour.toHsl(p.accents[0]).let { Triple(it[0], it[1], it[2]) }
+    return hex(Colour.fromHsl(h, (sat * 0.45f).coerceAtMost(0.4f), 0.93f))
+}
+
 /** Approximation of the AGSL liquid glass: soft pools of accent light, a glass sheen, vignette, grain. */
 fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): BufferedImage {
     val img = BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
@@ -290,7 +296,7 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
         val colour = when {
             w.backing -> Color(255, 255, 255, 160)
             hl -> hex(accent)
-            else -> Color.WHITE
+            else -> textTint(s.pal)
         }
         val font = stageFont(line.script, p.fontPx)
         val at = AffineTransform()
@@ -403,7 +409,15 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
     g.paint = GradientPaint(0f, H * 0.45f, Color(0, 0, 0, 0), 0f, H.toFloat(), Color(0, 0, 0, 217))
     g.fillRect(0, 0, W, H)
     val pad = 20 * dp
-    var y = H - 48 * dp - 230 * dp
+    // settings menu: three dots in the top right, as in MoreButton
+    g.color = Color.WHITE
+    val dotR = 2.2f * dp
+    val dx = W - 8 * dp - 8 * dp - 12 * dp
+    for (i in 0..2) {
+        val cy = 24 * dp + 8 * dp + 24 * dp * (0.22f + i * 0.28f) + 12 * dp
+        g.fill(Ellipse2D.Float(dx - dotR, cy - dotR, dotR * 2, dotR * 2))
+    }
+    var y = H - 72 * dp - 280 * dp
 
     // artwork thumb, title, artist, settings
     val thumb = 56 * dp
@@ -415,11 +429,25 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
     g.color = Color(255, 255, 255, 178)
     g.font = fRegular.deriveFont(14 * dp)
     g.drawString("Rick Astley", pad + thumb + 14 * dp, y + 46 * dp)
-    g.color = Color.WHITE
+    y += thumb + 10 * dp
+
+    // template chips
+    var x = pad
+    y += 16 * dp
     g.font = fSemi.deriveFont(14 * dp)
-    val st = "Settings"
-    g.drawString(st, W - pad - g.fontMetrics.stringWidth(st) - 8 * dp, y + 34 * dp)
-    y += thumb + 26 * dp
+    for ((i, label) in listOf("Auto", "Stack", "Slide", "Zoom", "Letters", "Scatter").withIndex()) {
+        val tw = g.fontMetrics.stringWidth(label) + 32 * dp
+        val chip = RoundRectangle2D.Float(x, y - 16 * dp, tw, 32 * dp, 16 * dp, 16 * dp)
+        if (i == 0) {
+            g.color = Color.WHITE; g.fill(chip); g.color = Color.BLACK
+        } else {
+            g.color = Color(255, 255, 255, 120); g.stroke = BasicStroke(1.2f * dp); g.draw(chip); g.color = Color.WHITE
+        }
+        g.drawString(label, x + 16 * dp, y + 5 * dp)
+        x += tw + 8 * dp
+    }
+    y += 40 * dp
+
 
     // seek bar
     val trackW = W - pad * 2
@@ -456,22 +484,6 @@ fun renderControls(base: BufferedImage, pal: Pal): BufferedImage {
     val nx = mid + 74 * dp
     g.fillRect((nx + 5 * dp).toInt(), (y - 7 * dp).toInt(), (2.4f * dp).toInt(), (14.4f * dp).toInt())
     tri(nx - 7 * dp, y - 7 * dp, nx - 7 * dp, y + 7 * dp, nx + 5 * dp, y)
-    y += 52 * dp
-
-    // template chips
-    var x = pad
-    g.font = fSemi.deriveFont(14 * dp)
-    for ((i, label) in listOf("Auto", "Stack", "Slide", "Zoom", "Letters", "Scatter").withIndex()) {
-        val tw = g.fontMetrics.stringWidth(label) + 32 * dp
-        val chip = RoundRectangle2D.Float(x, y - 16 * dp, tw, 32 * dp, 16 * dp, 16 * dp)
-        if (i == 0) {
-            g.color = Color.WHITE; g.fill(chip); g.color = Color.BLACK
-        } else {
-            g.color = Color(255, 255, 255, 120); g.stroke = BasicStroke(1.2f * dp); g.draw(chip); g.color = Color.WHITE
-        }
-        g.drawString(label, x + 16 * dp, y + 5 * dp)
-        x += tw + 8 * dp
-    }
     g.dispose()
     return img
 }

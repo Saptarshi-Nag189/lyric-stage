@@ -17,6 +17,11 @@ class StageFrame {
     var positionMs = 0L
     var line = -1
 
+    /** Audio sync correction applied to estimated word times this frame. */
+    var wordShiftMs = 0L
+    val aligner = com.lyricstage.audio.WordAligner()
+    val onsetScratch = ArrayList<Long>(16)
+
     val tracker = RippleTracker()
     val ripples = ArrayList<Ripple>(8)
 

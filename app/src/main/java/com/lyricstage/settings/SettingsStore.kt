@@ -21,6 +21,8 @@ data class StageSettings(
     val showFps: Boolean = false,
     /** Fetch lyrics in the background as songs change, so they are ready when the app opens. */
     val backgroundPrefetch: Boolean = true,
+    /** Nudge estimated word times towards vocal onsets heard in the playing audio. */
+    val audioSync: Boolean = false,
 )
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
@@ -39,6 +41,7 @@ class SettingsStore(private val context: Context) {
             putBoolean(K_REDUCE, next.reduceMotion)
             putBoolean(K_FPS, next.showFps)
             putBoolean(K_PREFETCH, next.backgroundPrefetch)
+            putBoolean(K_AUDIO, next.audioSync)
         }
         _settings.value = next
     }
@@ -55,6 +58,7 @@ class SettingsStore(private val context: Context) {
         reduceMotion = prefs.getBoolean(K_REDUCE, false),
         showFps = prefs.getBoolean(K_FPS, false),
         backgroundPrefetch = prefs.getBoolean(K_PREFETCH, true),
+        audioSync = prefs.getBoolean(K_AUDIO, false),
     )
 
     private companion object {
@@ -65,5 +69,6 @@ class SettingsStore(private val context: Context) {
         const val K_REDUCE = "reduce_motion"
         const val K_FPS = "show_fps"
         const val K_PREFETCH = "background_prefetch"
+        const val K_AUDIO = "audio_sync"
     }
 }

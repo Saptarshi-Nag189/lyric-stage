@@ -1,8 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Only used for LRCLIB lookups. -->
+    <!-- Lyrics lookups: LRCLIB, NetEase and Musixmatch. -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Audio sync only (off by default): the Visualizer reads the phone's audio output to
+         find vocal onsets. Nothing is recorded or sent anywhere. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
     <application
         android:name=".LyricStageApp"

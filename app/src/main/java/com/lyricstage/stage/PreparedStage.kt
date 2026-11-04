@@ -25,8 +25,14 @@ class PreparedStage(
     /** Per line, per placement, per glyph; only for per-glyph templates. */
     val glyphs: List<List<List<TextLayoutResult>>?>,
     val subtitles: List<TextLayoutResult?>,
+    /** Per line: words sung at least this long count as held notes (lift and glow). */
+    val heldMs: LongArray,
 ) {
     companion object {
+        /** A held note is at least this long, and at least [HELD_FACTOR] times the line's median word. */
+        private const val HELD_MIN_MS = 650L
+        private const val HELD_FACTOR = 1.8
+
         fun prepare(
             lyrics: Lyrics,
             stage: SizeF,
@@ -63,7 +69,12 @@ class PreparedStage(
                     )
                 } else null
             }
-            return PreparedStage(plan, words, glyphs, subs)
+            val held = LongArray(plan.lines.size) { li ->
+                val d = plan.lines[li].words.map { it.durationMs }.sorted()
+                val median = d.getOrNull(d.size / 2) ?: 0L
+                maxOf(HELD_MIN_MS, (median * HELD_FACTOR).toLong())
+            }
+            return PreparedStage(plan, words, glyphs, subs, held)
         }
     }
 }

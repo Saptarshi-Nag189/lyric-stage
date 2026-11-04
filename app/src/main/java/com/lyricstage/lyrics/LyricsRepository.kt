@@ -1,7 +1,7 @@
 package com.lyricstage.lyrics
 
 import com.lyricstage.core.lyrics.LrcParser
-import com.lyricstage.core.lyrics.LrclibClient
+import com.lyricstage.core.lyrics.LyricsSources
 import com.lyricstage.core.lyrics.Lyrics
 import com.lyricstage.core.lyrics.LyricsBuilder
 import com.lyricstage.core.lyrics.LyricsLookup
@@ -40,9 +40,12 @@ data class TrackQuery(val key: String, val title: String, val artist: String, va
 class LyricsRepository(
     private val dao: LyricsDao,
     private val offsets: OffsetDao,
-    private val client: LrclibClient,
+    private val client: LyricsSources,
     private val scope: CoroutineScope,
 ) {
+    /** Keys already checked for a word-timed upgrade in this run. */
+    private val upgradeTried = ConcurrentHashMap.newKeySet<String>()
+
     /** Lookups in flight, so the stage and the background prefetcher never fetch twice. */
     private val inFlight = ConcurrentHashMap<String, Deferred<LyricsLookup>>()
 
@@ -72,6 +75,11 @@ class LyricsRepository(
                 }
             }
         }
+        // cached with line timing only: look once (per app run) for word timing to upgrade to
+        val cached = dao.get(key)
+        if (cached != null && rankOf(cached) < WORD_RANK && cached.source != SOURCE_IMPORT && upgradeTried.add(key)) {
+            launch { runCatching { fetch(track.copy(key = key)) } }
+        }
         dao.observe(key).collect { e ->
             if (e != null) send(LyricsState.Ready(toLyrics(e, track.durationMs), e.source))
         }
@@ -92,7 +100,11 @@ class LyricsRepository(
             scope.async(Dispatchers.IO, start = CoroutineStart.LAZY) {
                 try {
                     val r = client.find(track.title, track.artist, track.album, track.durationMs)
-                    if (r is LyricsLookup.Found) dao.upsert(entity(track, r.raw, r.synced, r.instrumental, SOURCE_LRCLIB))
+                    val existing = dao.get(track.key)
+                    // never replace an import, and only replace a row with something better
+                    if (r is LyricsLookup.Found && (existing == null || (existing.source != SOURCE_IMPORT && LyricsSources.rank(r) > rankOf(existing)))) {
+                        dao.upsert(entity(track, r.raw, r.synced, r.instrumental, r.source))
+                    }
                     r
                 } finally {
                     inFlight.remove(track.key)
@@ -144,6 +156,15 @@ class LyricsRepository(
         const val DURATION_SLACK_S = 3L
         private val BOM = Char(0xFEFF).toString()
         const val SOURCE_LRCLIB = "lrclib"
+        private const val WORD_RANK = 4
+
+        /** Same scale as [LyricsSources.rank]. */
+        fun rankOf(e: LyricsEntity): Int = when {
+            e.instrumental -> 2
+            e.synced && LrcParser.hasWordTags(e.raw) -> WORD_RANK
+            e.synced || LrcParser.isSynced(e.raw) -> 3
+            else -> 1
+        }
         const val SOURCE_IMPORT = "import"
 
         fun toLyrics(e: LyricsEntity, durationMs: Long?): Lyrics = when {

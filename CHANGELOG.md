@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.0.0]
+
+### New
+- Two more lyrics sources, NetEase Cloud Music and Musixmatch, asked at the same time as
+  LRCLIB. Word-by-word timings win when any of them has them. Songs already cached with
+  line timing are checked once for a word-timed version.
+- Held notes lift, grow slightly and glow while they are sung, then settle back.
+- Highlights go to the words that carry a line: emotionally loaded words, held notes,
+  line endings and the song's hooks, instead of random picks.
+- Optional audio sync (Settings): nudges estimated word timings towards vocal onsets heard
+  in the playing audio. Needs the microphone permission; nothing is recorded or sent.
+- Settings opens from a ⋮ button in the top right.
+
+### Changed
+- Body text takes a light tint of the album art's main hue; highlight colours are kept
+  bright enough to read on the background.
+- Better word estimates: line endings are held longer and short filler words go by faster.
+- Status messages ("No lyrics found" and the rest) are small pop-ups at the bottom.
+- Settings: headings visible again, values shown beside the sliders, a Reset for sync, and
+  no explanation text.
+- The layout picker sits under the song title, and the controls keep clear of the swipe-up
+  gesture area.
+
+### Fixed
+- Releases failed to build because a cancelled lyrics lookup kept reading its response
+  until it finished. Cancelling now stops the download at once.
+
 ## [0.2.0]
 
 ### New

@@ -1,5 +1,7 @@
 package com.lyricstage.ui
 
+import android.Manifest
+import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -10,18 +12,22 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.core.content.ContextCompat
 import com.lyricstage.R
+import com.lyricstage.audio.AudioOnsets
 import com.lyricstage.background.BackgroundClock
 import com.lyricstage.background.RippleEmitter
 import com.lyricstage.background.StageBackground
@@ -40,6 +46,15 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     val palette by vm.palette.collectAsStateWithLifecycle()
     val seed by vm.playSeed.collectAsStateWithLifecycle()
     val reduceMotion = settings.reduceMotion || systemReduceMotion
+
+    // audio sync: listen only while it is on, allowed, and a song is playing
+    val audio = remember { AudioOnsets() }
+    val audioActive = settings.audioSync && np?.isPlaying == true &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    DisposableEffect(audioActive) {
+        if (audioActive) audio.start() else audio.stop()
+        onDispose { audio.stop() }
+    }
 
     val bgClock = remember { BackgroundClock() }
     val ripples = remember { RippleEmitter() }
@@ -93,36 +108,26 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         StageBackground(settings.background, palette, np?.art, ripples, bgClock, reduceMotion)
 
         val current = np
-        when {
-            current == null || !current.hasTrack -> StageMessage(
-                stringResource(R.string.state_no_session),
-                stringResource(R.string.state_no_session_hint),
-            )
+        val pill: Pair<Int, Boolean>? = when {
+            current == null || !current.hasTrack -> R.string.state_no_session to false
             else -> when (val s = state) {
-                LyricsState.Idle, LyricsState.Loading -> StageMessage(stringResource(R.string.state_loading), pulsing = true)
-                LyricsState.NotFound -> StageMessage(
-                    stringResource(R.string.state_no_lyrics),
-                    stringResource(R.string.state_no_lyrics_hint),
-                    action = stringResource(R.string.import_lrc),
-                    onAction = pickLrc,
-                )
-                LyricsState.Unavailable -> StageMessage(
-                    stringResource(R.string.state_unavailable),
-                    stringResource(R.string.state_unavailable_hint),
-                    action = stringResource(R.string.import_lrc),
-                    onAction = pickLrc,
-                )
+                LyricsState.Idle, LyricsState.Loading -> R.string.state_loading to false
+                LyricsState.NotFound -> R.string.state_no_lyrics to true
+                LyricsState.Unavailable -> R.string.state_unavailable to true
                 is LyricsState.Ready -> when {
-                    s.lyrics.kind == LyricsKind.INSTRUMENTAL ->
-                        StageMessage(stringResource(R.string.state_instrumental), pulsing = !reduceMotion)
-                    s.lyrics.kind == LyricsKind.PLAIN ->
-                        PlainLyricsView(s.lyrics.plainText, vm.clock, current.durationMs)
-                    s.lyrics.lines.isEmpty() -> StageMessage(
-                        stringResource(R.string.state_no_lyrics),
-                        action = stringResource(R.string.import_lrc),
-                        onAction = pickLrc,
-                    )
-                    else -> LyricStage(
+                    s.lyrics.kind == LyricsKind.INSTRUMENTAL -> R.string.state_instrumental to false
+                    s.lyrics.kind != LyricsKind.PLAIN && s.lyrics.lines.isEmpty() -> R.string.state_no_lyrics to true
+                    else -> null
+                }
+            }
+        }
+        val ready = state as? LyricsState.Ready
+        when {
+            current == null || ready == null -> Unit
+            ready.lyrics.kind == LyricsKind.PLAIN -> PlainLyricsView(ready.lyrics.plainText, vm.clock, current.durationMs)
+            ready.lyrics.isSynced && ready.lyrics.lines.isNotEmpty() -> {
+                val s = ready
+                LyricStage(
                         lyrics = s.lyrics,
                         clock = vm.clock,
                         palette = palette,
@@ -136,9 +141,24 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         showFps = settings.showFps,
                         onRipple = { ripples.emit(it, bgClock.seconds()) },
                         onVisibleTemplate = { visibleTemplate = it },
+                        audio = if (audioActive) audio else null,
                     )
-                }
             }
+        }
+        if (pill != null) {
+            StagePill(
+                stringResource(pill.first),
+                action = if (pill.second) stringResource(R.string.import_lrc) else null,
+                onAction = pickLrc,
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+
+        // without the kinetic stage (nothing playing, no lyrics) Settings stays one tap away
+        val stageShowing = current != null && current.hasTrack &&
+            (state as? LyricsState.Ready)?.lyrics?.let { it.isSynced && it.lines.isNotEmpty() } == true
+        if (!stageShowing && !(controlsVisible && current != null)) {
+            MoreButton(onOpenSettings, Modifier.align(Alignment.TopEnd))
         }
 
         AnimatedVisibility(controlsVisible && current != null, enter = fadeIn(), exit = fadeOut()) {

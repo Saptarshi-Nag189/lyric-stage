@@ -69,6 +69,12 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { c.lyrics.setOffset(key, next) }
     }
 
+    fun resetOffset() {
+        val key = query.value?.key ?: return
+        clock.userOffsetMs = 0
+        viewModelScope.launch { c.lyrics.setOffset(key, 0) }
+    }
+
     fun setTemplate(id: TemplateId?) = c.settings.update { it.copy(template = id) }
 
     fun updateSettings(transform: (StageSettings) -> StageSettings) = c.settings.update(transform)

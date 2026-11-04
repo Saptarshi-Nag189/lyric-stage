@@ -1,6 +1,7 @@
 package com.lyricstage.ui.theme
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
@@ -32,6 +33,8 @@ fun LyricStageTheme(content: @Composable () -> Unit) {
             bodyMedium = base.bodyMedium.merge(inter),
             labelLarge = base.labelLarge.merge(inter),
         ),
-        content = content,
-    )
+    ) {
+        // gives every screen light text on the dark background by default
+        Surface(color = Scheme.background, contentColor = Scheme.onBackground, content = content)
+    }
 }

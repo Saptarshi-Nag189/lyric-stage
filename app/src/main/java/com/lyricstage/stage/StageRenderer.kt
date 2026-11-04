@@ -24,6 +24,7 @@ import com.lyricstage.core.stage.WordPlacement
 import com.lyricstage.core.stage.easeOut
 import kotlin.math.PI
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.sin
 
 /** Which words a pass draws: settled and slow ones, or the fast blurred ones. */
@@ -47,6 +48,7 @@ class StageRenderer {
     private val blurSupported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
 
     /** Largest motion blur among the line's words right now (drives the motion layer). */
+    /** [pos] is the word-timing position (playback position minus any audio sync shift). */
     fun motionBlur(prep: PreparedStage, li: Int, pos: Long, reduceMotion: Boolean): Float {
         if (reduceMotion || !blurSupported || li < 0) return 0f
         val layout = prep.plan.layouts[li]
@@ -72,8 +74,12 @@ class StageRenderer {
         colours: StageColours,
         reduceMotion: Boolean,
         layer: StageLayer,
+        /** Audio sync correction for estimated word times (0 when words are timed by the source). */
+        wordShiftMs: Long = 0,
     ) {
         if (li < 0 || li >= prep.plan.lines.size) return
+        // the line comes and goes on its own timestamp; only word timing is shifted
+        val wpos = pos - wordShiftMs
         val plan = prep.plan
         val line = plan.lines[li]
         val layout = plan.layouts[li]
@@ -91,7 +97,7 @@ class StageRenderer {
 
         for ((k, p) in layout.words.withIndex()) {
             val word = line.words[p.index]
-            val since = sinceEnter(template, word.startMs, line, pos)
+            val since = sinceEnter(template, word.startMs, line, wpos)
             if (since < 0) continue
             if (reduceMotion) {
                 pose.reset()
@@ -105,7 +111,8 @@ class StageRenderer {
                 StageLayer.MOTION -> if (!moving) continue
                 StageLayer.ALL -> Unit
             }
-            val fill = LineTiming.fill(word, pos)
+            val fill = LineTiming.fill(word, wpos)
+            val held = if (reduceMotion) 0f else heldAmount(word, wpos, prep.heldMs[li])
             val highlighted = p.index in highlights
             val colour = when {
                 word.backing -> colours.text.copy(alpha = 0.62f)
@@ -114,18 +121,22 @@ class StageRenderer {
             }
             val alpha = pose.alpha * lineAlpha
             val exitDy = -exit * p.height * 0.25f
-            val shadow = if (highlighted) {
+            val shadow = if (held > 0.01f) {
+                // a held note glows in its own colour while it lasts
+                Shadow(colour.copy(alpha = (if (highlighted) 0.55f * colours.glow else 0.25f) + 0.45f * held), Offset.Zero, p.fontPx * (0.22f + 0.25f * held))
+            } else if (highlighted) {
                 Shadow(accent.copy(alpha = 0.55f * colours.glow), Offset.Zero, p.fontPx * 0.28f)
             } else {
                 Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, p.fontPx * 0.035f), p.fontPx * 0.18f)
             }
 
             withTransform({
-                translate(p.x + pose.dx, p.y + pose.dy + exitDy)
+                translate(p.x + pose.dx, p.y + pose.dy + exitDy - held * p.height * HELD_LIFT)
                 val pivot = Offset(p.width / 2f, p.height / 2f)
                 val rot = p.rotationDeg + pose.rotationDeg
                 if (rot != 0f) rotate(rot, pivot)
-                if (pose.scaleX != 1f || pose.scaleY != 1f) scale(pose.scaleX, pose.scaleY, pivot)
+                val grow = 1f + held * HELD_GROW
+                if (pose.scaleX != 1f || pose.scaleY != 1f || grow != 1f) scale(pose.scaleX * grow, pose.scaleY * grow, pivot)
                 if (pose.skewX != 0f) {
                     skew.reset()
                     skew.values[Matrix.SkewX] = pose.skewX
@@ -231,7 +242,25 @@ class StageRenderer {
         }
     }
 
+    /**
+     * How much a long-held word is lifted and grown, 0 to 1: rises while the note starts,
+     * holds, and eases back once it ends. Exactly 0 outside the note, so settled text stays
+     * at scale 1.
+     */
+    private fun heldAmount(word: com.lyricstage.core.lyrics.LyricWord, pos: Long, thresholdMs: Long): Float {
+        if (word.durationMs < thresholdMs || pos < word.startMs) return 0f
+        if (pos >= word.endMs + HELD_RELEASE_MS) return 0f
+        val rise = easeOut((pos - word.startMs) / HELD_RISE_MS.toFloat())
+        val fall = 1f - easeOut((pos - word.endMs) / HELD_RELEASE_MS.toFloat())
+        return min(rise, fall).coerceIn(0f, 1f)
+    }
+
     companion object {
+        private const val HELD_GROW = 0.09f
+        private const val HELD_LIFT = 0.06f
+        private const val HELD_RISE_MS = 260L
+        private const val HELD_RELEASE_MS = 220L
+
         /** Gaps shorter than this show nothing rather than dots. */
         const val GAP_MIN_MS = 2_500L
 

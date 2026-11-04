@@ -10,11 +10,11 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 
 - Follows the active player through Android's media sessions. No account and no player integration needed.
 - Seven layouts: Stack, Slide, Zoom, Letters, Scatter, Graph and Flow. The app picks one per line from how fast it is sung, how long it is and whether it repeats as a chorus, and never uses the same one twice in a row. You can lock a favourite.
-- Words fill from left to right while they are sung. One to three words per line take a colour from the album art.
-- Lyrics come from [LRCLIB](https://lrclib.net) and are cached on the phone. They are fetched in the background as songs change, along with the next two songs in the player's queue, so they are usually ready when you open the app. Missing lyrics are retried every minute while the song plays.
-- Uses per-word timings when the lyrics have them (enhanced LRC). Otherwise it estimates them from syllables, or from aksharas for Hindi and Bengali.
+- Words fill from left to right while they are sung. Notes held longer than usual lift, grow slightly and glow, then settle back. One to three words per line are highlighted: emotionally loaded words, held notes, line endings and the song's hooks, coloured from the album art.
+- Lyrics come from [LRCLIB](https://lrclib.net), NetEase Cloud Music and Musixmatch, asked at the same time. Word-by-word timings win when any source has them. Lyrics are cached on the phone and fetched in the background as songs change, along with the next two songs in the player's queue.
+- Without word timings, the app estimates them from syllables (aksharas for Hindi and Bengali), holding line endings longer. An optional audio sync setting nudges those estimates towards the vocal onsets it hears in the playing audio.
 - Shows a romanised line under Japanese, Hindi or Bengali lyrics when the lyrics file includes one.
-- On Android 13 and later the background is a moving "liquid glass" shader in the artwork's colours, with a ripple from each sung word. Older phones get an animated gradient. Artwork blur and a plain colour are also available.
+- The colours come from the album art: a dark base from its shadows, three vivid accents from its strongest hues, and body text tinted with its main hue. On Android 13 and later the background is a moving "liquid glass" shader in those colours, with a ripple from each sung word. Older phones get an animated gradient. Artwork blur and a plain colour are also available.
 - Every line is fitted to the screen before it is shown, so words are never cut off, in portrait or landscape.
 - A reduce motion setting replaces the animation with fades. It turns on by itself when system animations are off.
 
@@ -46,16 +46,20 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 
 ## Using it
 
-- Tap the stage to show or hide the controls.
+- Tap the stage to show or hide the controls. The ⋮ button in the top right opens Settings.
 - Long-press the stage to lock the current layout. Long-press again to go back to automatic.
-- If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms, and the setting is saved for that song.
-- If LRCLIB has no lyrics for a song, use "Import .lrc" on the stage or under "This song" in Settings to pick a file from the phone. It is saved for that song.
+- If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms and is saved for that song. Reset puts it back to 0.
+- If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
 - Songs with lyrics but no timings scroll slowly with the song and are labelled as unsynced.
-- Settings also has the layout lock, background style, text size, highlight strength and reduce motion. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
+- Settings also has the layout lock, background style, text size, highlight strength, reduce motion, background fetching and audio sync. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
 
 ## Privacy
 
-The app's only network request is the lyrics lookup on lrclib.net, which sends the song title, artist, album and length. With background fetching on (Settings > Lyrics), this happens for each new song you play and the next two in the queue, even when LyricStage is closed. There are no accounts, analytics or ads. Lyrics and sync settings are stored on the phone and excluded from backups.
+The app makes lyrics lookups only: lrclib.net, music.163.com (NetEase) and apic-desktop.musixmatch.com, sending the song title, artist, album and length. With background fetching on, this happens for each new song you play and the next two in the queue, even when LyricStage is closed. NetEase and Musixmatch are reached through their unofficial web endpoints, so they may stop working at any time; LRCLIB still answers when they do.
+
+Audio sync is off by default. Turning it on asks for the microphone permission, which Android requires for reading the phone's audio output. The audio is analysed on the phone and never stored or sent.
+
+There are no accounts, analytics or ads. Lyrics and sync settings are stored on the phone and excluded from backups.
 
 ## Building
 
@@ -72,13 +76,14 @@ Every push runs the core tests, a debug build and Android lint on GitHub Actions
 
 ```
 core/   Plain Kotlin, unit tested on the JVM
-  lyrics/   LRC parsing, word timing estimates, LRCLIB client, title cleanup, track keys
+  lyrics/   LRC parsing, word timing estimates, LRCLIB, NetEase and Musixmatch clients, source ranking
   clock/    Playback clock: extrapolates between position reports, eases drift under 300 ms, snaps on seeks
   palette/  Colour maths: dark base, vivid accents, text contrast of at least 7:1
   stage/    Layout geometry and motion for the seven layouts, FitEngine, layout chooser, highlights
   text/     Script detection, grapheme clusters (Indic conjuncts kept whole), tokenizer
 app/    Android app (Kotlin, Jetpack Compose)
-  media/      Notification listener and active session tracking
+  media/      Notification listener, active session tracking, background lyrics prefetch
+  audio/      Opt-in audio sync: vocal onset detection and word alignment
   lyrics/     Repository with Room cache, retries and .lrc import
   stage/      Stage composable, frame loop, renderer, fonts
   background/ Liquid glass AGSL shader, ripples and fallbacks

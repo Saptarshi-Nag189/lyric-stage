@@ -18,7 +18,7 @@ data class LyricsEntity(
     val raw: String,
     val synced: Boolean,
     val instrumental: Boolean,
-    /** "lrclib" or "import". */
+    /** "lrclib", "netease", "musixmatch" or "import". */
     val source: String,
     val title: String,
     val artist: String,
@@ -51,8 +51,8 @@ interface LyricsDao {
     @Query("SELECT COUNT(*) FROM lyrics")
     fun count(): Flow<Int>
 
-    /** Drops lyrics fetched from LRCLIB; imported files stay. */
-    @Query("DELETE FROM lyrics WHERE source = 'lrclib'")
+    /** Drops downloaded lyrics; imported files stay. */
+    @Query("DELETE FROM lyrics WHERE source != 'import'")
     suspend fun clearFetched()
 
     @Upsert

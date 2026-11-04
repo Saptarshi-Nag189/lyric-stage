@@ -36,7 +36,16 @@ data class LrclibRecord(
 /** What a lookup found. */
 sealed interface LyricsLookup {
     /** Raw LRC or plain text, ready for [LyricsBuilder]. */
-    data class Found(val synced: Boolean, val raw: String, val instrumental: Boolean) : LyricsLookup
+    data class Found(
+        val synced: Boolean,
+        val raw: String,
+        val instrumental: Boolean,
+        /** "lrclib", "netease" or "musixmatch". */
+        val source: String = "lrclib",
+    ) : LyricsLookup {
+        /** Per-word timings (enhanced LRC tags), the best a source can offer. */
+        val wordSynced: Boolean get() = synced && LrcParser.hasWordTags(raw)
+    }
     data object NotFound : LyricsLookup
     /** LRCLIB itself failed (network, 5xx): worth retrying later. */
     data object Unavailable : LyricsLookup
@@ -111,27 +120,15 @@ class LrclibClient(
         repeat(attempts) { attempt ->
             try {
                 val req = Request.Builder().url(url).header("User-Agent", userAgent).build()
-                http.newCall(req).await().use { res ->
-                    if (res.code == 404) return null
-                    if (res.isSuccessful) return withContext(Dispatchers.IO) { res.body?.string() }
-                }
+                val (code, body) = http.fetch(req)
+                if (code == 404) return null
+                if (code in 200..299) return body
             } catch (e: IOException) {
                 // network error or timeout: retry
             }
             if (attempt < attempts - 1) delay(400L * (attempt + 1))
         }
         throw UpstreamDown()
-    }
-
-    /** Runs the call asynchronously; cancelling the coroutine cancels the HTTP call. */
-    private suspend fun Call.await(): Response = suspendCancellableCoroutine { cont ->
-        cont.invokeOnCancellation { cancel() }
-        enqueue(object : Callback {
-            override fun onResponse(call: Call, response: Response) = cont.resume(response) { _, r, _ -> r.close() }
-            override fun onFailure(call: Call, e: IOException) {
-                if (!cont.isCancelled) cont.resumeWithException(e)
-            }
-        })
     }
 
     companion object {

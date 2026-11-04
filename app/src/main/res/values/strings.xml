@@ -5,20 +5,15 @@
 
     <!-- Onboarding -->
     <string name="onboarding_title">See the words as they\'re sung</string>
-    <string name="onboarding_body">LyricStage follows whatever is playing on your phone: Spotify, YouTube Music, Apple Music or any other player. To see what\'s playing, it needs notification access. It never reads your notifications and only goes online to fetch lyrics from LRCLIB.</string>
+    <string name="onboarding_body">LyricStage needs notification access to see what\'s playing. It never reads your notifications.</string>
     <string name="onboarding_grant">Open notification access</string>
-    <string name="onboarding_hint">Find LyricStage in the list, switch it on, then come back.</string>
 
     <!-- Stage states -->
-    <string name="state_no_session">Play something in any music app</string>
-    <string name="state_no_session_hint">Lyrics appear here as soon as a song starts.</string>
+    <string name="state_no_session">Nothing playing</string>
     <string name="state_loading">Finding lyrics</string>
-    <string name="state_no_lyrics">No lyrics found for this song</string>
-    <string name="state_no_lyrics_hint">Trying again every minute while it plays. You can also import an .lrc file.</string>
-    <string name="state_unavailable">Can\'t reach the lyrics service</string>
-    <string name="state_unavailable_hint">Will try again in a minute.</string>
+    <string name="state_no_lyrics">No lyrics found</string>
+    <string name="state_unavailable">Lyrics service unreachable</string>
     <string name="state_instrumental">Instrumental</string>
-    <string name="plain_badge">Unsynced lyrics, auto-scrolling</string>
     <string name="import_lrc">Import .lrc</string>
     <string name="import_done">Lyrics imported for this track</string>
     <string name="import_failed">That file doesn\'t look like lyrics</string>
@@ -32,15 +27,17 @@
     <string name="template_auto">Auto</string>
     <string name="sync_earlier">−250 ms</string>
     <string name="sync_later">+250 ms</string>
-    <string name="sync_label">Sync %1$+d ms</string>
-    <string name="sync_hint">Lyrics late? Tap +. Early? Tap −.</string>
+    <string name="sync_label">%1$+d ms</string>
+    <string name="sync_reset">Reset</string>
+    <string name="settings_sync">Sync</string>
+    <string name="settings_audio_sync">Audio sync</string>
+    <string name="plain_badge">Unsynced</string>
     <string name="template_locked">Template locked: %1$s</string>
     <string name="template_unlocked">Template set to Auto</string>
     <string name="artwork">Artwork</string>
 
     <!-- Settings -->
     <string name="settings_this_song">This song</string>
-    <string name="settings_no_song">Play a song to adjust its sync or import lyrics for it.</string>
     <string name="settings_template">Template</string>
     <string name="settings_background">Background</string>
     <string name="background_liquid">Liquid</string>
@@ -49,12 +46,9 @@
     <string name="settings_font_scale">Font size</string>
     <string name="settings_highlight">Highlight intensity</string>
     <string name="settings_reduce_motion">Reduce motion</string>
-    <string name="settings_reduce_motion_hint">Fades only: no blur, no scatter. Also on automatically when system animations are off.</string>
-    <string name="settings_reduce_motion_system">System animations are off, so motion is reduced.</string>
     <string name="settings_fps">Show FPS</string>
     <string name="settings_lyrics">Lyrics</string>
     <string name="settings_prefetch">Fetch lyrics in the background</string>
-    <string name="settings_prefetch_hint">Looks up lyrics as songs change, plus the next two in the player\'s queue, so they are ready when you open LyricStage.</string>
     <string name="settings_cached">Songs with lyrics saved: %1$d</string>
     <string name="settings_clear_cache">Clear downloaded lyrics</string>
     <string name="settings_cache_cleared">Downloaded lyrics cleared. Imported files were kept.</string>

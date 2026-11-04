@@ -23,6 +23,10 @@ object WordTimingEstimator {
         else -> 320.0
     }
 
+    private const val LAST_WORD_HOLD = 1.6
+    private const val FILLER_SHARE = 0.7
+    private val FILLERS = setOf("a", "an", "the", "to", "of", "in", "on", "at", "and", "or", "but", "i", "me", "my", "we", "it", "is", "be", "you", "your")
+
     fun weight(token: String, script: Script): Double {
         val letters = token.filter { Character.isLetterOrDigit(it) || Character.getType(it).let { t -> t == Character.NON_SPACING_MARK.toInt() || t == Character.COMBINING_SPACING_MARK.toInt() } }
         if (letters.isEmpty()) return 0.3
@@ -47,7 +51,13 @@ object WordTimingEstimator {
         if (tokens.isEmpty()) return emptyList()
         val pause = (spanMs * 0.08).toLong().coerceIn(120, 400).coerceAtMost(spanMs / 4)
         val sung = (spanMs - pause).coerceAtLeast(tokens.size * 60L)
-        val weights = tokens.map { weight(it, script) }
+        val weights = tokens.mapIndexed { i, tok ->
+            var w = weight(tok, script)
+            // singers hold the end of a line; little function words go by quickly
+            if (i == tokens.lastIndex && tokens.size > 1) w *= LAST_WORD_HOLD
+            else if (script == Script.LATIN && FILLERS.contains(tok.lowercase().trim(',', '.', '!', '?', '\'', '"'))) w *= FILLER_SHARE
+            w
+        }
         val total = weights.sum().takeIf { it > 0 } ?: 1.0
         val out = ArrayList<LyricWord>(tokens.size)
         var t = startMs.toDouble()

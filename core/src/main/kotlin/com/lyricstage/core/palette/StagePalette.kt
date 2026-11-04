@@ -38,6 +38,9 @@ object PaletteBuilder {
     /** Minimum contrast of text on the base: WCAG AAA for body text. */
     const val MIN_CONTRAST = 7.0
 
+    /** Highlighted words: WCAG AA for large text and then some. */
+    const val ACCENT_CONTRAST = 4.5
+
     fun build(swatches: List<Swatch>, seed: Int): StagePalette {
         if (swatches.isEmpty()) return StagePalette.fallback(seed)
         val scored = swatches.mapNotNull { sw ->
@@ -55,15 +58,19 @@ object PaletteBuilder {
         val fb = StagePalette.fallback(seed)
         if (chosen.isEmpty()) return fb.copy(base = darkBase(swatches, null))
 
-        // vivid: boost saturation, keep lightness readable on dark
+        val base0 = darkBase(swatches, chosen[0][0])
+        // body text: near white, faintly tinted with the cover's main hue
+        val (h0, s0, _) = chosen[0]
+        val tint = Colour.fromHsl(h0, (s0 * 0.45f).coerceAtMost(0.4f), 0.93f)
+        val base = Colour.darkenForContrast(base0, tint, MIN_CONTRAST)
+        // highlights: the cover's colours, saturated, and bright enough to read on the base
         val accents = (0 until 3).map { i ->
-            chosen.getOrNull(i)?.let { (h, s, l) ->
-                Colour.fromHsl(h, (s * 1.25f).coerceIn(0.65f, 1f), l.coerceIn(0.55f, 0.7f))
+            val a = chosen.getOrNull(i)?.let { (h, s, l) ->
+                Colour.fromHsl(h, (s * 1.25f).coerceIn(0.65f, 1f), l.coerceIn(0.55f, 0.72f))
             } ?: fb.accents[i]
+            Colour.lightenForContrast(a, base, ACCENT_CONTRAST)
         }
-        val base = darkBase(swatches, chosen[0][0])
-        val text = StagePalette.WHITE
-        return StagePalette(Colour.darkenForContrast(base, text, MIN_CONTRAST), accents, text)
+        return StagePalette(base, accents, tint)
     }
 
     /** Average hue of the darker swatches, at very low lightness. */

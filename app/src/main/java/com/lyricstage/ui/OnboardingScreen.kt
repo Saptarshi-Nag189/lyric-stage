@@ -52,7 +52,5 @@ fun OnboardingScreen() {
         }) {
             Text(stringResource(R.string.onboarding_grant))
         }
-        Spacer(Modifier.height(12.dp))
-        Text(stringResource(R.string.onboarding_hint), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.6f))
     }
 }

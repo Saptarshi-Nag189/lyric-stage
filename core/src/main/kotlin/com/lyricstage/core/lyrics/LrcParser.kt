@@ -8,7 +8,8 @@ data class RawLine(
     val wordStarts: List<TimedToken>? = null,
 )
 
-data class TimedToken(val startMs: Long, val text: String)
+/** A timed word. [endMs] is set when the LRC marks it with an empty tag after the word. */
+data class TimedToken(val startMs: Long, val text: String, val endMs: Long? = null)
 
 /** Parses LRC, including multiple timestamps per row, `[offset:]` and enhanced word tags. */
 object LrcParser {
@@ -42,8 +43,12 @@ object LrcParser {
                 for ((i, tag) in tags.withIndex()) {
                     val textEnd = if (i + 1 < tags.size) tags[i + 1].range.first else body.length
                     val text = body.substring(tag.range.last + 1, textEnd).trim()
-                    if (text.isEmpty()) continue
                     val start = toMs(tag.groupValues[1], tag.groupValues[2]) - offset
+                    if (text.isEmpty()) {
+                        // an empty tag closes the word before it: that word ends here
+                        if (list.isNotEmpty()) list[list.lastIndex] = list.last().copy(endMs = start.coerceAtLeast(0))
+                        continue
+                    }
                     // a tag may carry several space-separated words: they share its start
                     for (piece in text.split(WS).filter { it.isNotEmpty() }) list += TimedToken(start.coerceAtLeast(0), piece)
                 }

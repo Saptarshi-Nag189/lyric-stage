@@ -2,6 +2,9 @@ package com.lyricstage
 
 import android.content.Context
 import com.lyricstage.core.lyrics.LrclibClient
+import com.lyricstage.core.lyrics.LyricsSources
+import com.lyricstage.core.lyrics.MusixmatchClient
+import com.lyricstage.core.lyrics.NeteaseClient
 import com.lyricstage.lyrics.LyricsRepository
 import com.lyricstage.lyrics.db.LyricsDatabase
 import com.lyricstage.media.ActiveSessionTracker
@@ -23,7 +26,18 @@ class AppContainer(context: Context) {
 
     val database = LyricsDatabase.create(context)
     val lrclib = LrclibClient(http)
-    val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), lrclib, appScope)
+    private val netease = NeteaseClient(http)
+    private val musixmatch = MusixmatchClient(http)
+
+    /** All sources are asked at once; LRCLIB first so it wins ties. */
+    private val sources = LyricsSources(
+        listOf(
+            LyricsSources.Source { t, a, al, d -> lrclib.find(t, a, al, d) },
+            LyricsSources.Source { t, a, _, d -> netease.find(t, a, d) },
+            LyricsSources.Source { t, a, al, d -> musixmatch.find(t, a, al, d) },
+        ),
+    )
+    val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), sources, appScope)
     val settings = SettingsStore(context)
     val sessions = ActiveSessionTracker(context)
 }

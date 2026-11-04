@@ -53,9 +53,9 @@ object LyricsBuilder {
             val script = Script.detect(r.text)
 
             var words: List<LyricWord> = if (!r.wordStarts.isNullOrEmpty()) {
-                val timed = r.wordStarts
+                val timed = if (script == Script.JAPANESE) regroupJapanese(r.wordStarts) else r.wordStarts
                 timed.mapIndexed { idx, w ->
-                    val end = timed.getOrNull(idx + 1)?.startMs ?: min(next, w.startMs + 1200)
+                    val end = w.endMs ?: timed.getOrNull(idx + 1)?.startMs ?: min(next, w.startMs + 1200)
                     LyricWord(w.text, w.startMs, max(end, w.startMs + 1))
                 }
             } else {
@@ -112,6 +112,31 @@ object LyricsBuilder {
         paces.sort()
         // lines usually fill about 85 % of their slot
         return (paces[paces.size / 2] * 0.85).coerceIn(0.6, 3.0)
+    }
+
+    /**
+     * Word-timed Japanese often comes one character (or mora) per token. Merge tokens into the
+     * same short phrases the tokenizer would make, keeping the first start and the last end.
+     */
+    private fun regroupJapanese(tokens: List<TimedToken>): List<TimedToken> {
+        val joined = tokens.joinToString("") { it.text }
+        val phrases = Tokenizer.tokenize(joined, Script.JAPANESE)
+        if (phrases.size >= tokens.size) return tokens
+        val out = ArrayList<TimedToken>(phrases.size)
+        var t = 0
+        for (phrase in phrases) {
+            val first = tokens.getOrNull(t) ?: break
+            var text = ""
+            var last = first
+            while (t < tokens.size && text.length < phrase.length) {
+                last = tokens[t]
+                text += tokens[t].text
+                t++
+            }
+            out += TimedToken(first.startMs, text, last.endMs ?: tokens.getOrNull(t)?.startMs)
+        }
+        while (t < tokens.size) out += tokens[t++]
+        return out
     }
 
     private fun markBackingAndEmphasis(words: List<LyricWord>): List<LyricWord> {

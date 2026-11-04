@@ -3,6 +3,7 @@ package com.lyricstage.core
 import com.lyricstage.core.lyrics.LyricsBuilder
 import com.lyricstage.core.palette.Colour
 import com.lyricstage.core.palette.PaletteBuilder
+import com.lyricstage.core.palette.StagePalette
 import com.lyricstage.core.palette.Swatch
 import com.lyricstage.core.stage.Highlights
 import com.lyricstage.core.stage.MeasuredLine
@@ -52,9 +53,21 @@ class StageTest {
         }
     }
 
+    @Test fun highlightsPreferImpactWords() {
+        val line = LyricsBuilder.fromLrc("[00:01.00]<00:01.00>I <00:01.20>will <00:01.40>always <00:01.60>love <00:02.80>you <00:03.00>", 10_000).lines.single()
+        val picked = Highlights.pick(line, 1)
+        assertEquals(setOf(3), picked) // "love": emotive and held
+        for (seed in 0 until 20) assertEquals(picked, Highlights.pick(line, seed))
+        val hindi = LyricsBuilder.fromLrc("[00:01.00]हम तेरे बिन अब रह नहीं सकते", 10_000).lines.single()
+        assertTrue(Highlights.pick(hindi, 3).isNotEmpty())
+    }
+
     @Test fun paletteTextContrast() {
         val p = PaletteBuilder.build(listOf(Swatch(0xFFE0C040.toInt(), 500), Swatch(0xFF3060E0.toInt(), 300), Swatch(0xFFF0F0F0.toInt(), 900)), 1)
         assertTrue(Colour.contrast(p.base, p.text) >= PaletteBuilder.MIN_CONTRAST)
+        p.accents.forEach { assertTrue(Colour.contrast(it, p.base) >= PaletteBuilder.ACCENT_CONTRAST - 0.05) }
+        // text carries the cover's hue rather than plain white
+        assertTrue(p.text != StagePalette.WHITE)
         assertEquals(3, p.accents.size)
         assertTrue(Colour.darkenForContrast(0xFFFFFF00.toInt(), -1, 7.0).let { Colour.contrast(it, -1) >= 7.0 })
     }
