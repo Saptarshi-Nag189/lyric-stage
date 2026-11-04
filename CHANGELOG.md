@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.0.1]
+
+### New
+- Battery saver mode (Settings): pure black background so OLED pixels stay off, words
+  simply fade in, and the screen only redraws when a word changes.
+- Lyrics cache shows its size and song count, with a Delete cache button. Imported .lrc
+  files are kept.
+- Look ahead on Wi-Fi only (Settings, on by default): the next songs in the queue are only
+  fetched on Wi-Fi. The playing song still loads on mobile data.
+
+### Battery
+- Nothing is redrawn while music is paused or when there are no lyrics; drawing resumes on
+  play or seek.
+- The moving background runs at 30 fps and holds still while paused, for instrumentals and
+  for songs without lyrics.
+- The screen may sleep after two minutes of pause.
+- Audio sync only listens while line-timed lyrics are on screen and playing.
+- Instrumental songs stop all syncing work.
+
+### Network and offline
+- Cached lyrics work offline as before; with no connection the app no longer retries every
+  minute. Songs not yet cached show "Offline" and load by themselves when the connection
+  returns.
+- Songs with no lyrics anywhere are remembered for 24 hours, so they are not looked up again
+  on every play.
+- The Musixmatch token is kept between app starts.
+
+### Other
+- Release builds strip unused library code: a smaller APK, without the leftover phone-ID and
+  screen-capture references some scanners flagged.
+
 ## [1.0.0]
 
 ### New

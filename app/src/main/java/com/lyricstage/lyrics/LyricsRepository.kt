@@ -7,6 +7,8 @@ import com.lyricstage.core.lyrics.LyricsBuilder
 import com.lyricstage.core.lyrics.LyricsLookup
 import com.lyricstage.lyrics.db.LyricsDao
 import com.lyricstage.lyrics.db.LyricsEntity
+import com.lyricstage.lyrics.db.MissDao
+import com.lyricstage.lyrics.db.MissEntity
 import com.lyricstage.lyrics.db.OffsetDao
 import com.lyricstage.lyrics.db.OffsetEntity
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +34,9 @@ sealed interface LyricsState {
     data class Ready(val lyrics: Lyrics, val source: String) : LyricsState
     data object NotFound : LyricsState
     data object Unavailable : LyricsState
+
+    /** No connection and nothing cached for this song yet. */
+    data object Offline : LyricsState
 }
 
 /** The fields of a track that lyric lookups need. */
@@ -40,7 +45,9 @@ data class TrackQuery(val key: String, val title: String, val artist: String, va
 class LyricsRepository(
     private val dao: LyricsDao,
     private val offsets: OffsetDao,
+    private val misses: MissDao,
     private val client: LyricsSources,
+    private val online: StateFlow<Boolean>,
     private val scope: CoroutineScope,
 ) {
     /** Keys already checked for a word-timed upgrade in this run. */
@@ -61,23 +68,29 @@ class LyricsRepository(
             launch {
                 // players often send title first and duration a moment later; let it settle
                 delay(SETTLE_MS)
-                var attempt = 0
+                // known miss: say so at once and only retry on the slow schedule
+                var attempt = if (recentMiss(track.key)) 1.also { send(LyricsState.NotFound) } else 0
                 while (dao.get(track.key) == null) {
                     if (attempt++ > 0) {
                         delay(RETRY_MS)
                         isPlaying.first { it }
                     }
+                    if (!online.value) {
+                        // offline: wait for the connection instead of failing every minute
+                        send(LyricsState.Offline)
+                        online.first { it }
+                    }
                     when (fetch(track)) {
                         is LyricsLookup.Found -> break
                         LyricsLookup.NotFound -> send(LyricsState.NotFound)
-                        LyricsLookup.Unavailable -> send(LyricsState.Unavailable)
+                        LyricsLookup.Unavailable -> send(if (online.value) LyricsState.Unavailable else LyricsState.Offline)
                     }
                 }
             }
         }
         // cached with line timing only: look once (per app run) for word timing to upgrade to
         val cached = dao.get(key)
-        if (cached != null && rankOf(cached) < WORD_RANK && cached.source != SOURCE_IMPORT && upgradeTried.add(key)) {
+        if (cached != null && rankOf(cached) < WORD_RANK && cached.source != SOURCE_IMPORT && online.value && upgradeTried.add(key)) {
             launch { runCatching { fetch(track.copy(key = key)) } }
         }
         dao.observe(key).collect { e ->
@@ -90,8 +103,13 @@ class LyricsRepository(
      * prefetch). Does nothing when they are cached already.
      */
     suspend fun prefetch(track: TrackQuery) {
-        if (cachedRow(track) == null) fetch(track)
+        if (!online.value || cachedRow(track) != null || recentMiss(track.key)) return
+        fetch(track)
     }
+
+    /** True when no source had lyrics for [key] within [MISS_TTL_MS]. */
+    private suspend fun recentMiss(key: String): Boolean =
+        misses.at(key)?.let { System.currentTimeMillis() - it < MISS_TTL_MS } == true
 
     /** One shared LRCLIB lookup per track key; stores a hit in the cache. */
     private suspend fun fetch(track: TrackQuery): LyricsLookup {
@@ -104,6 +122,11 @@ class LyricsRepository(
                     // never replace an import, and only replace a row with something better
                     if (r is LyricsLookup.Found && (existing == null || (existing.source != SOURCE_IMPORT && LyricsSources.rank(r) > rankOf(existing)))) {
                         dao.upsert(entity(track, r.raw, r.synced, r.instrumental, r.source))
+                    }
+                    when (r) {
+                        LyricsLookup.NotFound -> misses.upsert(MissEntity(track.key, System.currentTimeMillis()))
+                        is LyricsLookup.Found -> misses.delete(track.key)
+                        LyricsLookup.Unavailable -> Unit
                     }
                     r
                 } finally {
@@ -131,7 +154,14 @@ class LyricsRepository(
 
     fun cachedCount(): Flow<Int> = dao.count()
 
-    suspend fun clearFetched() = dao.clearFetched()
+    /** Bytes of downloaded lyrics. */
+    fun cachedBytes(): Flow<Long> = dao.size()
+
+    /** Deletes downloaded lyrics and the "no lyrics" memory; imports stay. */
+    suspend fun clearFetched() {
+        dao.clearFetched()
+        misses.clear()
+    }
 
     /** Bind a user-picked .lrc (or plain text) to [track]. Returns false if it is empty. */
     suspend fun import(track: TrackQuery, raw: String): Boolean {
@@ -153,6 +183,7 @@ class LyricsRepository(
     companion object {
         const val RETRY_MS = 60_000L
         const val SETTLE_MS = 250L
+        const val MISS_TTL_MS = 24 * 60 * 60_000L
         const val DURATION_SLACK_S = 3L
         private val BOM = Char(0xFEFF).toString()
         const val SOURCE_LRCLIB = "lrclib"

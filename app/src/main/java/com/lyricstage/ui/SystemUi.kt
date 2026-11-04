@@ -8,19 +8,19 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 
-/** Hides system bars (swipe to peek) and keeps the screen on while composed. */
+/** Hides system bars (swipe to peek) and keeps the screen on while [keepOn]. */
 @Composable
-fun ImmersiveStage() {
+fun ImmersiveStage(keepOn: Boolean) {
     val view = LocalView.current
     DisposableEffect(view) {
         val window = (view.context as? Activity)?.window
         val controller = window?.let { WindowCompat.getInsetsController(it, view) }
         controller?.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
         controller?.hide(WindowInsetsCompat.Type.systemBars())
-        view.keepScreenOn = true
-        onDispose {
-            controller?.show(WindowInsetsCompat.Type.systemBars())
-            view.keepScreenOn = false
-        }
+        onDispose { controller?.show(WindowInsetsCompat.Type.systemBars()) }
+    }
+    DisposableEffect(view, keepOn) {
+        view.keepScreenOn = keepOn
+        onDispose { view.keepScreenOn = false }
     }
 }

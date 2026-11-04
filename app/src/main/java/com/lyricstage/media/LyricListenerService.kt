@@ -21,7 +21,7 @@ class LyricListenerService : NotificationListenerService() {
         val container = (application as LyricStageApp).container
         val s = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         scope = s
-        prefetcher = LyricsPrefetcher(this, container.lyrics, container.settings, s).also { it.start() }
+        prefetcher = LyricsPrefetcher(this, container.lyrics, container.settings, container.connectivity, s).also { it.start() }
     }
 
     override fun onListenerDisconnected() {

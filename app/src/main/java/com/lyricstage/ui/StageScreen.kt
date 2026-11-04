@@ -47,10 +47,28 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     val seed by vm.playSeed.collectAsStateWithLifecycle()
     val reduceMotion = settings.reduceMotion || systemReduceMotion
 
-    // audio sync: listen only while it is on, allowed, and a song is playing
+    val saver = settings.batterySaver
+    val playing = np?.isPlaying == true
+    val readyLyrics = (state as? LyricsState.Ready)?.lyrics
+    // the kinetic stage or the scrolling plain view is showing (not instrumental, not empty)
+    val lyricsLive = readyLyrics != null && (readyLyrics.kind == LyricsKind.PLAIN || (readyLyrics.isSynced && readyLyrics.lines.isNotEmpty()))
+
+    // audio sync: listen only when it can help, line-timed lyrics on stage while playing
     val audio = remember { AudioOnsets() }
-    val audioActive = settings.audioSync && np?.isPlaying == true &&
+    val audioActive = settings.audioSync && !saver && playing && readyLyrics?.kind == LyricsKind.LINE_SYNCED &&
+        readyLyrics.lines.isNotEmpty() &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+
+    // keep the screen on while playing, and for two minutes after a pause
+    var keepAwake by remember { mutableStateOf(true) }
+    LaunchedEffect(playing) {
+        if (playing) {
+            keepAwake = true
+        } else {
+            delay(SCREEN_PAUSE_MS)
+            keepAwake = false
+        }
+    }
     DisposableEffect(audioActive) {
         if (audioActive) audio.start() else audio.stop()
         onDispose { audio.stop() }
@@ -79,7 +97,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     }
     val pickLrc = { importLauncher.launch(arrayOf("*/*")) }
 
-    ImmersiveStage()
+    ImmersiveStage(keepOn = keepAwake)
     Box(
         Modifier
             .fillMaxSize()
@@ -105,7 +123,11 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                 )
             },
     ) {
-        StageBackground(settings.background, palette, np?.art, ripples, bgClock, reduceMotion)
+        StageBackground(
+            settings.background, palette, np?.art, ripples, bgClock, reduceMotion,
+            animate = playing && lyricsLive && !saver,
+            black = saver,
+        )
 
         val current = np
         val pill: Pair<Int, Boolean>? = when {
@@ -114,6 +136,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                 LyricsState.Idle, LyricsState.Loading -> R.string.state_loading to false
                 LyricsState.NotFound -> R.string.state_no_lyrics to true
                 LyricsState.Unavailable -> R.string.state_unavailable to true
+                LyricsState.Offline -> R.string.state_offline to true
                 is LyricsState.Ready -> when {
                     s.lyrics.kind == LyricsKind.INSTRUMENTAL -> R.string.state_instrumental to false
                     s.lyrics.kind != LyricsKind.PLAIN && s.lyrics.lines.isEmpty() -> R.string.state_no_lyrics to true
@@ -135,8 +158,10 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         lockedTemplate = settings.template,
                         fontScale = settings.fontScale,
                         highlightIntensity = settings.highlightIntensity,
-                        reduceMotion = reduceMotion,
+                        reduceMotion = reduceMotion || saver,
                         isPlaying = current.isPlaying,
+                        anchor = current.positionMs xor current.positionUpdateTimeMs,
+                        simple = saver,
                         dimmed = controlsVisible,
                         showFps = settings.showFps,
                         onRipple = { ripples.emit(it, bgClock.seconds()) },
@@ -181,3 +206,4 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
 }
 
 private const val CONTROLS_MS = 3_000L
+private const val SCREEN_PAUSE_MS = 120_000L

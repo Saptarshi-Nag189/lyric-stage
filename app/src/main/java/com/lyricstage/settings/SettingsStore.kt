@@ -23,6 +23,10 @@ data class StageSettings(
     val backgroundPrefetch: Boolean = true,
     /** Nudge estimated word times towards vocal onsets heard in the playing audio. */
     val audioSync: Boolean = false,
+    /** Look ahead to queued songs only on Wi-Fi (or another unmetered network). */
+    val lookAheadWifiOnly: Boolean = true,
+    /** Pure black background and simple fades only, to save battery. */
+    val batterySaver: Boolean = false,
 )
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
@@ -42,6 +46,8 @@ class SettingsStore(private val context: Context) {
             putBoolean(K_FPS, next.showFps)
             putBoolean(K_PREFETCH, next.backgroundPrefetch)
             putBoolean(K_AUDIO, next.audioSync)
+            putBoolean(K_WIFI, next.lookAheadWifiOnly)
+            putBoolean(K_SAVER, next.batterySaver)
         }
         _settings.value = next
     }
@@ -59,6 +65,8 @@ class SettingsStore(private val context: Context) {
         showFps = prefs.getBoolean(K_FPS, false),
         backgroundPrefetch = prefs.getBoolean(K_PREFETCH, true),
         audioSync = prefs.getBoolean(K_AUDIO, false),
+        lookAheadWifiOnly = prefs.getBoolean(K_WIFI, true),
+        batterySaver = prefs.getBoolean(K_SAVER, false),
     )
 
     private companion object {
@@ -70,5 +78,7 @@ class SettingsStore(private val context: Context) {
         const val K_FPS = "show_fps"
         const val K_PREFETCH = "background_prefetch"
         const val K_AUDIO = "audio_sync"
+        const val K_WIFI = "look_ahead_wifi_only"
+        const val K_SAVER = "battery_saver"
     }
 }

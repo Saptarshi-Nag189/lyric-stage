@@ -43,6 +43,7 @@ import com.lyricstage.core.stage.Ripple
 import com.lyricstage.core.stage.SizeF
 import com.lyricstage.core.stage.TemplateId
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
@@ -62,6 +63,10 @@ fun LyricStage(
     highlightIntensity: Float,
     reduceMotion: Boolean,
     isPlaying: Boolean,
+    /** Changes whenever the player reports a new position (seek, track change). */
+    anchor: Long,
+    /** Battery saver: words fade in whole, and the loop sleeps between changes. */
+    simple: Boolean,
     /** Controls are open: the lyrics step back so the overlay stays readable. */
     dimmed: Boolean,
     showFps: Boolean,
@@ -99,11 +104,15 @@ fun LyricStage(
     val onsets by rememberUpdatedState(audio)
     val prep = prepared
 
-    LaunchedEffect(prep, clock) {
+    // Runs while playing; when paused it draws for a moment more (the dim and any entrance
+    // finish) and then stops until playback or position changes. In battery saver mode it
+    // also sleeps between word changes instead of drawing every frame.
+    LaunchedEffect(prep, clock, isPlaying, anchor, simple) {
         frame.tracker.reset()
         var lastTemplate: TemplateId? = null
+        var stopAt = -1L
         while (isActive) {
-            withFrameNanos { nanos ->
+            val nanos = withFrameNanos { nanos ->
                 val pos = clock.currentPositionMs()
                 frame.positionMs = pos
                 if (prep != null) {
@@ -125,6 +134,14 @@ fun LyricStage(
                 }
                 frame.countFrame(nanos)
                 frame.tick.longValue = nanos
+                nanos
+            }
+            if (!isPlaying) {
+                if (stopAt < 0) stopAt = nanos + PAUSED_TAIL_NS
+                if (nanos > stopAt) break
+            } else if (simple && prep != null) {
+                val idle = renderer.idleMs(prep, frame.line, frame.positionMs - frame.wordShiftMs)
+                if (idle > IDLE_MIN_MS) delay(idle.coerceAtMost(IDLE_MAX_MS))
             }
         }
     }
@@ -148,7 +165,7 @@ fun LyricStage(
             val p = prep ?: return@Canvas
             with(renderer) {
                 if (frame.line < 0) drawGapDots(p, frame.positionMs, colours, reduceMotion)
-                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs)
+                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs, sweep = !simple)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -162,7 +179,7 @@ fun LyricStage(
             ) {
                 frame.tick.longValue
                 val p = prep ?: return@Canvas
-                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs) }
+                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs, sweep = !simple) }
             }
         }
         if (showFps) {
@@ -196,3 +213,8 @@ private fun alignWords(frame: StageFrame, audio: AudioOnsets?, prep: PreparedSta
     frame.aligner.update(li, prep.plan.lines[li], frame.onsetScratch)
     return frame.aligner.shiftMs
 }
+
+/** After pausing, keep drawing this long so the dim and any entrance can finish. */
+private const val PAUSED_TAIL_NS = 700_000_000L
+private const val IDLE_MIN_MS = 40L
+private const val IDLE_MAX_MS = 1_000L

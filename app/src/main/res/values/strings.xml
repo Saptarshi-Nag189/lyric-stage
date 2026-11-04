@@ -13,6 +13,7 @@
     <string name="state_loading">Finding lyrics</string>
     <string name="state_no_lyrics">No lyrics found</string>
     <string name="state_unavailable">Lyrics service unreachable</string>
+    <string name="state_offline">Offline</string>
     <string name="state_instrumental">Instrumental</string>
     <string name="import_lrc">Import .lrc</string>
     <string name="import_done">Lyrics imported for this track</string>
@@ -48,10 +49,12 @@
     <string name="settings_reduce_motion">Reduce motion</string>
     <string name="settings_fps">Show FPS</string>
     <string name="settings_lyrics">Lyrics</string>
+    <string name="settings_battery_saver">Battery saver</string>
+    <string name="settings_lookahead_wifi">Look ahead on Wi-Fi only</string>
+    <string name="settings_cache">Lyrics cache: %1$s · %2$d songs</string>
+    <string name="settings_delete_cache">Delete cache</string>
     <string name="settings_prefetch">Fetch lyrics in the background</string>
-    <string name="settings_cached">Songs with lyrics saved: %1$d</string>
-    <string name="settings_clear_cache">Clear downloaded lyrics</string>
-    <string name="settings_cache_cleared">Downloaded lyrics cleared. Imported files were kept.</string>
+    <string name="settings_cache_cleared">Cache deleted</string>
     <string name="settings_debug">Debug</string>
     <string name="debug_now_playing">Now playing and clock</string>
     <string name="debug_lyrics">Lyrics line list</string>

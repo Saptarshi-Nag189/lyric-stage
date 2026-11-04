@@ -132,6 +132,6 @@ class LrclibClient(
     }
 
     companion object {
-        const val USER_AGENT = "LyricStage/0.1 (personal Android lyrics viewer; https://github.com/Saptarshi-Nag189/lyric-stage)"
+        const val USER_AGENT = "LyricStage/1.0 (+https://github.com/Saptarshi-Nag189/lyric-stage; personal Android lyrics viewer)"
     }
 }

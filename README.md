@@ -17,6 +17,8 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 - The colours come from the album art: a dark base from its shadows, three vivid accents from its strongest hues, and body text tinted with its main hue. On Android 13 and later the background is a moving "liquid glass" shader in those colours, with a ripple from each sung word. Older phones get an animated gradient. Artwork blur and a plain colour are also available.
 - Every line is fitted to the screen before it is shown, so words are never cut off, in portrait or landscape.
 - A reduce motion setting replaces the animation with fades. It turns on by itself when system animations are off.
+- Battery saver mode: pure black background (OLED pixels off), simple fades, and drawing only when a word changes. Nothing is drawn while music is paused.
+- Works offline with cached lyrics. Background fetching saves lyrics for each song you play and the next two in the queue (Wi-Fi only by default), so playlists played once online keep working offline.
 
 ## Screenshots
 
@@ -51,7 +53,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 - If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms and is saved for that song. Reset puts it back to 0.
 - If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
 - Songs with lyrics but no timings scroll slowly with the song and are labelled as unsynced.
-- Settings also has the layout lock, background style, text size, highlight strength, reduce motion, background fetching and audio sync. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
+- Settings also has the layout lock, background style, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
 
 ## Privacy
 

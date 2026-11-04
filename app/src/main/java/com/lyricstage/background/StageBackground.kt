@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -56,15 +57,23 @@ fun StageBackground(
     ripples: RippleEmitter,
     clock: BackgroundClock,
     reduceMotion: Boolean,
+    /** False while paused, with no lyrics, or for instrumentals: the background holds still. */
+    animate: Boolean,
+    /** Battery saver: pure black, so OLED pixels stay off. */
+    black: Boolean,
     modifier: Modifier = Modifier,
 ) {
     clock.speed = if (reduceMotion) 0.25f else 1f
+    if (black) {
+        Canvas(modifier.fillMaxSize()) { drawRect(Color.Black) }
+        return
+    }
     Box(modifier.fillMaxSize()) {
         when {
             mode == BackgroundMode.SOLID -> Canvas(Modifier.fillMaxSize()) { drawRect(Color(palette.base)) }
             mode == BackgroundMode.ARTWORK && art != null -> ArtworkBlur(art, palette)
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock)
-            else -> GradientFallback(palette, clock)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock, animate)
+            else -> GradientFallback(palette, clock, animate)
         }
         // darken behind the text when the palette is bright
         val scrim = ContrastScrim.alphaFor(palette)
@@ -75,14 +84,12 @@ fun StageBackground(
 /** Liquid glass on API 33+, rendered at a third of the resolution and scaled up (it is soft). */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: BackgroundClock) {
+private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: BackgroundClock, animate: Boolean) {
     val shader = remember { RuntimeShader(LIQUID_GLASS_AGSL) }
     val brush = remember(shader) { ShaderBrush(shader) }
     var full by remember { mutableStateOf(IntSize.Zero) }
     val time = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        while (true) withFrameNanos { time.floatValue = clock.seconds() }
-    }
+    LaunchedEffect(animate) { animateTime(time, clock, animate) }
     val density = LocalDensity.current
     Box(Modifier.fillMaxSize().onSizeChanged { full = it }) {
         if (full.width == 0) return@Box
@@ -121,11 +128,9 @@ private fun RuntimeShader.setColorUniforms(p: StagePalette) {
 
 /** Below API 33: slowly drifting radial pools of the accent colours. */
 @Composable
-private fun GradientFallback(palette: StagePalette, clock: BackgroundClock) {
+private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, animate: Boolean) {
     val time = remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        while (true) withFrameNanos { time.floatValue = clock.seconds() }
-    }
+    LaunchedEffect(animate) { animateTime(time, clock, animate) }
     val base = Color(palette.base)
     val accents = palette.accents.map { Color(it) }
     Canvas(Modifier.fillMaxSize()) {
@@ -189,3 +194,17 @@ object ContrastScrim {
 }
 
 private const val SCALE = 3
+
+/**
+ * Drives the background's time at 30 fps (every other frame; the motion is slow and soft),
+ * or sets it once and stops when the background should hold still.
+ */
+private suspend fun animateTime(time: MutableFloatState, clock: BackgroundClock, animate: Boolean) {
+    time.floatValue = clock.seconds()
+    if (!animate) return
+    var odd = false
+    while (true) withFrameNanos {
+        odd = !odd
+        if (odd) time.floatValue = clock.seconds()
+    }
+}

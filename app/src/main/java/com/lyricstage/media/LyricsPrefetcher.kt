@@ -11,6 +11,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.lyricstage.core.lyrics.TrackKey
+import com.lyricstage.lyrics.Connectivity
 import com.lyricstage.lyrics.LyricsRepository
 import com.lyricstage.lyrics.TrackQuery
 import com.lyricstage.settings.SettingsStore
@@ -29,6 +30,7 @@ class LyricsPrefetcher(
     private val context: Context,
     private val repository: LyricsRepository,
     private val settings: SettingsStore,
+    private val connectivity: Connectivity,
     private val scope: CoroutineScope,
 ) {
     private val manager: MediaSessionManager? = context.getSystemService(MediaSessionManager::class.java)
@@ -107,6 +109,7 @@ class LyricsPrefetcher(
             }
         }
         // queue items carry title and artist but no duration; the cache matches them later
+        if (settings.settings.value.lookAheadWifiOnly && connectivity.metered) return out
         val queue = c.queue.orEmpty()
         val active = c.playbackState?.activeQueueItemId ?: -1
         val at = queue.indexOfFirst { it.queueId == active }

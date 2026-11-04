@@ -76,6 +76,8 @@ class StageRenderer {
         layer: StageLayer,
         /** Audio sync correction for estimated word times (0 when words are timed by the source). */
         wordShiftMs: Long = 0,
+        /** Left-to-right fill while a word is sung; off in battery saver (words light up whole). */
+        sweep: Boolean = true,
     ) {
         if (li < 0 || li >= prep.plan.lines.size) return
         // the line comes and goes on its own timestamp; only word timing is shifted
@@ -111,7 +113,7 @@ class StageRenderer {
                 StageLayer.MOTION -> if (!moving) continue
                 StageLayer.ALL -> Unit
             }
-            val fill = LineTiming.fill(word, wpos)
+            val fill = if (sweep) LineTiming.fill(word, wpos) else if (wpos >= word.startMs) 1f else 0f
             val held = if (reduceMotion) 0f else heldAmount(word, wpos, prep.heldMs[li])
             val highlighted = p.index in highlights
             val colour = when {
@@ -227,6 +229,29 @@ class StageRenderer {
     }
 
     /**
+     * Milliseconds until the drawing next changes, for the battery saver loop: 0 while a word
+     * is fading in or the line is leaving, otherwise the time to the next word or line event.
+     * Assumes battery saver drawing (fades only, no sweep).
+     */
+    fun idleMs(prep: PreparedStage, li: Int, pos: Long): Long {
+        var next = Long.MAX_VALUE
+        if (li >= 0) {
+            val line = prep.plan.lines[li]
+            for (w in line.words) {
+                val enter = w.startMs - ENTRY_LEAD_MS
+                if (pos in enter until enter + FADE_MS) return 0
+                if (enter > pos) next = minOf(next, enter)
+                if (w.startMs > pos) next = minOf(next, w.startMs) // word turns from dim to full
+            }
+            val exitAt = line.endMs - LineTiming.EXIT_MS
+            if (pos in exitAt until line.endMs) return 0
+            if (exitAt > pos) next = minOf(next, exitAt)
+        }
+        prep.plan.lines.firstOrNull { LineTiming.enterAtMs(it) > pos }?.let { next = minOf(next, LineTiming.enterAtMs(it)) }
+        return if (next == Long.MAX_VALUE) 1_000 else (next - pos).coerceAtLeast(0)
+    }
+
+    /**
      * Instrumental passages (and the intro): three slowly pulsing dots until the next line
      * is about to enter. Driven by playback position, so they freeze when paused.
      */
@@ -263,6 +288,9 @@ class StageRenderer {
 
         /** Gaps shorter than this show nothing rather than dots. */
         const val GAP_MIN_MS = 2_500L
+
+        /** Battery saver fade-in length; matches the reduce-motion fade. */
+        private const val FADE_MS = 240L
 
         /** Opacity of words not yet sung. */
         const val DIM = 0.32f

@@ -52,6 +52,7 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     val track by vm.query.collectAsStateWithLifecycle()
     val offset by vm.offset.collectAsStateWithLifecycle()
     val cached by vm.cachedCount.collectAsStateWithLifecycle()
+    val cacheBytes by vm.cachedBytes.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -116,10 +117,14 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
         SliderRow(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
 
         Spacer(Modifier.height(8.dp))
+        ToggleRow(stringResource(R.string.settings_battery_saver), s.batterySaver) { vm.updateSettings { st -> st.copy(batterySaver = it) } }
         ToggleRow(stringResource(R.string.settings_reduce_motion), s.reduceMotion || systemReduceMotion, enabled = !systemReduceMotion) {
             vm.updateSettings { st -> st.copy(reduceMotion = it) }
         }
         ToggleRow(stringResource(R.string.settings_prefetch), s.backgroundPrefetch) { vm.updateSettings { st -> st.copy(backgroundPrefetch = it) } }
+        ToggleRow(stringResource(R.string.settings_lookahead_wifi), s.lookAheadWifiOnly, enabled = s.backgroundPrefetch) {
+            vm.updateSettings { st -> st.copy(lookAheadWifiOnly = it) }
+        }
         ToggleRow(stringResource(R.string.settings_audio_sync), s.audioSync) { on ->
             val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
             if (on && !granted) micPermission.launch(Manifest.permission.RECORD_AUDIO)
@@ -129,10 +134,10 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
 
         Section(stringResource(R.string.settings_lyrics))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_cached, cached), color = Color.White, modifier = Modifier.weight(1f))
+            Text(stringResource(R.string.settings_cache, formatBytes(cacheBytes), cached), color = Color.White, modifier = Modifier.weight(1f))
             TextButton(onClick = {
                 vm.clearFetchedLyrics { Toast.makeText(context, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show() }
-            }) { Text(stringResource(R.string.settings_clear_cache)) }
+            }, enabled = cached > 0) { Text(stringResource(R.string.settings_delete_cache)) }
         }
 
         Spacer(Modifier.height(12.dp))
@@ -179,4 +184,10 @@ private fun LinkRow(label: String, onClick: () -> Unit) {
         color = Color.White,
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
     )
+}
+
+/** "0 KB", "84 KB", "1.4 MB". Lyrics are text, so a cache rarely passes a few megabytes. */
+private fun formatBytes(bytes: Long): String = when {
+    bytes < 1024L * 1024 -> "%d KB".format((bytes + 1023) / 1024)
+    else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
 }

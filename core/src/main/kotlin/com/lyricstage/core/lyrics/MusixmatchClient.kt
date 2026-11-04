@@ -25,11 +25,28 @@ class MusixmatchClient(
     private val http: OkHttpClient,
     private val baseUrl: HttpUrl = "https://apic-desktop.musixmatch.com/ws/1.1/".toHttpUrl(),
     private val now: () -> Long = System::currentTimeMillis,
+    /** Keeps the token across app starts, so it is not requested on every launch. */
+    private val store: TokenStore = TokenStore.InMemory(),
 ) {
+    /** Where the user token and the rest-until time live. */
+    interface TokenStore {
+        var token: String?
+        var restUntil: Long
+
+        class InMemory : TokenStore {
+            override var token: String? = null
+            override var restUntil: Long = 0
+        }
+    }
+
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
     private val tokenLock = Mutex()
-    private var token: String? = null
-    private var restUntil = 0L
+    private var token: String?
+        get() = store.token
+        set(v) { store.token = v }
+    private var restUntil: Long
+        get() = store.restUntil
+        set(v) { store.restUntil = v }
 
     suspend fun find(title: String, artist: String, album: String?, durationMs: Long?): LyricsLookup {
         if (now() < restUntil) return LyricsLookup.Unavailable

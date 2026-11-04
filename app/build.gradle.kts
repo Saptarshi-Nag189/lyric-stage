@@ -41,7 +41,10 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            // strip unused library code (smaller APK, fewer stray API references)
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             // Without a release key, fall back to the debug key so the build is still installable.
             signingConfig = signingConfigs.getByName(if (ksPath != null) "release" else "debug")
         }
@@ -98,4 +101,5 @@ dependencies {
     implementation(libs.okhttp)
 
     testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
 }
