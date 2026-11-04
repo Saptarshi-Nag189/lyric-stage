@@ -52,6 +52,7 @@ import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
+import com.lyricstage.settings.RippleMode
 import com.lyricstage.ui.theme.Ui
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -77,6 +78,8 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         vm.updateSettings { it.copy(audioSync = granted) }
     }
+    // beat ripples work without the microphone too (gentle pace), so a refusal keeps the choice
+    val beatPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     Column(
         Modifier
@@ -159,6 +162,23 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                 ),
                 s.background,
             ) { mode -> vm.updateSettings { it.copy(background = mode) } }
+            Spacer(Modifier.height(20.dp))
+            Text(stringResource(R.string.settings_ripples), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            Segmented(
+                listOf(
+                    RippleMode.WORDS to stringResource(R.string.ripples_words),
+                    RippleMode.BEATS to stringResource(R.string.ripples_beats),
+                ),
+                s.ripples,
+            ) { mode ->
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                vm.updateSettings { it.copy(ripples = mode) }
+                if (mode == RippleMode.BEATS && !granted) beatPermission.launch(Manifest.permission.RECORD_AUDIO)
+            }
+            if (s.ripples == RippleMode.BEATS) {
+                Text(stringResource(R.string.hint_ripples_beats), color = Ui.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
+            }
             Spacer(Modifier.height(20.dp))
             PercentSlider(stringResource(R.string.settings_font_scale), s.fontScale, 0.6f..1.4f, 7, accent) { v -> vm.updateSettings { it.copy(fontScale = v) } }
             Spacer(Modifier.height(12.dp))

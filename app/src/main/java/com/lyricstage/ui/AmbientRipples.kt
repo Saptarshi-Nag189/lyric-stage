@@ -20,8 +20,17 @@ import kotlin.random.Random
  * otherwise at an unhurried, slightly irregular pace from random spots.
  */
 @Composable
-fun AmbientRipples(active: Boolean, lyrics: Lyrics?, clock: PlaybackClock, beats: AudioOnsets?, emit: (Ripple) -> Unit) {
+fun AmbientRipples(
+    active: Boolean,
+    lyrics: Lyrics?,
+    clock: PlaybackClock,
+    beats: AudioOnsets?,
+    /** Beats for the whole song, sung lines included (the "Beats" ripple setting). */
+    always: Boolean = false,
+    emit: (Ripple) -> Unit,
+) {
     val currentLyrics by rememberUpdatedState(lyrics)
+    val currentAlways by rememberUpdatedState(always)
     val currentEmit by rememberUpdatedState(emit)
     LaunchedEffect(active, beats) {
         if (!active) return@LaunchedEffect
@@ -34,7 +43,7 @@ fun AmbientRipples(active: Boolean, lyrics: Lyrics?, clock: PlaybackClock, beats
         var nextGentle = SystemClock.elapsedRealtime() + 600 + rnd.nextLong(900)
         while (true) {
             delay(TICK_MS)
-            if (!wanted(currentLyrics, clock.smoothedPositionMs())) continue
+            if (!currentAlways && !wanted(currentLyrics, clock.smoothedPositionMs())) continue
             val now = SystemClock.elapsedRealtime()
             val b = beats
             if (b != null && b.running && !b.isDeaf(now)) {

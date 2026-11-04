@@ -32,8 +32,10 @@ import com.lyricstage.background.BackgroundClock
 import com.lyricstage.background.RippleEmitter
 import com.lyricstage.background.StageBackground
 import com.lyricstage.core.lyrics.LyricsKind
+import com.lyricstage.core.stage.Ripple
 import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
+import com.lyricstage.settings.RippleMode
 import com.lyricstage.stage.LyricStage
 import com.lyricstage.ui.theme.Ui
 import kotlinx.coroutines.delay
@@ -78,7 +80,9 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     val hasTrack = np?.hasTrack == true
     val ambient = playing && !saver && hasTrack
     val beats = remember { AudioOnsets.beats() }
-    val beatsActive = ambient && settings.audioSync && !audioActive && wantsAmbientRipples(readyLyrics) &&
+    val beatRipples = settings.ripples == RippleMode.BEATS
+    val beatsActive = ambient &&
+        (beatRipples || (settings.audioSync && !audioActive && wantsAmbientRipples(readyLyrics))) &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
     DisposableEffect(beatsActive) {
         if (beatsActive) beats.start() else beats.stop()
@@ -172,7 +176,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         )
 
         val current = np
-        AmbientRipples(ambient, readyLyrics, vm.clock, if (beatsActive) beats else null) { ripples.emit(it, bgClock.seconds()) }
+        AmbientRipples(ambient, readyLyrics, vm.clock, if (beatsActive) beats else null, always = beatRipples) { ripples.emit(it, bgClock.seconds()) }
 
         val accent = Ui.accent(palette)
         val pill: StatePill? = when {
@@ -209,7 +213,11 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         simple = saver,
                         dimmed = controlsVisible,
                         showFps = settings.showFps,
-                        onRipple = { ripples.emit(it, bgClock.seconds()) },
+                        onRipple = {
+                            // with beat ripples, sung words keep only the light sweep on a new line
+                            if (!beatRipples) ripples.emit(it, bgClock.seconds())
+                            else if (it.newLine) ripples.emit(Ripple(it.x, it.y, 0f, true), bgClock.seconds())
+                        },
                         onVisibleTemplate = { visibleTemplate = it },
                         audio = if (audioActive) audio else null,
                     )

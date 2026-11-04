@@ -55,7 +55,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 - If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms and is saved for that song. Reset puts it back to 0.
 - If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
 - Songs with lyrics but no timings scroll slowly with the song and are labelled as unsynced.
-- Settings also has the layout lock, background style, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
+- Settings also has the layout lock, background style, ripples on sung words or on the beat, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
 
 ## Privacy
 

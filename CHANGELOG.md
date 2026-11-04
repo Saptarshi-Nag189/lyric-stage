@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.11]
+
+### New
+- Settings, Look: a Ripples choice. Sung words (as before) makes a ripple for each sung
+  word, and beats or a gentle pace when nothing is sung. Beats makes ripples only on the
+  beat of the music, for every song, lyrics or not; new lines still sweep their light.
+  Beats are heard through the microphone; without it, ripples come at a gentle pace.
+
 ## [1.0.10]
 
 ### New

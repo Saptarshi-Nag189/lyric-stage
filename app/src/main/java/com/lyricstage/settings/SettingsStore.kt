@@ -10,6 +10,14 @@ import kotlinx.coroutines.flow.asStateFlow
 
 enum class BackgroundMode { LIQUID, ARTWORK, SOLID }
 
+/** What sends ripples through the liquid background. */
+enum class RippleMode {
+    /** Each sung word; beats or a gentle pace when nothing is sung. */
+    WORDS,
+    /** Only the beat of the music (heard through the microphone), for every song. */
+    BEATS,
+}
+
 data class StageSettings(
     /** Null means Auto. */
     val template: TemplateId? = null,
@@ -27,6 +35,7 @@ data class StageSettings(
     val lookAheadWifiOnly: Boolean = true,
     /** Pure black background and simple fades only, to save battery. */
     val batterySaver: Boolean = false,
+    val ripples: RippleMode = RippleMode.WORDS,
 )
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
@@ -48,6 +57,7 @@ class SettingsStore(private val context: Context) {
             putBoolean(K_AUDIO, next.audioSync)
             putBoolean(K_WIFI, next.lookAheadWifiOnly)
             putBoolean(K_SAVER, next.batterySaver)
+            putString(K_RIPPLES, next.ripples.name)
         }
         _settings.value = next
     }
@@ -67,6 +77,7 @@ class SettingsStore(private val context: Context) {
         audioSync = prefs.getBoolean(K_AUDIO, false),
         lookAheadWifiOnly = prefs.getBoolean(K_WIFI, true),
         batterySaver = prefs.getBoolean(K_SAVER, false),
+        ripples = prefs.getString(K_RIPPLES, null)?.let { runCatching { RippleMode.valueOf(it) }.getOrNull() } ?: RippleMode.WORDS,
     )
 
     private companion object {
@@ -80,5 +91,6 @@ class SettingsStore(private val context: Context) {
         const val K_AUDIO = "audio_sync"
         const val K_WIFI = "look_ahead_wifi_only"
         const val K_SAVER = "battery_saver"
+        const val K_RIPPLES = "ripples"
     }
 }

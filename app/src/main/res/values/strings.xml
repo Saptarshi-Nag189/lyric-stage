@@ -57,6 +57,10 @@
     <string name="background_liquid">Liquid</string>
     <string name="background_artwork">Artwork</string>
     <string name="background_solid">Solid</string>
+    <string name="settings_ripples">Ripples</string>
+    <string name="ripples_words">Sung words</string>
+    <string name="ripples_beats">Beats</string>
+    <string name="hint_ripples_beats">Beats are heard through the microphone; without it they come at a gentle pace</string>
     <string name="settings_font_scale">Text size</string>
     <string name="settings_highlight">Highlights</string>
     <string name="settings_reduce_motion">Reduce motion</string>
