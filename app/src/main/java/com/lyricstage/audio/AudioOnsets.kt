@@ -16,7 +16,13 @@ import kotlin.math.sqrt
  * Needs RECORD_AUDIO. The work per capture is one pass over ~100 FFT bins, about 20 times a
  * second, on the Visualizer's own thread.
  */
-class AudioOnsets {
+class AudioOnsets(
+    /** Band to watch: the voice by default; 40 to 160 Hz finds kick drums (beats). */
+    private val lowHz: Float = LOW_HZ,
+    private val highHz: Float = HIGH_HZ,
+    private val minGapMs: Long = MIN_GAP_MS,
+    private val minFlux: Float = MIN_FLUX,
+) {
     /** `SystemClock.elapsedRealtime()` of each detected onset, oldest first. */
     val onsets = ConcurrentLinkedQueue<Long>()
 
@@ -81,8 +87,8 @@ class AudioOnsets {
     private fun analyse(fft: ByteArray, samplingRate: Int) {
         val bins = fft.size / 2
         val hzPerBin = samplingRate / 1000f / 2f / bins
-        val lo = (LOW_HZ / hzPerBin).toInt().coerceIn(1, bins - 1)
-        val hi = (HIGH_HZ / hzPerBin).toInt().coerceIn(lo + 1, bins - 1)
+        val lo = (lowHz / hzPerBin).toInt().coerceIn(1, bins - 1)
+        val hi = (highHz / hzPerBin).toInt().coerceIn(lo + 1, bins - 1)
         if (prev.size != hi - lo) prev = FloatArray(hi - lo)
         var flux = 0f
         var loud = false
@@ -101,14 +107,17 @@ class AudioOnsets {
         variance = (1 - ALPHA) * (variance + ALPHA * d * d)
         val now = SystemClock.elapsedRealtime()
         if (loud) lastSoundAt = now
-        if (flux > mean + K * sqrt(variance) && flux > MIN_FLUX && now - lastOnset > MIN_GAP_MS) {
+        if (flux > mean + K * sqrt(variance) && flux > minFlux && now - lastOnset > minGapMs) {
             lastOnset = now
             onsets.add(now)
             while (onsets.size > 64) onsets.poll()
         }
     }
 
-    private companion object {
+    companion object {
+        /** Kick drums: low band, at most about three beats a second. */
+        fun beats() = AudioOnsets(lowHz = 40f, highHz = 160f, minGapMs = 300L, minFlux = 1.2f)
+
         const val TAG = "AudioOnsets"
         const val LOW_HZ = 250f
         const val HIGH_HZ = 3000f

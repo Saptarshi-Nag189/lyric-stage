@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.0.10]
+
+### New
+- The liquid background keeps moving, with ripples, when there is nothing sung to ripple
+  it: songs with no lyrics, instrumentals, unsynced lyrics, the intro and long gaps between
+  lines. With audio sync on and the music audible (phone speaker), the ripples follow the
+  beat; otherwise they come at a gentle, slightly irregular pace from random spots.
+
 ## [1.0.9]
 
 ### Fixed

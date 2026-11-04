@@ -51,8 +51,6 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     val saver = settings.batterySaver
     val playing = np?.isPlaying == true
     val readyLyrics = (state as? LyricsState.Ready)?.lyrics
-    // the kinetic stage or the scrolling plain view is showing (not instrumental, not empty)
-    val lyricsLive = readyLyrics != null && (readyLyrics.kind == LyricsKind.PLAIN || (readyLyrics.isSynced && readyLyrics.lines.isNotEmpty()))
 
     // audio sync: listen only when it can help, line-timed lyrics on stage while playing
     val audio = remember { AudioOnsets() }
@@ -73,6 +71,18 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     DisposableEffect(audioActive) {
         if (audioActive) audio.start() else audio.stop()
         onDispose { audio.stop() }
+    }
+
+    // with nothing sung to make ripples (no lyrics, instrumental, unsynced), listen for beats
+    // when audio sync is allowed; otherwise ambient ripples run at a gentle pace
+    val hasTrack = np?.hasTrack == true
+    val ambient = playing && !saver && hasTrack
+    val beats = remember { AudioOnsets.beats() }
+    val beatsActive = ambient && settings.audioSync && !audioActive && wantsAmbientRipples(readyLyrics) &&
+        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+    DisposableEffect(beatsActive) {
+        if (beatsActive) beats.start() else beats.stop()
+        onDispose { beats.stop() }
     }
     // say once per song when audio sync hears nothing (Bluetooth output, usually)
     var audioDeaf by remember { mutableStateOf(false) }
@@ -156,11 +166,14 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     ) {
         StageBackground(
             settings.background, palette, np?.art, ripples, bgClock, reduceMotion,
-            animate = playing && lyricsLive && !saver,
+            // keeps moving with no lyrics too, so a song without them doesn't look frozen
+            animate = playing && hasTrack && !saver,
             black = saver,
         )
 
         val current = np
+        AmbientRipples(ambient, readyLyrics, vm.clock, if (beatsActive) beats else null) { ripples.emit(it, bgClock.seconds()) }
+
         val accent = Ui.accent(palette)
         val pill: StatePill? = when {
             current == null || !current.hasTrack -> StatePill(R.string.state_no_session)
