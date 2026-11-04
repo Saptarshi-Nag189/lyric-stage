@@ -15,17 +15,20 @@ class Connectivity(context: Context) {
     val online: StateFlow<Boolean> = _online.asStateFlow()
 
     init {
-        cm?.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
-            override fun onAvailable(network: Network) { _online.value = check() }
-            override fun onLost(network: Network) { _online.value = check() }
-            override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { _online.value = check() }
-        })
+        // never let connectivity checks take the app down; assume online if they fail
+        runCatching {
+            cm?.registerDefaultNetworkCallback(object : ConnectivityManager.NetworkCallback() {
+                override fun onAvailable(network: Network) { _online.value = check() }
+                override fun onLost(network: Network) { _online.value = check() }
+                override fun onCapabilitiesChanged(network: Network, caps: NetworkCapabilities) { _online.value = check() }
+            })
+        }
     }
 
-    val metered: Boolean get() = cm?.isActiveNetworkMetered ?: true
+    val metered: Boolean get() = runCatching { cm?.isActiveNetworkMetered }.getOrNull() ?: true
 
-    private fun check(): Boolean {
-        val caps = cm?.getNetworkCapabilities(cm.activeNetwork) ?: return false
-        return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-    }
+    private fun check(): Boolean = runCatching {
+        val caps = cm?.getNetworkCapabilities(cm.activeNetwork) ?: return@runCatching false
+        caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+    }.getOrDefault(true)
 }

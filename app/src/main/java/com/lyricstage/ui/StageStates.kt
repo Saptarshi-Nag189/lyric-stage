@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 
 /** Small status pill near the bottom of the stage, with an optional action. */
 @Composable
-fun StagePill(text: String, action: String? = null, onAction: () -> Unit = {}, modifier: Modifier = Modifier) {
+fun StagePill(text: String, modifier: Modifier = Modifier, action: String? = null, onAction: () -> Unit = {}) {
     Row(
         modifier
             .windowInsetsPadding(WindowInsets.mandatorySystemGestures)

@@ -48,9 +48,11 @@ jobs:
         with:
           cache-disabled: true
 
-      - name: Unit tests
+      - name: Unit tests and lint
         if: env.SKIP != '1'
-        run: ./gradlew -PcoreOnly :core:test
+        run: |
+          ./gradlew -PcoreOnly :core:test
+          ./gradlew :app:testDebugUnitTest :app:lintDebug
 
       - name: Decode release keystore
         if: env.SKIP != '1'

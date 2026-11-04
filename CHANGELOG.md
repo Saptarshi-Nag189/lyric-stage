@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.2]
+
+### Fixed
+- 1.0.1 could crash on start: it checked the network connection without declaring the
+  network-state permission. Connectivity checks now also fail safe.
+- Releases now run lint and the app tests before publishing.
+
 ## [1.0.1]
 
 ### New

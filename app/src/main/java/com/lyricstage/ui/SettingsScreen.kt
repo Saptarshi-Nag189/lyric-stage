@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -134,7 +135,7 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
 
         Section(stringResource(R.string.settings_lyrics))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(stringResource(R.string.settings_cache, formatBytes(cacheBytes), cached), color = Color.White, modifier = Modifier.weight(1f))
+            Text(pluralStringResource(R.plurals.settings_cache, cached, formatBytes(cacheBytes), cached), color = Color.White, modifier = Modifier.weight(1f))
             TextButton(onClick = {
                 vm.clearFetchedLyrics { Toast.makeText(context, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show() }
             }, enabled = cached > 0) { Text(stringResource(R.string.settings_delete_cache)) }

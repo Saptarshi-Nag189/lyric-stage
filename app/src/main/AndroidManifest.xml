@@ -3,6 +3,8 @@
 
     <!-- Lyrics lookups: LRCLIB, NetEase and Musixmatch. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Offline detection and Wi-Fi-only look-ahead. Normal permission, no prompt. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
     <!-- Audio sync only (off by default): the Visualizer reads the phone's audio output to
          find vocal onsets. Nothing is recorded or sent anywhere. -->
