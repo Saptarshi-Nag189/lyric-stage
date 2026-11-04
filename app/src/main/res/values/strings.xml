@@ -4,8 +4,11 @@
     <string name="listener_label">LyricStage now playing</string>
 
     <!-- Onboarding -->
-    <string name="onboarding_title">See the words as they\'re sung</string>
-    <string name="onboarding_body">LyricStage needs notification access to see what\'s playing. It never reads your notifications.</string>
+    <string name="onboarding_title">Lyrics for whatever is playing</string>
+    <string name="onboarding_body">Spotify, YouTube Music or any player. Each line is shown word by word, in time with the song.</string>
+    <string name="onboarding_step1">Allow notification access, so the app can see what is playing</string>
+    <string name="onboarding_step2">Play a song in any music app</string>
+    <string name="onboarding_privacy">The app only reads what is playing. It never reads your notifications.</string>
     <string name="onboarding_grant">Open notification access</string>
 
     <!-- Stage states -->
@@ -13,13 +16,16 @@
     <string name="state_loading">Finding lyrics</string>
     <string name="state_no_lyrics">No lyrics found</string>
     <string name="state_unavailable">Lyrics service unreachable</string>
-    <string name="state_offline">Offline</string>
+    <string name="state_offline">Offline · saved lyrics still work</string>
     <string name="state_instrumental">Instrumental</string>
     <string name="timing_word">%1$s · word timed</string>
     <string name="timing_line">%1$s · line timed</string>
     <string name="timing_none">%1$s · not timed</string>
+    <string name="tag_word">Word timed</string>
+    <string name="tag_line">Line timed</string>
+    <string name="tag_none">Not timed</string>
     <string name="audio_sync_silent">Audio sync can\'t hear this output</string>
-    <string name="import_lrc">Import .lrc</string>
+    <string name="import_lrc">Import</string>
     <string name="import_done">Lyrics imported for this track</string>
     <string name="import_failed">That file doesn\'t look like lyrics</string>
 
@@ -30,9 +36,11 @@
     <string name="next">Next</string>
     <string name="settings">Settings</string>
     <string name="template_auto">Auto</string>
-    <string name="sync_earlier">−250 ms</string>
-    <string name="sync_later">+250 ms</string>
-    <string name="sync_label">%1$+d ms</string>
+    <string name="sync_earlier">Earlier</string>
+    <string name="sync_later">Later</string>
+    <string name="sync_label">%1$+.2f s</string>
+    <string name="sync_title">Sync</string>
+    <string name="import_lrc_file">Import .lrc file</string>
     <string name="sync_reset">Reset</string>
     <string name="settings_audio_sync">Audio sync</string>
     <string name="plain_badge">Unsynced</string>
@@ -42,28 +50,38 @@
 
     <!-- Settings -->
     <string name="settings_this_song">This song</string>
-    <string name="settings_template">Template</string>
+    <string name="settings_template">Layout</string>
+    <string name="settings_look">Look</string>
+    <string name="settings_motion">Motion and battery</string>
     <string name="settings_background">Background</string>
     <string name="background_liquid">Liquid</string>
-    <string name="background_artwork">Artwork blur</string>
+    <string name="background_artwork">Artwork</string>
     <string name="background_solid">Solid</string>
-    <string name="settings_font_scale">Font size</string>
-    <string name="settings_highlight">Highlight intensity</string>
+    <string name="settings_font_scale">Text size</string>
+    <string name="settings_highlight">Highlights</string>
     <string name="settings_reduce_motion">Reduce motion</string>
     <string name="settings_fps">Show FPS</string>
     <string name="settings_lyrics">Lyrics</string>
     <string name="settings_battery_saver">Battery saver</string>
     <string name="settings_lookahead_wifi">Look ahead on Wi-Fi only</string>
+    <string name="settings_saved_lyrics">Saved lyrics</string>
     <plurals name="settings_cache">
-        <item quantity="one">Lyrics cache: %1$s · %2$d song</item>
-        <item quantity="other">Lyrics cache: %1$s · %2$d songs</item>
+        <item quantity="one">%1$s · %2$d song</item>
+        <item quantity="other">%1$s · %2$d songs</item>
     </plurals>
-    <string name="settings_delete_cache">Delete cache</string>
-    <string name="settings_prefetch">Fetch lyrics in the background</string>
+    <string name="settings_cache_empty">Nothing saved</string>
+    <string name="settings_delete_cache">Delete</string>
+    <string name="settings_prefetch">Background fetch</string>
+    <string name="hint_battery_saver">Black background, simple fades</string>
+    <string name="hint_reduce_motion">Fades instead of movement</string>
+    <string name="hint_audio_sync">Listens through the microphone</string>
+    <string name="hint_prefetch">Saves lyrics as songs change</string>
+    <string name="hint_lookahead">Next two songs in the queue</string>
+    <string name="settings_version">LyricStage %1$s</string>
     <string name="settings_cache_cleared">Cache deleted</string>
     <string name="settings_debug">Debug</string>
-    <string name="debug_now_playing">Now playing and clock</string>
-    <string name="debug_lyrics">Lyrics line list</string>
+    <string name="debug_now_playing">Now playing</string>
+    <string name="debug_lyrics">Fetched lyrics</string>
     <string name="debug_fitcheck">FitCheck</string>
     <string name="back">Back</string>
 

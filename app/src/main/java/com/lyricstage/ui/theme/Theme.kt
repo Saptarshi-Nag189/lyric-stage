@@ -10,13 +10,16 @@ import androidx.compose.ui.text.TextStyle
 import com.lyricstage.stage.StageFonts
 
 private val Scheme = darkColorScheme(
-    primary = Color(0xFFFF375F),
-    onPrimary = Color.White,
-    secondary = Color(0xFF64D2FF),
-    background = Color(0xFF0B0B12),
-    surface = Color(0xFF15151E),
-    onBackground = Color.White,
-    onSurface = Color.White,
+    primary = Ui.Default,
+    onPrimary = Ui.OnAccent,
+    secondary = Color(0xFF7FD1FF),
+    background = Ui.Ground,
+    surface = Ui.Card,
+    surfaceVariant = Ui.Raised,
+    onBackground = Ui.Text,
+    onSurface = Ui.Text,
+    onSurfaceVariant = Ui.Muted,
+    outline = Ui.Line,
 )
 
 @Composable

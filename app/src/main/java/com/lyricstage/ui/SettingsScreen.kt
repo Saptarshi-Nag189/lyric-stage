@@ -5,9 +5,10 @@ import android.content.pm.PackageManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -16,44 +17,55 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
-import androidx.compose.material3.Switch
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.lyricstage.BuildConfig
 import com.lyricstage.R
+import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.core.stage.TemplateId
+import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
-
-private val Muted = Color.White.copy(alpha = 0.6f)
+import com.lyricstage.ui.theme.Ui
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit, onOpen: (Screen) -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
     val track by vm.query.collectAsStateWithLifecycle()
+    val np by vm.nowPlaying.collectAsStateWithLifecycle()
+    val lyrics by vm.lyrics.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
     val offset by vm.offset.collectAsStateWithLifecycle()
     val cached by vm.cachedCount.collectAsStateWithLifecycle()
     val cacheBytes by vm.cachedBytes.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -69,121 +81,169 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     Column(
         Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background)
+            .background(Ui.Ground)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 20.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(onClick = onBack) { Text(stringResource(R.string.back), color = Color.White) }
-            Text(stringResource(R.string.settings), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold, color = Color.White)
+        Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+            CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
+            Text(
+                stringResource(R.string.settings),
+                color = Ui.Text,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.5).sp,
+                modifier = Modifier.padding(start = 16.dp),
+            )
         }
+        Spacer(Modifier.height(16.dp))
 
         val current = track
         if (current != null) {
-            Section(stringResource(R.string.settings_this_song))
-            Text(current.title + " · " + current.artist, color = Muted, style = MaterialTheme.typography.bodyMedium)
+            UiCard {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    val art = remember(np?.art) { np?.art?.asImageBitmap() }
+                    Box(Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(accent), contentAlignment = Alignment.Center) {
+                        if (art != null) {
+                            Image(art, stringResource(R.string.artwork), contentScale = ContentScale.Crop, modifier = Modifier.size(64.dp))
+                        }
+                    }
+                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                        Text(current.title, color = Ui.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(current.artist, color = Ui.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        val ready = lyrics as? LyricsState.Ready
+                        if (ready != null) {
+                            GapRow(6, Modifier.padding(top = 6.dp)) {
+                                Tag(sourceName(ready.source))
+                                timingLabel(ready.lyrics.kind)?.let { Tag(stringResource(it)) }
+                            }
+                        }
+                    }
+                }
+                Spacer(Modifier.height(18.dp))
+                LabelValue(stringResource(R.string.sync_title), stringResource(R.string.sync_label, offset / 1000f), valueColour = accent)
+                Spacer(Modifier.height(10.dp))
+                GapRow(8) {
+                    PillButton(stringResource(R.string.sync_earlier), { vm.nudge(-250) }, Modifier.weight(1f))
+                    PillButton(stringResource(R.string.sync_reset), { vm.resetOffset() }, Modifier.weight(1f), style = PillStyle.OUTLINE, enabled = offset != 0L)
+                    PillButton(stringResource(R.string.sync_later), { vm.nudge(250) }, Modifier.weight(1f))
+                }
+                Spacer(Modifier.height(10.dp))
+                PillButton(
+                    stringResource(R.string.import_lrc_file),
+                    { importLauncher.launch(arrayOf("*/*")) },
+                    Modifier.fillMaxWidth(),
+                    style = PillStyle.PRIMARY,
+                    accent = accent,
+                )
+            }
+        }
+
+        SectionHeader(stringResource(R.string.settings_look))
+        UiCard {
+            Text(stringResource(R.string.settings_template), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedButton(onClick = { vm.nudge(-250) }) { Text(stringResource(R.string.sync_earlier)) }
-                Text(stringResource(R.string.sync_label, offset.toInt()), color = Color.White, modifier = Modifier.padding(horizontal = 4.dp))
-                OutlinedButton(onClick = { vm.nudge(250) }) { Text(stringResource(R.string.sync_later)) }
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChoicePill(stringResource(R.string.template_auto), s.template == null, accent, { vm.setTemplate(null) })
+                TemplateId.entries.forEach { id -> ChoicePill(id.label, s.template == id, accent, { vm.setTemplate(id) }) }
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = { vm.resetOffset() }, enabled = offset != 0L) { Text(stringResource(R.string.sync_reset)) }
-                TextButton(onClick = { importLauncher.launch(arrayOf("*/*")) }) { Text(stringResource(R.string.import_lrc)) }
+            Spacer(Modifier.height(20.dp))
+            Text(stringResource(R.string.settings_background), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            Segmented(
+                listOf(
+                    BackgroundMode.LIQUID to stringResource(R.string.background_liquid),
+                    BackgroundMode.ARTWORK to stringResource(R.string.background_artwork),
+                    BackgroundMode.SOLID to stringResource(R.string.background_solid),
+                ),
+                s.background,
+            ) { mode -> vm.updateSettings { it.copy(background = mode) } }
+            Spacer(Modifier.height(20.dp))
+            PercentSlider(stringResource(R.string.settings_font_scale), s.fontScale, 0.6f..1.4f, 7, accent) { v -> vm.updateSettings { it.copy(fontScale = v) } }
+            Spacer(Modifier.height(12.dp))
+            PercentSlider(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
+        }
+
+        SectionHeader(stringResource(R.string.settings_motion))
+        UiCard(padding = 0) {
+            ToggleRow(stringResource(R.string.settings_battery_saver), s.batterySaver, accent, { on -> vm.updateSettings { it.copy(batterySaver = on) } },
+                hint = stringResource(R.string.hint_battery_saver), divider = false)
+            ToggleRow(stringResource(R.string.settings_reduce_motion), s.reduceMotion || systemReduceMotion, accent, { on -> vm.updateSettings { it.copy(reduceMotion = on) } },
+                hint = stringResource(R.string.hint_reduce_motion), enabled = !systemReduceMotion)
+            ToggleRow(stringResource(R.string.settings_audio_sync), s.audioSync, accent, { on ->
+                val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
+                if (on && !granted) micPermission.launch(Manifest.permission.RECORD_AUDIO) else vm.updateSettings { it.copy(audioSync = on) }
+            }, hint = stringResource(R.string.hint_audio_sync))
+        }
+
+        SectionHeader(stringResource(R.string.settings_lyrics))
+        UiCard(padding = 0) {
+            ToggleRow(stringResource(R.string.settings_prefetch), s.backgroundPrefetch, accent, { on -> vm.updateSettings { it.copy(backgroundPrefetch = on) } },
+                hint = stringResource(R.string.hint_prefetch), divider = false)
+            ToggleRow(stringResource(R.string.settings_lookahead_wifi), s.lookAheadWifiOnly, accent, { on -> vm.updateSettings { it.copy(lookAheadWifiOnly = on) } },
+                hint = stringResource(R.string.hint_lookahead), enabled = s.backgroundPrefetch)
+            HorizontalDivider(color = Ui.Raised)
+            Row(Modifier.fillMaxWidth().heightIn(min = 72.dp), verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(stringResource(R.string.settings_saved_lyrics), color = Ui.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        if (cached == 0) stringResource(R.string.settings_cache_empty)
+                        else pluralStringResource(R.plurals.settings_cache, cached, formatBytes(cacheBytes), cached),
+                        color = Ui.Muted,
+                        fontSize = 13.sp,
+                    )
+                }
+                PillButton(
+                    stringResource(R.string.settings_delete_cache),
+                    { vm.clearFetchedLyrics { Toast.makeText(context, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show() } },
+                    style = PillStyle.OUTLINE,
+                    enabled = cached > 0,
+                    height = 44,
+                )
             }
         }
 
-        Section(stringResource(R.string.settings_template))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(s.template == null, onClick = { vm.setTemplate(null) }, label = { Text(stringResource(R.string.template_auto)) })
-            TemplateId.entries.forEach { id ->
-                FilterChip(s.template == id, onClick = { vm.setTemplate(id) }, label = { Text(id.label) })
-            }
+        SectionHeader(stringResource(R.string.settings_debug))
+        UiCard(padding = 0) {
+            ToggleRow(stringResource(R.string.settings_fps), s.showFps, accent, { on -> vm.updateSettings { it.copy(showFps = on) } }, divider = false)
+            LinkRow(stringResource(R.string.debug_now_playing), { onOpen(Screen.DEBUG_NOW_PLAYING) })
+            LinkRow(stringResource(R.string.debug_lyrics), { onOpen(Screen.DEBUG_LYRICS) })
+            LinkRow(stringResource(R.string.debug_fitcheck), { onOpen(Screen.FIT_CHECK) })
         }
 
-        Section(stringResource(R.string.settings_background))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(
-                BackgroundMode.LIQUID to R.string.background_liquid,
-                BackgroundMode.ARTWORK to R.string.background_artwork,
-                BackgroundMode.SOLID to R.string.background_solid,
-            ).forEach { (mode, label) ->
-                FilterChip(s.background == mode, onClick = { vm.updateSettings { it.copy(background = mode) } }, label = { Text(stringResource(label)) })
-            }
-        }
-
-        SliderRow(stringResource(R.string.settings_font_scale), s.fontScale, 0.6f..1.4f, steps = 7) { v -> vm.updateSettings { it.copy(fontScale = v) } }
-        SliderRow(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
-
-        Spacer(Modifier.height(8.dp))
-        ToggleRow(stringResource(R.string.settings_battery_saver), s.batterySaver) { vm.updateSettings { st -> st.copy(batterySaver = it) } }
-        ToggleRow(stringResource(R.string.settings_reduce_motion), s.reduceMotion || systemReduceMotion, enabled = !systemReduceMotion) {
-            vm.updateSettings { st -> st.copy(reduceMotion = it) }
-        }
-        ToggleRow(stringResource(R.string.settings_prefetch), s.backgroundPrefetch) { vm.updateSettings { st -> st.copy(backgroundPrefetch = it) } }
-        ToggleRow(stringResource(R.string.settings_lookahead_wifi), s.lookAheadWifiOnly, enabled = s.backgroundPrefetch) {
-            vm.updateSettings { st -> st.copy(lookAheadWifiOnly = it) }
-        }
-        ToggleRow(stringResource(R.string.settings_audio_sync), s.audioSync) { on ->
-            val granted = ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
-            if (on && !granted) micPermission.launch(Manifest.permission.RECORD_AUDIO)
-            else vm.updateSettings { it.copy(audioSync = on) }
-        }
-        ToggleRow(stringResource(R.string.settings_fps), s.showFps) { vm.updateSettings { st -> st.copy(showFps = it) } }
-
-        Section(stringResource(R.string.settings_lyrics))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(pluralStringResource(R.plurals.settings_cache, cached, formatBytes(cacheBytes), cached), color = Color.White, modifier = Modifier.weight(1f))
-            TextButton(onClick = {
-                vm.clearFetchedLyrics { Toast.makeText(context, R.string.settings_cache_cleared, Toast.LENGTH_SHORT).show() }
-            }, enabled = cached > 0) { Text(stringResource(R.string.settings_delete_cache)) }
-        }
-
-        Spacer(Modifier.height(12.dp))
-        HorizontalDivider(color = Color.White.copy(alpha = 0.15f))
-        Section(stringResource(R.string.settings_debug))
-        LinkRow(stringResource(R.string.debug_now_playing)) { onOpen(Screen.DEBUG_NOW_PLAYING) }
-        LinkRow(stringResource(R.string.debug_lyrics)) { onOpen(Screen.DEBUG_LYRICS) }
-        LinkRow(stringResource(R.string.debug_fitcheck)) { onOpen(Screen.FIT_CHECK) }
-        Spacer(Modifier.height(24.dp))
+        Text(
+            stringResource(R.string.settings_version, BuildConfig.VERSION_NAME),
+            color = Ui.Muted,
+            fontSize = 13.sp,
+            modifier = Modifier.padding(start = 4.dp, top = 20.dp, bottom = 24.dp),
+        )
     }
 }
 
+/** Heading with its value in per cent on the right, slider below. */
 @Composable
-private fun Section(title: String) {
-    Spacer(Modifier.height(22.dp))
-    Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.White)
-    Spacer(Modifier.height(8.dp))
-}
-
-/** Heading with the current value on the right, slider below. */
-@Composable
-private fun SliderRow(title: String, value: Float, range: ClosedFloatingPointRange<Float>, steps: Int = 0, onChange: (Float) -> Unit) {
-    Spacer(Modifier.height(18.dp))
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        Text(title, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold, color = Color.White, modifier = Modifier.weight(1f))
-        Text("%.0f %%".format(value * 100), color = Muted)
-    }
-    Slider(value, onValueChange = onChange, valueRange = range, steps = steps)
-}
-
-@Composable
-private fun ToggleRow(label: String, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(label, style = MaterialTheme.typography.titleMedium, color = Color.White, modifier = Modifier.weight(1f))
-        Switch(checked, onCheckedChange = onChange, enabled = enabled)
-    }
-}
-
-@Composable
-private fun LinkRow(label: String, onClick: () -> Unit) {
-    Text(
-        label,
-        style = MaterialTheme.typography.bodyLarge,
-        color = Color.White,
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
+private fun PercentSlider(
+    title: String,
+    value: Float,
+    range: ClosedFloatingPointRange<Float>,
+    steps: Int,
+    accent: Color,
+    onChange: (Float) -> Unit,
+) {
+    LabelValue(title, "%.0f %%".format(value * 100))
+    Slider(
+        value,
+        onValueChange = onChange,
+        valueRange = range,
+        steps = steps,
+        colors = SliderDefaults.colors(
+            thumbColor = Ui.Text,
+            activeTrackColor = accent,
+            inactiveTrackColor = Ui.Track,
+            activeTickColor = Ui.OnAccent.copy(alpha = 0.4f),
+            inactiveTickColor = Ui.Muted.copy(alpha = 0.4f),
+        ),
     )
 }
 
@@ -191,4 +251,23 @@ private fun LinkRow(label: String, onClick: () -> Unit) {
 private fun formatBytes(bytes: Long): String = when {
     bytes < 1024L * 1024 -> "%d KB".format((bytes + 1023) / 1024)
     else -> "%.1f MB".format(bytes / (1024.0 * 1024.0))
+}
+
+/** The pop-up and tag wording for how lyrics are timed; null for none worth naming. */
+fun timingLabel(kind: LyricsKind): Int? = when (kind) {
+    LyricsKind.WORD_SYNCED -> R.string.tag_word
+    LyricsKind.LINE_SYNCED -> R.string.tag_line
+    LyricsKind.PLAIN -> R.string.tag_none
+    LyricsKind.INSTRUMENTAL -> null
+}
+
+/** Display name of a lyrics source. */
+fun sourceName(source: String?): String = when (source) {
+    "lrclib" -> "LRCLIB"
+    "netease" -> "NetEase"
+    "musixmatch" -> "Musixmatch"
+    "kugou" -> "Kugou"
+    "import" -> "Imported"
+    null -> ""
+    else -> source
 }

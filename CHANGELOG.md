@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.7]
+
+### Changed
+- New look for everything around the lyrics: near-black screens, rounded cards, pill buttons
+  and one accent colour taken from the playing song's album art. The lyrics, their
+  animation and the liquid background are unchanged.
+- Settings: a card for the playing song (artwork, lyrics source and timing, sync with the
+  offset in seconds, Import), then Look, Motion and battery, Lyrics and Debug. Switches
+  fill the whole row and carry a one-line hint; saved lyrics show their size and count.
+- Controls: song and layout pills at the top; seek bar and playback buttons in one floating
+  card above the gesture area, with a large play button in the accent colour.
+- Onboarding: a larger headline, two numbered steps and one main button.
+- Pop-ups on the stage have icons (searching, offline, instrumental, audio sync) and an
+  Import button in the accent colour.
+
 ## [1.0.6]
 
 ### Fixed

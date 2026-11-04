@@ -35,6 +35,7 @@ import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.stage.LyricStage
+import com.lyricstage.ui.theme.Ui
 import kotlinx.coroutines.delay
 
 @Composable
@@ -160,16 +161,17 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         )
 
         val current = np
-        val pill: Pair<Int, Boolean>? = when {
-            current == null || !current.hasTrack -> R.string.state_no_session to false
+        val accent = Ui.accent(palette)
+        val pill: StatePill? = when {
+            current == null || !current.hasTrack -> StatePill(R.string.state_no_session)
             else -> when (val s = state) {
-                LyricsState.Idle, LyricsState.Loading -> R.string.state_loading to false
-                LyricsState.NotFound -> R.string.state_no_lyrics to true
-                LyricsState.Unavailable -> R.string.state_unavailable to true
-                LyricsState.Offline -> R.string.state_offline to true
+                LyricsState.Idle, LyricsState.Loading -> StatePill(R.string.state_loading, glyph = Glyph.SEARCHING)
+                LyricsState.NotFound -> StatePill(R.string.state_no_lyrics, import = true)
+                LyricsState.Unavailable -> StatePill(R.string.state_unavailable, import = true)
+                LyricsState.Offline -> StatePill(R.string.state_offline, glyph = Glyph.OFFLINE)
                 is LyricsState.Ready -> when {
-                    s.lyrics.kind == LyricsKind.INSTRUMENTAL -> R.string.state_instrumental to false
-                    s.lyrics.kind != LyricsKind.PLAIN && s.lyrics.lines.isEmpty() -> R.string.state_no_lyrics to true
+                    s.lyrics.kind == LyricsKind.INSTRUMENTAL -> StatePill(R.string.state_instrumental, glyph = Glyph.NOTE)
+                    s.lyrics.kind != LyricsKind.PLAIN && s.lyrics.lines.isEmpty() -> StatePill(R.string.state_no_lyrics, import = true)
                     else -> null
                 }
             }
@@ -202,17 +204,21 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         }
         if (pill != null) {
             StagePill(
-                stringResource(pill.first),
-                action = if (pill.second) stringResource(R.string.import_lrc) else null,
+                stringResource(pill.text),
+                action = if (pill.import) stringResource(R.string.import_lrc) else null,
                 onAction = pickLrc,
                 modifier = Modifier.align(Alignment.BottomCenter),
+                glyph = pill.glyph,
+                accent = accent,
             )
         } else if (!controlsVisible) {
             val info = if (audioDeaf) stringResource(R.string.audio_sync_silent) else sourceInfo
             var shown by remember { mutableStateOf("") }
             if (info != null) shown = info
+            var deafShown by remember { mutableStateOf(false) }
+            if (info != null) deafShown = audioDeaf
             AnimatedVisibility(info != null, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
-                StagePill(shown)
+                StagePill(shown, glyph = if (deafShown) Glyph.MIC_OFF else null, dot = if (deafShown) null else accent, accent = accent)
             }
         }
 
@@ -229,6 +235,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     nowPlaying = current,
                     clock = vm.clock,
                     settings = settings,
+                    accent = accent,
                     onInteract = { interactions++ },
                     onPlayPause = { if (current.isPlaying) vm.sessions.pause() else vm.sessions.play() },
                     onPrevious = { vm.sessions.previous() },
@@ -242,17 +249,11 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     }
 }
 
+/** A status pop-up: its text, an icon, and whether it offers Import. */
+private data class StatePill(val text: Int, val glyph: Glyph? = null, val import: Boolean = false)
+
 private const val CONTROLS_MS = 3_000L
 private const val INFO_PILL_MS = 3_500L
 private const val AUDIO_CHECK_MS = 8_000L
 
-private fun sourceName(source: String?): String = when (source) {
-    "lrclib" -> "LRCLIB"
-    "netease" -> "NetEase"
-    "musixmatch" -> "Musixmatch"
-    "kugou" -> "Kugou"
-    "import" -> "Imported"
-    null -> ""
-    else -> source
-}
 private const val SCREEN_PAUSE_MS = 120_000L
