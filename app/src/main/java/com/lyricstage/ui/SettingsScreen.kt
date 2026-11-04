@@ -226,6 +226,11 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             }
         }
 
+        Spacer(Modifier.height(24.dp))
+        UiCard(padding = 0) {
+            LinkRow(stringResource(R.string.about), { onOpen(Screen.ABOUT) }, divider = false)
+        }
+
         SectionHeader(stringResource(R.string.settings_debug))
         UiCard(padding = 0) {
             ToggleRow(stringResource(R.string.settings_fps), s.showFps, accent, { on -> vm.updateSettings { it.copy(showFps = on) } }, divider = false)

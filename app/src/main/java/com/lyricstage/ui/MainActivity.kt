@@ -18,7 +18,7 @@ import com.lyricstage.ui.debug.LyricsListScreen
 import com.lyricstage.ui.debug.NowPlayingDebugScreen
 import com.lyricstage.ui.theme.LyricStageTheme
 
-enum class Screen { STAGE, SETTINGS, DEBUG_NOW_PLAYING, DEBUG_LYRICS, FIT_CHECK }
+enum class Screen { STAGE, SETTINGS, ABOUT, DEBUG_NOW_PLAYING, DEBUG_LYRICS, FIT_CHECK }
 
 class MainActivity : ComponentActivity() {
     private val container get() = (application as LyricStageApp).container
@@ -73,6 +73,7 @@ private fun App(vm: StageViewModel, accessGranted: Boolean, systemReduceMotion: 
     when (screen) {
         Screen.STAGE -> StageScreen(vm, systemReduceMotion, onOpenSettings = { screen = Screen.SETTINGS })
         Screen.SETTINGS -> SettingsScreen(vm, systemReduceMotion, onBack = { screen = Screen.STAGE }, onOpen = { screen = it })
+        Screen.ABOUT -> AboutScreen(vm, onBack = { screen = Screen.SETTINGS })
         Screen.DEBUG_NOW_PLAYING -> NowPlayingDebugScreen(vm, onBack = { screen = Screen.SETTINGS })
         Screen.DEBUG_LYRICS -> LyricsListScreen(vm, onBack = { screen = Screen.SETTINGS })
         Screen.FIT_CHECK -> FitCheckScreen(vm, onBack = { screen = Screen.SETTINGS })
