@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.1]
 
 ### Changed
 - The controls overlay is simpler: sync nudge and .lrc import moved to a "This song" section

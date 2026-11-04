@@ -30,7 +30,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 
 Tap the stage to show the controls for three seconds: seek bar, play and pause, skip and the layout picker. The lyrics fade back while the controls are open.
 
-The images above are drawn by the app's own layout engine (`core`) with the bundled fonts. The background is an approximation of the shader. The lyric lines are short excerpts quoted to show the layouts: Rick Astley, "Never Gonna Give You Up"; Arijit Singh, "Tum Hi Ho"; Kenshi Yonezu, "Lemon"; Rabindranath Tagore, "Amar Shonar Bangla"; Eminem, "Lose Yourself". `tools/screenshots/render.sh` regenerates them.
+The images above are drawn by the app's own layout engine (`core`) with the bundled fonts. The background is an approximation of the shader. The lyric lines are short excerpts quoted to show the layouts: Rick Astley, "Never Gonna Give You Up"; Arijit Singh, "Tum Hi Ho"; Kenshi Yonezu, "Lemon"; Rabindranath Tagore, "Ekla Chalo Re"; Eminem, "Lose Yourself". `tools/screenshots/render.sh` regenerates them.
 
 ## Install
 
