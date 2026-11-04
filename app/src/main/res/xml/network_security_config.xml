@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- HTTPS everywhere, except Kugou's lyrics service, which some of its servers only offer over HTTP. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">lyrics.kugou.com</domain>
+    </domain-config>
+</network-security-config>

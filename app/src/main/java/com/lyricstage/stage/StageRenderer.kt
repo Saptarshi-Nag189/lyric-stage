@@ -2,12 +2,15 @@ package com.lyricstage.stage
 
 import android.os.Build
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextLayoutResult
@@ -123,21 +126,30 @@ class StageRenderer {
             }
             val alpha = pose.alpha * lineAlpha
             val exitDy = -exit * p.height * 0.25f
-            val shadow = if (held > 0.01f) {
-                // a held note glows in its own colour while it lasts
-                Shadow(colour.copy(alpha = (if (highlighted) 0.55f * colours.glow else 0.25f) + 0.45f * held), Offset.Zero, p.fontPx * (0.22f + 0.25f * held))
-            } else if (highlighted) {
+            // the text's own shadow blends smoothly from its resting look to a soft coloured
+            // halo as a note is held, instead of switching at once
+            val rest = if (highlighted) {
                 Shadow(accent.copy(alpha = 0.55f * colours.glow), Offset.Zero, p.fontPx * 0.28f)
             } else {
                 Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, p.fontPx * 0.035f), p.fontPx * 0.18f)
             }
+            val shadow = if (held > 0.01f) {
+                Shadow(
+                    lerp(rest.color, colour.copy(alpha = 0.5f), held),
+                    Offset(rest.offset.x * (1f - held), rest.offset.y * (1f - held)),
+                    rest.blurRadius + (p.fontPx * 0.3f - rest.blurRadius) * held,
+                )
+            } else {
+                rest
+            }
+            val growth = if (held > 0f) heldGrowth(word, wpos) else 0f
 
             withTransform({
-                translate(p.x + pose.dx, p.y + pose.dy + exitDy - held * p.height * HELD_LIFT)
+                translate(p.x + pose.dx, p.y + pose.dy + exitDy - held * growth * p.height * HELD_LIFT)
                 val pivot = Offset(p.width / 2f, p.height / 2f)
                 val rot = p.rotationDeg + pose.rotationDeg
                 if (rot != 0f) rotate(rot, pivot)
-                val grow = 1f + held * HELD_GROW
+                val grow = 1f + held * growth * HELD_GROW
                 if (pose.scaleX != 1f || pose.scaleY != 1f || grow != 1f) scale(pose.scaleX * grow, pose.scaleY * grow, pivot)
                 if (pose.skewX != 0f) {
                     skew.reset()
@@ -147,6 +159,7 @@ class StageRenderer {
                     translate(-pivot.x, -pivot.y)
                 }
             }) {
+                if (held > 0.01f) drawBloom(p, fill, if (highlighted) accent else colour, alpha * held * (0.65f + 0.35f * colours.glow))
                 val glyphs = prep.glyphs[li]?.get(k)
                 if (glyphs != null && !reduceMotion) {
                     drawGlyphs(template, p, glyphs, prep.plan.measured[li].words[p.index].glyphOffsets, since, fill, colour, colours.text, alpha, shadow)
@@ -155,6 +168,41 @@ class StageRenderer {
                 }
             }
         }
+    }
+
+    /**
+     * Light behind a held word: a broad soft glow over the whole word, and a brighter one
+     * that travels with the sweep, so the light follows the voice through the note. Radial
+     * gradients drawn in screen blend: no hard edges, nothing clipped.
+     */
+    private fun DrawScope.drawBloom(p: WordPlacement, fill: Float, colour: Color, strength: Float) {
+        if (strength <= 0.01f) return
+        val cy = p.height / 2f
+        val r = p.height * 1.05f
+        val centre = Offset(p.width / 2f, cy)
+        val stretch = max(1f, p.width * 0.62f / r)
+        scale(stretch, 0.8f, centre) {
+            drawCircle(
+                Brush.radialGradient(
+                    0f to colour.copy(alpha = 0.30f * strength),
+                    0.55f to colour.copy(alpha = 0.12f * strength),
+                    1f to Color.Transparent,
+                    center = centre, radius = r,
+                ),
+                r, centre, blendMode = BlendMode.Screen,
+            )
+        }
+        val head = Offset(p.width * fill.coerceIn(0.05f, 0.95f), cy)
+        val hr = r * 0.85f
+        drawCircle(
+            Brush.radialGradient(
+                0f to colour.copy(alpha = 0.40f * strength),
+                0.5f to colour.copy(alpha = 0.14f * strength),
+                1f to Color.Transparent,
+                center = head, radius = hr,
+            ),
+            hr, head, blendMode = BlendMode.Screen,
+        )
     }
 
     /** Dim base, then the sung part in full colour, swept left to right. */
@@ -275,16 +323,31 @@ class StageRenderer {
     private fun heldAmount(word: com.lyricstage.core.lyrics.LyricWord, pos: Long, thresholdMs: Long): Float {
         if (word.durationMs < thresholdMs || pos < word.startMs) return 0f
         if (pos >= word.endMs + HELD_RELEASE_MS) return 0f
-        val rise = easeOut((pos - word.startMs) / HELD_RISE_MS.toFloat())
-        val fall = 1f - easeOut((pos - word.endMs) / HELD_RELEASE_MS.toFloat())
+        val rise = smooth((pos - word.startMs) / HELD_RISE_MS.toFloat())
+        val fall = 1f - smooth((pos - word.endMs) / HELD_RELEASE_MS.toFloat())
         return min(rise, fall).coerceIn(0f, 1f)
     }
 
+    /**
+     * Lift and growth build through the note rather than jumping at its start: 55 % on
+     * arrival, the rest as the note goes on, so a long note swells the way it is sung.
+     */
+    private fun heldGrowth(word: com.lyricstage.core.lyrics.LyricWord, pos: Long): Float {
+        val q = ((pos - word.startMs) / max(1L, word.durationMs).toFloat()).coerceIn(0f, 1f)
+        return 0.55f + 0.45f * smooth(q)
+    }
+
+    /** Smoothstep: eases in and out, unlike [easeOut], so nothing starts with a jolt. */
+    private fun smooth(t: Float): Float {
+        val x = t.coerceIn(0f, 1f)
+        return x * x * (3f - 2f * x)
+    }
+
     companion object {
-        private const val HELD_GROW = 0.09f
-        private const val HELD_LIFT = 0.06f
-        private const val HELD_RISE_MS = 260L
-        private const val HELD_RELEASE_MS = 220L
+        private const val HELD_GROW = 0.08f
+        private const val HELD_LIFT = 0.05f
+        private const val HELD_RISE_MS = 380L
+        private const val HELD_RELEASE_MS = 420L
 
         /** Gaps shorter than this show nothing rather than dots. */
         const val GAP_MIN_MS = 2_500L

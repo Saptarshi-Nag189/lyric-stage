@@ -250,6 +250,7 @@ private fun sourceName(source: String?): String = when (source) {
     "lrclib" -> "LRCLIB"
     "netease" -> "NetEase"
     "musixmatch" -> "Musixmatch"
+    "kugou" -> "Kugou"
     "import" -> "Imported"
     null -> ""
     else -> source

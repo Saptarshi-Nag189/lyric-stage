@@ -11,7 +11,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 - Follows the active player through Android's media sessions. No account and no player integration needed.
 - Seven layouts: Stack, Slide, Zoom, Letters, Scatter, Graph and Flow. The app picks one per line from how fast it is sung, how long it is and whether it repeats as a chorus, and never uses the same one twice in a row. You can lock a favourite.
 - Words fill from left to right while they are sung. Notes held longer than usual lift, grow slightly and glow, then settle back. One to three words per line are highlighted: emotionally loaded words, held notes, line endings and the song's hooks, coloured from the album art.
-- Lyrics come from [LRCLIB](https://lrclib.net), NetEase Cloud Music and Musixmatch, asked at the same time. Word-by-word timings win when any source has them. Lyrics are cached on the phone and fetched in the background as songs change, along with the next two songs in the player's queue.
+- Lyrics come from [LRCLIB](https://lrclib.net), NetEase Cloud Music, Musixmatch and Kugou, asked at the same time. Word-by-word timings win when any source has them, and are checked against LRCLIB's line timings so they match the playing release. Lyrics are cached on the phone and fetched in the background as songs change, along with the next two songs in the player's queue.
 - Without word timings, the app estimates them from syllables (aksharas for Hindi and Bengali), holding line endings longer. An optional audio sync setting nudges those estimates towards the vocal onsets it hears in the playing audio.
 - Shows a romanised line under Japanese, Hindi or Bengali lyrics when the lyrics file includes one.
 - The colours come from the album art: a dark base from its shadows, three vivid accents from its strongest hues, and body text tinted with its main hue. On Android 13 and later the background is a moving "liquid glass" shader in those colours, with a ripple from each sung word. Older phones get an animated gradient. Artwork blur and a plain colour are also available.
@@ -57,7 +57,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 
 ## Privacy
 
-The app makes lyrics lookups only: lrclib.net, music.163.com (NetEase) and apic.musixmatch.com, sending the song title, artist, album and length. With background fetching on, this happens for each new song you play and the next two in the queue, even when LyricStage is closed. NetEase and Musixmatch are reached through unofficial endpoints, so they may stop working at any time; LRCLIB still answers when they do.
+The app makes lyrics lookups only: lrclib.net, music.163.com (NetEase), apic.musixmatch.com and lyrics.kugou.com, sending the song title, artist, album and length. With background fetching on, this happens for each new song you play and the next two in the queue, even when LyricStage is closed. NetEase, Musixmatch and Kugou are reached through unofficial endpoints, so they may stop working at any time; LRCLIB still answers when they do.
 
 Audio sync is off by default. Turning it on asks for the microphone permission, which Android requires for reading the phone's audio output. The audio is analysed on the phone and never stored or sent.
 
@@ -78,7 +78,7 @@ Every push runs the core tests, a debug build and Android lint on GitHub Actions
 
 ```
 core/   Plain Kotlin, unit tested on the JVM
-  lyrics/   LRC parsing, word timing estimates, LRCLIB, NetEase and Musixmatch clients, source ranking
+  lyrics/   LRC parsing, word timing estimates, LRCLIB, NetEase, Musixmatch and Kugou clients, source ranking and alignment
   clock/    Playback clock: extrapolates between position reports, eases drift under 300 ms, snaps on seeks
   palette/  Colour maths: dark base, vivid accents, text contrast of at least 7:1
   stage/    Layout geometry and motion for the seven layouts, FitEngine, layout chooser, highlights

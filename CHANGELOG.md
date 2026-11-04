@@ -1,5 +1,20 @@
 # Changelog
 
+## [1.0.4]
+
+### Fixed
+- Word-timed lyrics from Musixmatch could run 1.5 to 2.5 seconds off, when they were timed
+  to a different release of the song. When LRCLIB has the same song line by line, the word
+  timings are now measured against it and shifted into place. Word timings saved by
+  earlier versions are fetched again once.
+
+### New
+- A fourth source, Kugou, with word-by-word timing for a large catalogue. More songs now
+  get real word timing instead of estimates from LRCLIB's line timing.
+- Held notes glow properly: a soft light behind the word that follows the voice through
+  the note, a smooth change into and out of the glow, and a swell that builds as the note
+  is held instead of jumping at its start.
+
 ## [1.0.3]
 
 ### Fixed

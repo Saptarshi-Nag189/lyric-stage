@@ -3,6 +3,7 @@ package com.lyricstage
 import android.content.Context
 import com.lyricstage.core.lyrics.LrclibClient
 import com.lyricstage.core.lyrics.LyricsSources
+import com.lyricstage.core.lyrics.KugouClient
 import com.lyricstage.core.lyrics.MusixmatchClient
 import com.lyricstage.core.lyrics.NeteaseClient
 import com.lyricstage.lyrics.Connectivity
@@ -30,6 +31,7 @@ class AppContainer(context: Context) {
     val lrclib = LrclibClient(http)
     private val netease = NeteaseClient(http)
     private val musixmatch = MusixmatchClient(http, store = MusixmatchTokenStore(context))
+    private val kugou = KugouClient(http)
     val connectivity = Connectivity(context)
 
     /** All sources are asked at once; LRCLIB first so it wins ties. */
@@ -38,6 +40,7 @@ class AppContainer(context: Context) {
             LyricsSources.Source { t, a, al, d -> lrclib.find(t, a, al, d) },
             LyricsSources.Source { t, a, _, d -> netease.find(t, a, d) },
             LyricsSources.Source { t, a, al, d -> musixmatch.find(t, a, al, d) },
+            LyricsSources.Source { t, a, _, d -> kugou.find(t, a, d) },
         ),
     )
     val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), database.missDao(), sources, connectivity.online, appScope)

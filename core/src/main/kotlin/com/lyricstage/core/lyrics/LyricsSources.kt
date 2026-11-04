@@ -8,8 +8,9 @@ import kotlinx.coroutines.withTimeoutOrNull
 /**
  * Asks every lyrics source at once and keeps the best answer: word-timed lyrics win over
  * line-timed, then an instrumental flag, then plain text. As soon as a source returns
- * word-timed lyrics the others are cancelled, so the common case is as fast as the fastest
- * source.
+ * word-timed lyrics the others get a short moment to supply a line-timed copy, which
+ * [LineAligner] uses to correct word timings made for a different release; then they are
+ * cancelled.
  */
 class LyricsSources(private val sources: List<Source>) {
     fun interface Source {
@@ -29,15 +30,38 @@ class LyricsSources(private val sources: List<Source>) {
             jobs.remove(entry)
             results += entry.first to r
             if (r is LyricsLookup.Found && r.wordSynced) {
+                // give the others a moment to supply a line-timed copy to check the timing
+                // against, then stop them
+                if (reference(results) == null) {
+                    withTimeoutOrNull(ALIGN_WAIT_MS) {
+                        while (jobs.isNotEmpty() && reference(results) == null) {
+                            val (e, more) = select { jobs.forEach { j -> j.second.onAwait { j to it } } }
+                            jobs.remove(e)
+                            results += e.first to more
+                        }
+                    }
+                }
                 jobs.forEach { it.second.cancel() }
-                return@coroutineScope r
+                return@coroutineScope aligned(r, reference(results))
             }
         }
         best(results)
     }
 
+    private fun reference(results: List<Pair<Int, LyricsLookup>>): LyricsLookup.Found? =
+        results.sortedBy { it.first }.map { it.second }
+            .firstOrNull { it is LyricsLookup.Found && it.synced && !it.wordSynced } as LyricsLookup.Found?
+
+    private fun aligned(word: LyricsLookup.Found, ref: LyricsLookup.Found?): LyricsLookup.Found {
+        if (ref == null) return word
+        val d = LineAligner.offset(word.raw, ref.raw) ?: return word
+        return word.copy(raw = LineAligner.shift(word.raw, d))
+    }
+
     companion object {
         const val TIMEOUT_MS = 9_000L
+        /** How long a word-timed answer waits for a line-timed one to align against. */
+        const val ALIGN_WAIT_MS = 2_000L
 
         fun rank(r: LyricsLookup): Int = when {
             r !is LyricsLookup.Found -> 0
