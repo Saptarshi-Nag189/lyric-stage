@@ -17,6 +17,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import com.lyricstage.spotify.SyncStatus
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -52,6 +53,17 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     val offset: StateFlow<Long> = query
         .flatMapLatest { q -> if (q == null) flowOf(0L) else c.lyrics.offset(q.key) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0L)
+
+    val spotifyName: StateFlow<String?> = c.spotify.name
+    val librarySync: StateFlow<SyncStatus> = c.librarySync.status
+
+    fun spotifySignInUri() = c.spotify.signInUri()
+    fun syncLibrary() = c.librarySync.syncNow()
+    fun stopLibrarySync() = c.librarySync.stop()
+    fun unlinkSpotify() {
+        c.librarySync.reset()
+        c.spotify.unlink()
+    }
 
     /** Whether the Bluetooth delay applies right now. */
     val bluetooth: StateFlow<Boolean> = c.output.bluetooth

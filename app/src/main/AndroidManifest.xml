@@ -32,6 +32,13 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Spotify sends sign-in back here (PKCE redirect) -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="lyricstage" android:host="spotify-callback" />
+            </intent-filter>
         </activity>
 
         <!-- Exists only so the user can grant notification access, which unlocks

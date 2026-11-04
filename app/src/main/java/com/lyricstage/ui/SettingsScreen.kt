@@ -54,6 +54,9 @@ import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.settings.RippleMode
 import com.lyricstage.ui.theme.Ui
+import com.lyricstage.spotify.SyncStatus
+import android.text.format.DateUtils
+import androidx.compose.ui.platform.LocalUriHandler
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -252,6 +255,9 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             }
         }
 
+        SectionHeader(stringResource(R.string.settings_spotify))
+        SpotifyCard(vm, accent)
+
         Spacer(Modifier.height(24.dp))
         UiCard(padding = 0) {
             LinkRow(stringResource(R.string.about), { onOpen(Screen.ABOUT) }, divider = false)
@@ -319,3 +325,47 @@ fun sourceName(source: String?): String = when (source) {
     null -> ""
     else -> source
 }
+
+/** Link Spotify, then the library sync: progress, Sync now or Stop, and Unlink. */
+@Composable
+private fun SpotifyCard(vm: StageViewModel, accent: Color) {
+    val name by vm.spotifyName.collectAsStateWithLifecycle()
+    val sync by vm.librarySync.collectAsStateWithLifecycle()
+    val uri = LocalUriHandler.current
+    UiCard {
+        val linkedAs = name
+        if (linkedAs == null) {
+            Text(stringResource(R.string.spotify_pitch), color = Ui.Muted, fontSize = 14.sp, lineHeight = 20.sp)
+            Spacer(Modifier.height(12.dp))
+            PillButton(
+                stringResource(R.string.spotify_link),
+                { runCatching { uri.openUri(vm.spotifySignInUri().toString()) } },
+                Modifier.fillMaxWidth(),
+                style = PillStyle.PRIMARY,
+                accent = accent,
+            )
+        } else {
+            Text(stringResource(R.string.spotify_linked_as, linkedAs.ifBlank { "Spotify" }), color = Ui.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            val status = when (val st = sync) {
+                SyncStatus.Idle -> stringResource(R.string.sync_status_idle)
+                SyncStatus.Reading -> stringResource(R.string.sync_status_reading)
+                is SyncStatus.Saving -> stringResource(R.string.sync_status_saving, st.done, st.total)
+                is SyncStatus.Done -> stringResource(R.string.sync_status_done, st.total,
+                    DateUtils.getRelativeTimeSpanString(st.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString())
+                is SyncStatus.Paused -> stringResource(R.string.sync_status_paused, st.done, st.total)
+            }
+            Text(status, color = Ui.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
+            Spacer(Modifier.height(12.dp))
+            val busy = sync is SyncStatus.Reading || sync is SyncStatus.Saving
+            GapRow(8) {
+                if (busy) {
+                    PillButton(stringResource(R.string.spotify_stop), { vm.stopLibrarySync() }, Modifier.weight(1f))
+                } else {
+                    PillButton(stringResource(R.string.spotify_sync_now), { vm.syncLibrary() }, Modifier.weight(1f), style = PillStyle.PRIMARY, accent = accent)
+                }
+                PillButton(stringResource(R.string.spotify_unlink), { vm.unlinkSpotify() }, Modifier.weight(1f), style = PillStyle.OUTLINE)
+            }
+        }
+    }
+}
+

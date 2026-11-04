@@ -14,6 +14,9 @@ import com.lyricstage.lyrics.MusixmatchTokenStore
 import com.lyricstage.lyrics.db.LyricsDatabase
 import com.lyricstage.media.ActiveSessionTracker
 import com.lyricstage.settings.SettingsStore
+import com.lyricstage.spotify.LibrarySync
+import com.lyricstage.spotify.SecureStore
+import com.lyricstage.spotify.SpotifyAccount
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -49,5 +52,9 @@ class AppContainer(context: Context) {
     )
     val lyrics = LyricsRepository(database.lyricsDao(), database.offsetDao(), database.missDao(), sources, connectivity.online, appScope, connectivity::refresh)
     val settings = SettingsStore(context)
+
+    private val spotifyStore by lazy { SecureStore(context) }
+    val spotify by lazy { SpotifyAccount(http, spotifyStore) }
+    val librarySync by lazy { LibrarySync(spotify, lyrics, settings, connectivity, spotifyStore, appScope) }
     val sessions = ActiveSessionTracker(context)
 }

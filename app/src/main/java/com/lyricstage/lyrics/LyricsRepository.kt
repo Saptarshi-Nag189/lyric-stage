@@ -114,11 +114,12 @@ class LyricsRepository(
 
     /**
      * Fetches and caches lyrics for a track that may play soon (background and queue
-     * prefetch). Does nothing when they are cached already.
+     * prefetch). Does nothing when they are cached already; returns true when it looked them up.
      */
-    suspend fun prefetch(track: TrackQuery) {
-        if (!checkOnline() || cachedRow(track) != null || recentMiss(track.key)) return
+    suspend fun prefetch(track: TrackQuery): Boolean {
+        if (!checkOnline() || cachedRow(track) != null || recentMiss(track.key)) return false
         fetch(track)
+        return true
     }
 
     /** True when all sources were asked for word timing for [key] within [UPGRADE_TTL_MS]. */

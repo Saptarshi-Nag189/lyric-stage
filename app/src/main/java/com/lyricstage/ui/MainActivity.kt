@@ -1,6 +1,10 @@
 package com.lyricstage.ui
 
 import android.os.Bundle
+import kotlinx.coroutines.launch
+import com.lyricstage.R
+import android.widget.Toast
+import android.content.Intent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -28,11 +32,29 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        handleSpotify(intent)
         setContent {
             LyricStageTheme {
                 val vm: StageViewModel = viewModel { StageViewModel(container) }
                 App(vm, accessGranted.value, systemReduceMotion.value)
             }
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        handleSpotify(intent)
+    }
+
+    /** Finishes Spotify sign-in when the browser hands the redirect back to the app. */
+    private fun handleSpotify(intent: Intent?) {
+        val uri = intent?.data
+        if (!container.spotify.isCallback(uri)) return
+        setIntent(Intent(this, MainActivity::class.java))
+        container.appScope.launch {
+            val ok = container.spotify.complete(uri!!)
+            Toast.makeText(this@MainActivity, if (ok) R.string.spotify_linked else R.string.spotify_link_failed, Toast.LENGTH_SHORT).show()
+            if (ok) container.librarySync.syncNow()
         }
     }
 

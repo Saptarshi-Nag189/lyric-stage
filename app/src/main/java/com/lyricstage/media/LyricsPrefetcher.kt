@@ -32,6 +32,8 @@ class LyricsPrefetcher(
     private val settings: SettingsStore,
     private val connectivity: Connectivity,
     private val scope: CoroutineScope,
+    /** Called as songs change; the Spotify library sync uses it to run once a day. */
+    private val onTrackChange: () -> Unit = {},
 ) {
     private val manager: MediaSessionManager? = context.getSystemService(MediaSessionManager::class.java)
     private val component = ComponentName(context, LyricListenerService::class.java)
@@ -82,6 +84,7 @@ class LyricsPrefetcher(
     /** Waits for the player's metadata to settle, then prefetches. */
     private fun schedule(k: MediaSession.Token, c: MediaController) {
         if (!settings.settings.value.backgroundPrefetch) return
+        onTrackChange()
         pending.remove(k)?.cancel()
         pending[k] = scope.launch {
             delay(SETTLE_MS)

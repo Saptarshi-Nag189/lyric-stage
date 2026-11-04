@@ -18,6 +18,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 - Every line is fitted to the screen before it is shown, so words are never cut off, in portrait or landscape.
 - A reduce motion setting replaces the animation with fades. It turns on by itself when system animations are off.
 - Battery saver mode: pure black background (OLED pixels off), simple fades, and drawing only when a word changes. Nothing is drawn while music is paused.
+- Link Spotify to save lyrics for your Liked Songs and playlists ahead of time, once a day on Wi-Fi or on demand.
 - Works offline with cached lyrics. Background fetching saves lyrics for each song you play and the next two in the queue (Wi-Fi only by default), so playlists played once online keep working offline.
 
 ## Screenshots
@@ -60,6 +61,8 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 ## Privacy
 
 The app makes lyrics lookups only: lrclib.net, music.163.com (NetEase), apic.musixmatch.com and lyrics.kugou.com, sending the song title, artist, album and length. With background fetching on, this happens for each new song you play and the next two in the queue, even when LyricStage is closed. NetEase, Musixmatch and Kugou are reached through unofficial endpoints, so they may stop working at any time; LRCLIB still answers when they do.
+
+Linking Spotify is optional. Sign-in happens on Spotify's own page (PKCE, no password reaches the app), and the app asks only for read access to Liked Songs and playlists. The tokens are encrypted on the phone with a key from the Android Keystore. The song list is used only to look up lyrics as above; Unlink in Settings deletes the tokens.
 
 Audio sync is off by default. Turning it on asks for the microphone permission, which Android requires for reading the phone's audio output. The audio is analysed on the phone and never stored or sent.
 
