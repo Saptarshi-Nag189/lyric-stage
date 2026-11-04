@@ -9,7 +9,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 ## Features
 
 - Follows the active player through Android's media sessions. No account and no player integration needed.
-- Seven layouts: Stack, Slide, Zoom, Letters, Scatter, Graph and Flow. The app picks one per line from how fast it is sung, how long it is and whether it repeats as a chorus, and never uses the same one twice in a row. You can lock a favourite.
+- Nine layouts: Stack, Slide, Zoom, Letters, Scatter, Graph, Flow, Stamp and Spotlight. The app picks one per line from how fast it is sung, how long it is and whether it repeats as a chorus, and never uses the same one twice in a row. You can lock a favourite.
 - Words fill from left to right while they are sung. Notes held longer than usual lift, grow slightly and glow, then settle back. One to three words per line are highlighted: emotionally loaded words, held notes, line endings and the song's hooks, coloured from the album art.
 - Lyrics come from [LRCLIB](https://lrclib.net), NetEase Cloud Music, Musixmatch and Kugou, asked at the same time. Word-by-word timings win when any source has them, and are checked against LRCLIB's line timings so they match the playing release. Lyrics are cached on the phone and fetched in the background as songs change, along with the next two songs in the player's queue.
 - Without word timings, the app estimates them from syllables (aksharas for Hindi and Bengali), holding line endings longer. An optional audio sync setting nudges those estimates towards the vocal onsets it hears in the playing audio.
@@ -28,6 +28,8 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 | ![Stack layout](docs/screenshots/stage-stack.png) | ![Zoom layout](docs/screenshots/stage-zoom.png) | ![Graph layout with Hindi lyrics](docs/screenshots/stage-graph.png) |
 | **Flow** | **Letters** | **Scatter** |
 | ![Flow layout with Japanese lyrics and a romanised line](docs/screenshots/stage-flow.png) | ![Letters layout with Bengali lyrics](docs/screenshots/stage-letters.png) | ![Scatter layout](docs/screenshots/stage-scatter.png) |
+| **Stamp** | **Spotlight** | |
+| ![Stamp layout: each word lands big and tilted, then settles](docs/screenshots/stage-stamp.png) | ![Spotlight layout: a soft light moves from word to word](docs/screenshots/stage-spotlight.png) | |
 
 | Controls | Settings |
 |:---:|:---:|
@@ -56,7 +58,8 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 - If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms and is saved for that song. Reset puts it back to 0.
 - If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
 - Songs with lyrics but no timings scroll slowly with the song and are labelled as unsynced.
-- Settings also has the layout lock, background style, ripples on sung words or on the beat, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
+- The About screen (from Settings) lists the version, licences, credits and links.
+- Settings also has the layout lock, background style, a Bluetooth delay, ripples on sung words or on the beat, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
 
 ## Privacy
 
@@ -86,7 +89,7 @@ core/   Plain Kotlin, unit tested on the JVM
   lyrics/   LRC parsing, word timing estimates, LRCLIB, NetEase, Musixmatch and Kugou clients, source ranking and alignment
   clock/    Playback clock: extrapolates between position reports, eases drift under 300 ms, snaps on seeks
   palette/  Colour maths: dark base, vivid accents, text contrast of at least 7:1
-  stage/    Layout geometry and motion for the seven layouts, FitEngine, layout chooser, highlights
+  stage/    Layout geometry and motion for the nine layouts, FitEngine, layout chooser, highlights
   text/     Script detection, grapheme clusters (Indic conjuncts kept whole), tokenizer
 app/    Android app (Kotlin, Jetpack Compose)
   media/      Notification listener, active session tracking, background lyrics prefetch
@@ -98,7 +101,7 @@ app/    Android app (Kotlin, Jetpack Compose)
 tools/screenshots/  Renders the README images with the core layout engine
 ```
 
-Layout and timing live in `core` so they can be tested without a device. `FitCheckTest` lays out every sample line in every layout at four screen sizes and three text sizes, about 7,300 layouts, and fails if any word leaves the safe area.
+Layout and timing live in `core` so they can be tested without a device. `FitCheckTest` lays out every sample line in every layout at four screen sizes and three text sizes, about 9,400 layouts, and fails if any word leaves the safe area.
 
 The stage runs one frame loop that reads the clock once per frame. Two canvas passes draw the line: one for settled words, and one for fast-moving words under a blur layer on Android 12 and later. Text layouts are measured once when lyrics load or the screen size changes, so nothing recomposes per frame. Entrances use a closed-form spring evaluated from elapsed time, so seeking redraws the right frame, and settled text is drawn at exactly scale 1 with no blur.
 

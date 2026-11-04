@@ -25,6 +25,7 @@ import com.lyricstage.core.stage.REF_PX
 import com.lyricstage.core.stage.Templates
 import com.lyricstage.core.stage.WordPlacement
 import com.lyricstage.core.stage.easeOut
+import com.lyricstage.core.stage.templates.isSpotlight
 import kotlin.math.PI
 import kotlin.math.max
 import kotlin.math.min
@@ -96,6 +97,7 @@ class StageRenderer {
         val accent = colours.accents[plan.accents[li] % colours.accents.size]
 
         if (layer != StageLayer.MOTION) {
+            if (layout.template.isSpotlight && !reduceMotion) drawSpotlight(layout, line, wpos, colours, lineAlpha)
             drawSegments(prep, li, pos, colours, lineAlpha)
             drawSubtitle(prep, li, pos, colours, lineAlpha)
         }
@@ -202,6 +204,41 @@ class StageRenderer {
                 center = head, radius = hr,
             ),
             hr, head, blendMode = BlendMode.Screen,
+        )
+    }
+
+    /**
+     * Spotlight layout: a soft warm light behind the sung word that glides from the previous
+     * word to the current one as it starts. Drawn from playback position only, so seeking
+     * shows the right frame.
+     */
+    private fun DrawScope.drawSpotlight(layout: com.lyricstage.core.stage.TemplateLayout, line: LyricLine, pos: Long, colours: StageColours, lineAlpha: Float) {
+        val placed = layout.words
+        if (placed.isEmpty()) return
+        // the word being sung, or the last one sung; before the first word, the light waits on it
+        var cur = 0
+        for ((k, p) in placed.withIndex()) if (line.words[p.index].startMs <= pos) cur = k
+        val now = placed[cur]
+        val prev = placed[(cur - 1).coerceAtLeast(0)]
+        val start = line.words[now.index].startMs
+        val t = smooth((pos - start) / SPOT_GLIDE_MS.toFloat())
+        val cx = prev.x + prev.width / 2f + ((now.x + now.width / 2f) - (prev.x + prev.width / 2f)) * t
+        val cy = prev.y + prev.height / 2f + ((now.y + now.height / 2f) - (prev.y + prev.height / 2f)) * t
+        val first = line.words[placed[0].index].startMs
+        // fades up as the first word comes, and out when the last word has been sung
+        val last = line.words[placed.last().index].endMs
+        val on = smooth((pos - (first - SPOT_GLIDE_MS)) / SPOT_GLIDE_MS.toFloat()) * (1f - smooth((pos - last) / 600f))
+        if (on <= 0.01f) return
+        val r = now.height * 1.7f
+        val centre = Offset(cx, cy)
+        drawCircle(
+            Brush.radialGradient(
+                0f to lerp(colours.text, Color.White, 0.5f).copy(alpha = 0.30f * on * lineAlpha),
+                0.55f to colours.text.copy(alpha = 0.10f * on * lineAlpha),
+                1f to Color.Transparent,
+                center = centre, radius = r,
+            ),
+            r, centre, blendMode = BlendMode.Screen,
         )
     }
 
@@ -344,6 +381,7 @@ class StageRenderer {
     }
 
     companion object {
+        private const val SPOT_GLIDE_MS = 240L
         private const val HELD_GROW = 0.08f
         private const val HELD_LIFT = 0.05f
         private const val HELD_RISE_MS = 380L

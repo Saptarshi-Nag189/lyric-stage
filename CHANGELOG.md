@@ -1,12 +1,35 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.0]
+
+### New
+- Two new layouts. Stamp: each word lands big and tilted, like a rubber stamp, and snaps into
+  a tidy line. Spotlight: the whole line waits dimmed while a soft light glides from word to
+  word in time. Both join Auto's choice (Stamp for punchy lines, Spotlight for slow ones) and
+  the layout pills.
+- Link Spotify (Settings) to save lyrics for your Liked Songs and playlists ahead of time:
+  once a day on Wi-Fi, or with Sync now. Sign-in is on Spotify's own page; the app gets
+  read-only access and keeps the tokens encrypted on the phone.
+- About screen: version, licences, credits, links and a privacy note.
+- Bluetooth delay (Settings, Lyrics): shifts the lyrics later by up to 0.5 s, only while
+  Bluetooth audio is connected.
+
+### Fixed
+- Swiping up to switch apps could move a line to a different layout or make it blink. The
+  stage is laid out again only once a new screen size has settled, while the app is in front.
+- The sync buttons were reversed. Earlier and Later now move the lyrics that way, and the
+  offset reads in words ("0.50 s later").
+- The player's position is read again every few seconds while the stage is open, in case a
+  report from the player was missed.
 
 ### Changed
 - Settings shows the version under its title.
 - In the background the app stops listening to audio, stops the background animation and
   ripples and closes the controls, to save battery. Lyrics keep being fetched and saved
   as songs change, and the stage stays ready in memory, so it is back at once.
+- Fewer network requests: LRCLIB's search is sent only when the exact match misses, word
+  timing rechecks are remembered for a week, and Kugou starts with the address that worked.
+- Ambient ripples wake the phone less often; unused code removed.
 
 ## [1.0.11]
 

@@ -258,6 +258,15 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
 
     val rippleAt = layout.words.firstOrNull { it.index == k }?.let { Point2D.Float(it.x + it.width / 2, it.y + it.height / 2) }
     val img = background(W, H, s.pal, s.seed, rippleAt)
+    // Spotlight: the soft light behind the sung word, as StageRenderer.drawSpotlight
+    if (s.template == TemplateId.SPOTLIGHT) layout.words.firstOrNull { it.index == k }?.let { p ->
+        val g = img.createGraphics(); g.hq()
+        val r = p.height * 1.7f
+        val c = Point2D.Float(p.x + p.width / 2, p.y + p.height / 2)
+        g.paint = RadialGradientPaint(c, r, floatArrayOf(0f, 0.55f, 1f), arrayOf(Color(255, 250, 240, 80), Color(255, 250, 240, 26), Color(255, 250, 240, 0)))
+        g.fill(Ellipse2D.Float(c.x - r, c.y - r, r * 2, r * 2))
+        g.dispose()
+    }
 
     // three layers: drop shadows, accent glow, then the type itself
     val shadow = BufferedImage(W, H, BufferedImage.TYPE_INT_ARGB)
@@ -721,6 +730,8 @@ fun main() {
         Shot("flow", "lemon", "夢ならば", TemplateId.FLOW, ocean, 0.99f, 5, 6),
         Shot("letters", "eklacholo", "যদি", TemplateId.LETTERS, rose, 0.99f, 8, 3),
         Shot("scatter", "loseyourself", "Look,", TemplateId.SCATTER, forest, 0.99f, 13, 5),
+        Shot("stamp", "rickroll", "Never gonna give", TemplateId.STAMP, ember, 0.75f, 7, 3, fill = 0.02f),
+        Shot("spotlight", "rickroll", "Never gonna let", TemplateId.SPOTLIGHT, ocean, 0.55f, 9, 2, fill = 0.5f),
     )
     val phones = HashMap<String, BufferedImage>()
     for (s in shots) {

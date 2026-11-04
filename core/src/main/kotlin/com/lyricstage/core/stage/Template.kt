@@ -3,7 +3,8 @@ package com.lyricstage.core.stage
 import com.lyricstage.core.lyrics.LyricLine
 
 enum class TemplateId(val label: String) {
-    STACK("Stack"), SLIDE("Slide"), ZOOM("Zoom"), LETTERS("Letters"), SCATTER("Scatter"), GRAPH("Graph"), FLOW("Flow");
+    STACK("Stack"), SLIDE("Slide"), ZOOM("Zoom"), LETTERS("Letters"), SCATTER("Scatter"), GRAPH("Graph"), FLOW("Flow"),
+    STAMP("Stamp"), SPOTLIGHT("Spotlight");
 
     companion object {
         fun fromName(name: String?): TemplateId? = entries.firstOrNull { it.name.equals(name, ignoreCase = true) }

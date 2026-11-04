@@ -5,11 +5,13 @@ import com.lyricstage.core.stage.templates.Graph
 import com.lyricstage.core.stage.templates.Letters
 import com.lyricstage.core.stage.templates.Scatter
 import com.lyricstage.core.stage.templates.Slide
+import com.lyricstage.core.stage.templates.Spotlight
 import com.lyricstage.core.stage.templates.Stack
+import com.lyricstage.core.stage.templates.Stamp
 import com.lyricstage.core.stage.templates.Zoom
 
 object Templates {
-    val all: List<LyricTemplate> = listOf(Stack, Slide, Zoom, Letters, Scatter, Graph, Flow)
+    val all: List<LyricTemplate> = listOf(Stack, Slide, Zoom, Letters, Scatter, Graph, Flow, Stamp, Spotlight)
 
     fun of(id: TemplateId): LyricTemplate = when (id) {
         TemplateId.STACK -> Stack
@@ -19,5 +21,7 @@ object Templates {
         TemplateId.SCATTER -> Scatter
         TemplateId.GRAPH -> Graph
         TemplateId.FLOW -> Flow
+        TemplateId.STAMP -> Stamp
+        TemplateId.SPOTLIGHT -> Spotlight
     }
 }

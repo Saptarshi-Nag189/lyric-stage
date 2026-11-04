@@ -6,7 +6,9 @@ import com.lyricstage.core.stage.TemplateId.GRAPH
 import com.lyricstage.core.stage.TemplateId.LETTERS
 import com.lyricstage.core.stage.TemplateId.SCATTER
 import com.lyricstage.core.stage.TemplateId.SLIDE
+import com.lyricstage.core.stage.TemplateId.SPOTLIGHT
 import com.lyricstage.core.stage.TemplateId.STACK
+import com.lyricstage.core.stage.TemplateId.STAMP
 import com.lyricstage.core.stage.TemplateId.ZOOM
 
 /**
@@ -38,10 +40,10 @@ object TemplateChooser {
         val calm = wps < 1.4f
         val chorus = line.repeats >= 2
         val weights: List<Pair<TemplateId, Float>> = when {
-            n <= 2 -> listOf(ZOOM to 3f, LETTERS to 2f, STACK to 1f, SLIDE to 0.5f)
+            n <= 2 -> listOf(ZOOM to 3f, LETTERS to 2f, STAMP to 1.5f, STACK to 1f, SLIDE to 0.5f)
             n > 11 || wps > 3.8f -> listOf(FLOW to 3f, SLIDE to 1.5f, STACK to 1f)
-            chorus && n <= 7 -> if (energetic) listOf(ZOOM to 2f, SLIDE to 2f, LETTERS to 1f, STACK to 0.5f)
-            else listOf(STACK to 2f, LETTERS to 1f, ZOOM to 1f, GRAPH to 0.5f)
+            chorus && n <= 7 -> if (energetic) listOf(STAMP to 2f, ZOOM to 2f, SLIDE to 2f, LETTERS to 1f, STACK to 0.5f)
+            else listOf(STACK to 2f, SPOTLIGHT to 1.5f, LETTERS to 1f, ZOOM to 1f, GRAPH to 0.5f)
             else -> listOf(
                 STACK to (if (calm) 3f else 2f),
                 SLIDE to (if (energetic) 3f else 2f),
@@ -50,6 +52,9 @@ object TemplateChooser {
                 ZOOM to (if (energetic) 2f else 1f),
                 LETTERS to 1.5f,
                 FLOW to (if (calm) 2f else 0.5f),
+                // stamps want punchy lines; the spotlight wants time to travel between words
+                STAMP to (if (energetic && n <= 9) 2f else if (calm) 0f else 1f),
+                SPOTLIGHT to (if (calm && n <= 9) 2.5f else if (n <= 9) 1f else 0f),
             )
         }
         val usable = weights.filter { (id, w) -> w > 0f && id != previous && !(reduceMotion && id == SCATTER) }
