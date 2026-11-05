@@ -5,6 +5,11 @@
 ### Fixed
 - When notification access is turned off (or Android refuses it), the app shows the
   onboarding screen again instead of a stage that never gets lyrics.
+- Spotify sync says why it paused (no Wi-Fi, battery saver, offline). Sync now runs on mobile
+  data too.
+
+### Changed
+- Shorter wording in Settings and About; the Bluetooth delay has no explanation line.
 
 ## [1.1.0]
 

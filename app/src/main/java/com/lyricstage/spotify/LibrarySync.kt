@@ -16,14 +16,16 @@ import kotlinx.coroutines.launch
 import org.json.JSONObject
 import kotlin.coroutines.coroutineContext
 
+enum class PauseReason { WIFI, SAVER, OFFLINE, SPOTIFY }
+
 /** Where the library sync is. */
 sealed interface SyncStatus {
     data object Idle : SyncStatus
     data object Reading : SyncStatus
     data class Saving(val done: Int, val total: Int) : SyncStatus
     data class Done(val total: Int, val at: Long) : SyncStatus
-    /** Stopped before the end: no Wi-Fi, battery saver, or Spotify could not be reached. */
-    data class Paused(val done: Int, val total: Int) : SyncStatus
+    /** Stopped before the end, and why. */
+    data class Paused(val done: Int, val total: Int, val reason: PauseReason) : SyncStatus
 }
 
 /**
@@ -56,9 +58,10 @@ class LibrarySync(
         start()
     }
 
+    /** A tap on Sync now: runs on mobile data too, since the user asked for it. */
     fun syncNow() {
         if (running || !account.linked) return
-        start()
+        start(manual = true)
     }
 
     fun stop() {
@@ -72,24 +75,36 @@ class LibrarySync(
         _status.value = SyncStatus.Idle
     }
 
-    private fun allowed(): Boolean {
+    /** Why the sync may not run right now, or null when it may. */
+    private fun blocked(manual: Boolean): PauseReason? {
         val s = settings.settings.value
-        if (s.batterySaver || !connectivity.refresh()) return false
-        return !(s.lookAheadWifiOnly && connectivity.metered)
+        return when {
+            s.batterySaver -> PauseReason.SAVER
+            !connectivity.refresh() -> PauseReason.OFFLINE
+            !manual && s.lookAheadWifiOnly && connectivity.metered -> PauseReason.WIFI
+            else -> null
+        }
     }
 
-    private fun start() {
+    private fun allowed(): Boolean = blocked(manual = false) == null
+
+    private fun start(manual: Boolean = false) {
         job = scope.launch {
+            blocked(manual)?.let {
+                _status.value = SyncStatus.Paused(0, 0, it)
+                return@launch
+            }
             _status.value = SyncStatus.Reading
             val tracks = runCatching { readLibrary() }.getOrElse {
-                _status.value = SyncStatus.Paused(0, 0)
+                _status.value = SyncStatus.Paused(0, 0, PauseReason.SPOTIFY)
                 return@launch
             }
             var done = 0
             for (t in tracks) {
                 if (!coroutineContext.isActive) return@launch
-                if (!account.linked || !allowed()) {
-                    _status.value = SyncStatus.Paused(done, tracks.size)
+                if (!account.linked) return@launch
+                blocked(manual)?.let {
+                    _status.value = SyncStatus.Paused(done, tracks.size, it)
                     return@launch
                 }
                 _status.value = SyncStatus.Saving(done, tracks.size)

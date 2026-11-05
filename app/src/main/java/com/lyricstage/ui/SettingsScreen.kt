@@ -54,6 +54,7 @@ import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.settings.RippleMode
 import com.lyricstage.ui.theme.Ui
+import com.lyricstage.spotify.PauseReason
 import com.lyricstage.spotify.SyncStatus
 import android.text.format.DateUtils
 import androidx.compose.ui.platform.LocalUriHandler
@@ -70,7 +71,6 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     val offset by vm.offset.collectAsStateWithLifecycle()
     val cached by vm.cachedCount.collectAsStateWithLifecycle()
     val cacheBytes by vm.cachedBytes.collectAsStateWithLifecycle()
-    val bluetooth by vm.bluetooth.collectAsStateWithLifecycle()
     val accent = Ui.accent(palette)
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -219,10 +219,6 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             HorizontalDivider(color = Ui.Raised)
             Column(Modifier.padding(top = 14.dp, bottom = 6.dp)) {
                 LabelValue(stringResource(R.string.settings_bt_delay), stringResource(R.string.bt_delay_value, s.bluetoothDelayMs))
-                Text(
-                    stringResource(if (bluetooth) R.string.hint_bt_delay_on else R.string.hint_bt_delay_off),
-                    color = Ui.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp),
-                )
                 Slider(
                     s.bluetoothDelayMs.toFloat(),
                     onValueChange = { v -> vm.updateSettings { it.copy(bluetoothDelayMs = (v / 25f).roundToInt() * 25) } },
@@ -352,7 +348,19 @@ private fun SpotifyCard(vm: StageViewModel, accent: Color) {
                 is SyncStatus.Saving -> stringResource(R.string.sync_status_saving, st.done, st.total)
                 is SyncStatus.Done -> stringResource(R.string.sync_status_done, st.total,
                     DateUtils.getRelativeTimeSpanString(st.at, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString())
-                is SyncStatus.Paused -> stringResource(R.string.sync_status_paused, st.done, st.total)
+                is SyncStatus.Paused -> {
+                    val reason = when (st.reason) {
+                        PauseReason.WIFI -> stringResource(R.string.sync_reason_wifi)
+                        PauseReason.SAVER -> stringResource(R.string.sync_reason_saver)
+                        PauseReason.OFFLINE -> stringResource(R.string.sync_reason_offline)
+                        PauseReason.SPOTIFY -> null
+                    }
+                    when {
+                        reason == null -> stringResource(R.string.sync_paused_spotify)
+                        st.total > 0 -> stringResource(R.string.sync_paused_at, st.done, st.total, reason)
+                        else -> reason.replaceFirstChar { it.uppercase() }
+                    }
+                }
             }
             Text(status, color = Ui.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp))
             Spacer(Modifier.height(12.dp))
