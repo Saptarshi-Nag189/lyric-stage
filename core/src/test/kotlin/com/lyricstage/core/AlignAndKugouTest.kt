@@ -89,6 +89,18 @@ class AlignAndKugouTest {
         assertEquals(18_000L, LrcParser.parse(r.raw)[0].startMs)
     }
 
+    @Test fun moreTrustedWordSourceWinsEvenWhenSlower() = runBlocking {
+        val sources = LyricsSources(
+            listOf(
+                LyricsSources.Source { _, _, _, _ -> LyricsLookup.Found(true, lineTimed, false, "lrclib") },
+                LyricsSources.Source { _, _, _, _ -> delay(800); LyricsLookup.Found(true, wordTimedEarly, false, "musixmatch") },
+                LyricsSources.Source { _, _, _, _ -> delay(50); LyricsLookup.Found(true, wordTimedEarly, false, "netease") },
+                LyricsSources.Source { _, _, _, _ -> LyricsLookup.Found(true, wordTimedEarly, false, "kugou") },
+            ),
+        )
+        assertEquals("musixmatch", (sources.find("t", "a", null, null) as LyricsLookup.Found).source)
+    }
+
     @Test fun krcDecodesAndParsesToWordTiming() {
         val krc = "﻿[ti:Never Gonna Give You Up]\n[language:eyJjb250ZW50IjpbXX0=]\n" +
             "[18000,2100]<0,400,0>Never <400,600,0>gonna <1000,300,0>give <1300,300,0>you <1600,500,0>up\n"

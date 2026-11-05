@@ -45,8 +45,9 @@ class AppContainer(context: Context) {
     private val sources = LyricsSources(
         listOf(
             LyricsSources.Source { t, a, al, d -> lrclib.find(t, a, al, d) },
-            LyricsSources.Source { t, a, _, d -> netease.find(t, a, d) },
+            // word timings: Musixmatch first, then NetEase, then Kugou
             LyricsSources.Source { t, a, al, d -> musixmatch.find(t, a, al, d) },
+            LyricsSources.Source { t, a, _, d -> netease.find(t, a, d) },
             LyricsSources.Source { t, a, _, d -> kugou.find(t, a, d) },
         ),
     )

@@ -7,10 +7,10 @@ import kotlinx.coroutines.withTimeoutOrNull
 
 /**
  * Asks every lyrics source at once and keeps the best answer: word-timed lyrics win over
- * line-timed, then an instrumental flag, then plain text. As soon as a source returns
- * word-timed lyrics the others get a short moment to supply a line-timed copy, which
- * [LineAligner] uses to correct word timings made for a different release; then they are
- * cancelled.
+ * line-timed, then an instrumental flag, then plain text. Sources are listed most trusted
+ * first. As soon as a source returns word-timed lyrics, more trusted sources get a short
+ * moment to answer too, and the others to supply a line-timed copy, which [LineAligner]
+ * uses to correct word timings made for a different release; then they are cancelled.
  */
 class LyricsSources(private val sources: List<Source>) {
     fun interface Source {
@@ -30,23 +30,26 @@ class LyricsSources(private val sources: List<Source>) {
             jobs.remove(entry)
             results += entry.first to r
             if (r is LyricsLookup.Found && r.wordSynced) {
-                // give the others a moment to supply a line-timed copy to check the timing
-                // against, then stop them
-                if (reference(results) == null) {
-                    withTimeoutOrNull(ALIGN_WAIT_MS) {
-                        while (jobs.isNotEmpty() && reference(results) == null) {
-                            val (e, more) = select { jobs.forEach { j -> j.second.onAwait { j to it } } }
-                            jobs.remove(e)
-                            results += e.first to more
-                        }
+                // a more trusted source may still bring word timings, and a line-timed copy
+                // checks the timing: wait a moment for either, then stop the rest
+                withTimeoutOrNull(ALIGN_WAIT_MS) {
+                    while (jobs.isNotEmpty() && (jobs.any { it.first < bestWord(results) } || reference(results) == null)) {
+                        val (e, more) = select { jobs.forEach { j -> j.second.onAwait { j to it } } }
+                        jobs.remove(e)
+                        results += e.first to more
                     }
                 }
                 jobs.forEach { it.second.cancel() }
-                return@coroutineScope aligned(r, reference(results))
+                val word = results.first { it.first == bestWord(results) }.second as LyricsLookup.Found
+                return@coroutineScope aligned(word, reference(results))
             }
         }
         best(results)
     }
+
+    /** Position of the most trusted word-timed answer so far. */
+    private fun bestWord(results: List<Pair<Int, LyricsLookup>>): Int =
+        results.filter { (it.second as? LyricsLookup.Found)?.wordSynced == true }.minOf { it.first }
 
     private fun reference(results: List<Pair<Int, LyricsLookup>>): LyricsLookup.Found? =
         results.sortedBy { it.first }.map { it.second }

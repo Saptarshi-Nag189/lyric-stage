@@ -48,8 +48,6 @@
     <string name="sync_reset">Reset</string>
     <string name="settings_audio_sync">Audio sync</string>
     <string name="plain_badge">Unsynced</string>
-    <string name="template_locked">Template locked: %1$s</string>
-    <string name="template_unlocked">Template set to Auto</string>
     <string name="artwork">Artwork</string>
 
     <!-- Settings -->

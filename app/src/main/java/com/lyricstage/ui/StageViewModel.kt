@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import com.lyricstage.spotify.SyncStatus
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
@@ -77,8 +78,13 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    /** New random seed each time a track starts: highlights and templates vary per play. */
-    val playSeed: StateFlow<Int> = query.map { Random.nextInt() }
+    /**
+     * New random seed each time a track starts: highlights and templates vary per play. Only a
+     * new title or artist counts; the player dropping out for a moment and re-sending the
+     * same song (as when the app goes to recents and back) keeps the seed, so the layouts
+     * don't change.
+     */
+    val playSeed: StateFlow<Int> = query.filterNotNull().map { it.title + "|" + it.artist }.distinctUntilChanged().map { Random.nextInt() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Random.nextInt())
 
     // the same album always gets the same colours: the seed (used only when the art has no

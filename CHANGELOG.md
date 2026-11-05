@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.4]
+
+### Changed
+- Word-timed lyrics now prefer Musixmatch, then NetEase, then Kugou. A faster, less trusted
+  source no longer wins the race.
+- The Instrumental pill goes away after 5 seconds. Its border runs down as the timer.
+- On dark covers ripples are a soft swell of colour instead of hard lines.
+
+### Fixed
+- Swiping up to go home or to recents no longer changes the layouts. The song keeps its
+  layout seed when the player drops out for a moment, and the stage has no long-press or
+  swipe gestures left, only a tap for the controls. Lock a layout under Look in Settings.
+
 ## [1.1.3]
 
 ### Added

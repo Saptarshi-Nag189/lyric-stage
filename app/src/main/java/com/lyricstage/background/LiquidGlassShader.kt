@@ -4,7 +4,8 @@ package com.lyricstage.background
  * AGSL "liquid glass": pools of the artwork's accent colours drift behind a slowly
  * undulating glass slab that refracts them. Sung words send ripples through the glass and
  * each new line sweeps a soft band of light across it. Ripples are lit in a light shade of
- * the main accent, more strongly where the glass is dark, so they stay visible on dark covers. Tone mapped so the brightest spots
+ * the main accent; on dark glass they become a soft, wide swell of colour instead of a hard
+ * ring, so black covers don't show stark lines. Tone mapped so the brightest spots
  * stay well below white text.
  *
  * Coordinates: fragCoord has a top-left origin; p is centred, y down, aspect corrected.
@@ -77,6 +78,7 @@ half4 main(float2 fragCoord) {
 
     // ripples: a damped ring travelling outwards from each sung word
     float ring = 0.0;
+    float glow = 0.0;
     for (int i = 0; i < 8; i++) {
         float4 rp = uRip[i];
         float age = t - rp.z;
@@ -88,6 +90,8 @@ half4 main(float2 fragCoord) {
             float env = exp(-x * x * 90.0) * exp(-age * 1.25) * rp.w;
             slope += (d / max(dist, 0.001)) * sin(x * 55.0) * env * 0.035 * uRipple;
             ring += env * uRipple;
+            // a wide, soft version of the same ring, for dark glass
+            glow += exp(-x * x * 14.0) * exp(-age * 1.4) * rp.w * uRipple;
         }
     }
 
@@ -102,20 +106,22 @@ half4 main(float2 fragCoord) {
 
     // refraction: the light is seen through the bent glass
     half3 col = lightField(p + slope * 6.0, t);
-    col += half3(slope.x, 0.3 * (slope.y - slope.x), -slope.y) * 1.6;
+    // where the glass is dark (black covers) there is nothing bright to refract, and the
+    // ring's colour fringes and glints read as hard lines on black; soften them there
+    half lum0 = dot(col, half3(0.299, 0.587, 0.114));
+    half dark = 1.0 - smoothstep(0.04, 0.3, lum0);
+    half edge = mix(1.0, 0.2, dark);
+    col += half3(slope.x, 0.3 * (slope.y - slope.x), -slope.y) * 1.6 * edge;
 
     float3 n = normalize(float3(-slope * 14.0, 1.0));
     float3 L = normalize(float3(-0.45, -0.55, 0.7));
     float spec = pow(max(dot(reflect(-L, n), float3(0.0, 0.0, 1.0)), 0.0), 40.0);
-    col += half(spec * 0.2 + sweep * 0.1);
+    col += half(spec * 0.2) * edge + half(sweep * 0.1);
 
-    // ripples glow in a light shade of the main accent; where the glass is dark there is
-    // nothing bright to refract, so the ring itself is drawn stronger there
-    half lum0 = dot(col, half3(0.299, 0.587, 0.114));
-    half dark = 1.0 - smoothstep(0.04, 0.3, lum0);
-    half3 rippleTint = mix(uC0, half3(1.0), 0.45);
-    // kept gentle so the pools stay the main event; the slider scales it
-    col += rippleTint * half(ring) * (0.03 + 0.09 * dark);
+    // ripples glow in a light shade of the main accent: a faint fine ring on lit glass,
+    // a soft wide swell of colour on dark glass
+    half3 rippleTint = mix(uC0, half3(1.0), 0.3);
+    col += rippleTint * (half(ring) * 0.03 * (1.0 - dark) + half(min(glow, 1.5)) * 0.07 * dark);
 
     // vignette, then a filmic roll-off that keeps highlights under the white type
     col *= half(mix(0.4, 1.0, smoothstep(1.2, 0.3, length(p * float2(0.85, 1.1)))));

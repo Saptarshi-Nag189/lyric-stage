@@ -1,5 +1,17 @@
 package com.lyricstage.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.tween
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.PathMeasure
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
@@ -38,7 +50,18 @@ fun StagePill(
     glyph: Glyph? = null,
     dot: Color? = null,
     accent: Color = Ui.Default,
+    /** When set, a border in [accent] runs down around the pill over this time, then [onTimeout]. */
+    timerMs: Long = 0L,
+    onTimeout: () -> Unit = {},
 ) {
+    val left = remember { Animatable(1f) }
+    if (timerMs > 0) {
+        LaunchedEffect(timerMs) {
+            left.snapTo(1f)
+            left.animateTo(0f, tween(timerMs.toInt(), easing = LinearEasing))
+            onTimeout()
+        }
+    }
     Row(
         modifier
             .windowInsetsPadding(WindowInsets.mandatorySystemGestures)
@@ -46,6 +69,18 @@ fun StagePill(
             .heightIn(min = 44.dp)
             .clip(CircleShape)
             .background(Ui.Scrim)
+            .then(
+                if (timerMs > 0) Modifier.drawWithContent {
+                    drawContent()
+                    val w = 2.dp.toPx()
+                    val r = size.height / 2f - w / 2f
+                    val outline = Path().apply { addRoundRect(RoundRect(w / 2f, w / 2f, size.width - w / 2f, size.height - w / 2f, CornerRadius(r))) }
+                    val measure = PathMeasure().apply { setPath(outline, false) }
+                    val part = Path()
+                    measure.getSegment(0f, measure.length * left.value, part, true)
+                    drawPath(part, accent, style = Stroke(w, cap = StrokeCap.Round))
+                } else Modifier,
+            )
             .padding(start = 18.dp, end = if (action != null) 6.dp else 18.dp, top = 4.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

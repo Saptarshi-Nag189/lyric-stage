@@ -36,7 +36,6 @@ import com.lyricstage.background.RippleEmitter
 import com.lyricstage.background.StageBackground
 import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.core.stage.Ripple
-import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.RippleMode
 import com.lyricstage.stage.LyricStage
@@ -139,7 +138,6 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
 
     var controlsVisible by remember { mutableStateOf(false) }
     var interactions by remember { mutableIntStateOf(0) }
-    var visibleTemplate by remember { mutableStateOf<TemplateId?>(null) }
     // controls poll the position while open; close them when the app goes to the background
     LaunchedEffect(foreground) { if (!foreground) controlsVisible = false }
     LaunchedEffect(controlsVisible, interactions) {
@@ -163,23 +161,12 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         Modifier
             .fillMaxSize()
             .pointerInput(Unit) {
+                // a tap only: no long-press or swipe handling, so system gestures (swipe up
+                // to go home or to recents) never change anything on the stage
                 detectTapGestures(
                     onTap = {
                         controlsVisible = !controlsVisible
                         interactions++
-                    },
-                    onLongPress = {
-                        // lock whatever template is on screen now, or go back to Auto
-                        val current = vm.settings.value.template
-                        if (current != null) {
-                            vm.setTemplate(null)
-                            Toast.makeText(context, R.string.template_unlocked, Toast.LENGTH_SHORT).show()
-                        } else {
-                            visibleTemplate?.let {
-                                vm.setTemplate(it)
-                                Toast.makeText(context, context.getString(R.string.template_locked, it.label), Toast.LENGTH_SHORT).show()
-                            }
-                        }
                     },
                 )
             },
@@ -205,7 +192,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                 LyricsState.Unavailable -> StatePill(R.string.state_unavailable, import = true)
                 LyricsState.Offline -> StatePill(R.string.state_offline, glyph = Glyph.OFFLINE)
                 is LyricsState.Ready -> when {
-                    s.lyrics.kind == LyricsKind.INSTRUMENTAL -> StatePill(R.string.state_instrumental, glyph = Glyph.NOTE)
+                    s.lyrics.kind == LyricsKind.INSTRUMENTAL -> StatePill(R.string.state_instrumental, glyph = Glyph.NOTE, timed = true)
                     s.lyrics.kind != LyricsKind.PLAIN && s.lyrics.lines.isEmpty() -> StatePill(R.string.state_no_lyrics, import = true)
                     else -> null
                 }
@@ -239,20 +226,26 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                             if (!beatRipples) ripples.emit(it, bgClock.seconds())
                             else if (it.newLine) ripples.emit(Ripple(it.x, it.y, 0f, true), bgClock.seconds())
                         },
-                        onVisibleTemplate = { visibleTemplate = it },
+                        onVisibleTemplate = {},
                         audio = if (audioActive) audio else null,
                     )
             }
         }
+        // a timed pill (instrumental) goes away by itself, once per song
+        val pillKey = current?.let { it.title + "|" + it.artist } to pill
+        var pillGone by remember(pillKey) { mutableStateOf(false) }
         if (pill != null) {
-            StagePill(
-                stringResource(pill.text),
-                action = if (pill.import) stringResource(R.string.import_lrc) else null,
-                onAction = pickLrc,
-                modifier = Modifier.align(Alignment.BottomCenter),
-                glyph = pill.glyph,
-                accent = accent,
-            )
+            AnimatedVisibility(!pillGone, Modifier.align(Alignment.BottomCenter), enter = fadeIn(), exit = fadeOut()) {
+                StagePill(
+                    stringResource(pill.text),
+                    action = if (pill.import) stringResource(R.string.import_lrc) else null,
+                    onAction = pickLrc,
+                    glyph = pill.glyph,
+                    accent = accent,
+                    timerMs = if (pill.timed) TIMED_PILL_MS else 0L,
+                    onTimeout = { pillGone = true },
+                )
+            }
         } else if (!controlsVisible) {
             val info = if (audioDeaf) stringResource(R.string.audio_sync_silent) else sourceInfo
             var shown by remember { mutableStateOf("") }
@@ -292,11 +285,12 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
 }
 
 /** A status pop-up: its text, an icon, and whether it offers Import. */
-private data class StatePill(val text: Int, val glyph: Glyph? = null, val import: Boolean = false)
+private data class StatePill(val text: Int, val glyph: Glyph? = null, val import: Boolean = false, val timed: Boolean = false)
 
 private const val CONTROLS_MS = 3_000L
 private const val CLOCK_CHECK_MS = 5_000L
 private const val INFO_PILL_MS = 3_500L
+private const val TIMED_PILL_MS = 5_000L
 private const val AUDIO_CHECK_MS = 8_000L
 
 private const val SCREEN_PAUSE_MS = 120_000L

@@ -11,7 +11,7 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 - Follows the active player through Android's media sessions. No account and no player integration needed.
 - Nine layouts: Stack, Slide, Zoom, Letters, Scatter, Graph, Flow, Stamp and Spotlight. The app picks one per line from how fast it is sung, how long it is and whether it repeats as a chorus, and never uses the same one twice in a row. You can lock a favourite.
 - Words fill from left to right while they are sung. Notes held longer than usual lift, grow slightly and glow, then settle back. One to three words per line are highlighted: emotionally loaded words, held notes, line endings and the song's hooks, coloured from the album art.
-- Lyrics come from [LRCLIB](https://lrclib.net), NetEase Cloud Music, Musixmatch and Kugou, asked at the same time. Word-by-word timings win when any source has them, and are checked against LRCLIB's line timings so they match the playing release. Lyrics are cached on the phone and fetched in the background as songs change, along with the next two songs in the player's queue.
+- Lyrics come from [LRCLIB](https://lrclib.net), NetEase Cloud Music, Musixmatch and Kugou, asked at the same time. Word-by-word timings win when any source has them (Musixmatch first, then NetEase, then Kugou), and are checked against LRCLIB's line timings so they match the playing release. Lyrics are cached on the phone and fetched in the background as songs change, along with the next two songs in the player's queue.
 - Without word timings, the app estimates them from syllables (aksharas for Hindi and Bengali), holding line endings longer. An optional audio sync setting nudges those estimates towards the vocal onsets it hears in the playing audio.
 - Shows a romanised line under Japanese, Hindi or Bengali lyrics when the lyrics file includes one.
 - The colours come from the album art: a dark base from its shadows, three vivid accents from its strongest hues, and body text tinted with its main hue. On Android 13 and later the background is a moving "liquid glass" shader in those colours, with a ripple from each sung word, and on the beat (or at a gentle pace) when nothing is being sung. Older phones get an animated gradient. Artwork blur and a plain colour are also available. Colours are fixed per album, so songs from one album share them.
@@ -56,7 +56,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 ## Using it
 
 - Tap the stage to show or hide the controls. The ⋮ button in the top right opens Settings.
-- Long-press the stage to lock the current layout. Long-press again to go back to automatic.
+- Lock a layout under Look in Settings. There are no long-press or swipe gestures on the stage.
 - If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms and is saved for that song. Reset puts it back to 0.
 - If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
 - Songs with lyrics but no timings scroll slowly with the song and are labelled as unsynced.
