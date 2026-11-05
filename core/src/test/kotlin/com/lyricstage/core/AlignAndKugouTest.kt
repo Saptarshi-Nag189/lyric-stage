@@ -101,6 +101,19 @@ class AlignAndKugouTest {
         assertEquals("musixmatch", (sources.find("t", "a", null, null) as LyricsLookup.Found).source)
     }
 
+    @Test fun aFailedLrclibIsNotAMiss() = runBlocking {
+        val sources = LyricsSources(
+            listOf(
+                LyricsSources.Source { _, _, _, _ -> LyricsLookup.Unavailable },
+                LyricsSources.Source { _, _, _, _ -> LyricsLookup.NotFound },
+                LyricsSources.Source { _, _, _, _ -> LyricsLookup.NotFound },
+            ),
+        )
+        assertEquals(LyricsLookup.Unavailable, sources.find("t", "a", null, null))
+        val all = LyricsSources(List(3) { LyricsSources.Source { _, _, _, _ -> LyricsLookup.NotFound } })
+        assertEquals(LyricsLookup.NotFound, all.find("t", "a", null, null))
+    }
+
     @Test fun krcDecodesAndParsesToWordTiming() {
         val krc = "﻿[ti:Never Gonna Give You Up]\n[language:eyJjb250ZW50IjpbXX0=]\n" +
             "[18000,2100]<0,400,0>Never <400,600,0>gonna <1000,300,0>give <1300,300,0>you <1600,500,0>up\n"

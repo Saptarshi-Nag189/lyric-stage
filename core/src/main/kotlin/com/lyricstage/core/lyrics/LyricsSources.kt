@@ -62,7 +62,8 @@ class LyricsSources(private val sources: List<Source>) {
     }
 
     companion object {
-        const val TIMEOUT_MS = 9_000L
+        /** LRCLIB can take a while: an exact lookup, then a search when that misses. */
+        const val TIMEOUT_MS = 15_000L
         /** How long a word-timed answer waits for a line-timed one to align against. */
         const val ALIGN_WAIT_MS = 4_000L
 
@@ -74,11 +75,17 @@ class LyricsSources(private val sources: List<Source>) {
             else -> 1
         }
 
+        /**
+         * The best answer. "Not found" needs the first source (LRCLIB, the main catalogue) to
+         * have said so: when it timed out or failed, the answer is "unavailable", so the miss
+         * is not remembered and the song is asked again.
+         */
         fun best(results: List<Pair<Int, LyricsLookup>>): LyricsLookup {
             val top = results.sortedBy { it.first }.maxByOrNull { rank(it.second) }?.second
+            val primary = results.firstOrNull { it.first == 0 }?.second
             return when {
                 top != null && rank(top) > 0 -> top
-                results.isNotEmpty() && results.all { it.second == LyricsLookup.Unavailable } -> LyricsLookup.Unavailable
+                results.isEmpty() || primary == null || primary == LyricsLookup.Unavailable -> LyricsLookup.Unavailable
                 else -> LyricsLookup.NotFound
             }
         }

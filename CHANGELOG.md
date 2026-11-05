@@ -1,5 +1,13 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- Songs with lyrics could show "No lyrics" for a day (Lush Life by Zara Larsson). When
+  LRCLIB was slow or failed and the other sources had nothing, that counted as a miss and
+  was remembered for 24 hours. Now it counts as unavailable and is asked again, and LRCLIB
+  gets 15 seconds instead of 9.
+
 ## [1.1.4]
 
 ### Changed
