@@ -4,6 +4,8 @@ import android.content.Context
 import android.provider.Settings as SystemSettings
 import androidx.core.content.edit
 import com.lyricstage.core.stage.TemplateId
+import com.lyricstage.stage.AppFont
+import com.lyricstage.stage.LyricFont
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +40,16 @@ data class StageSettings(
     val ripples: RippleMode = RippleMode.WORDS,
     /** Extra delay for Bluetooth audio, in ms, applied only while it is connected. */
     val bluetoothDelayMs: Int = 0,
+    val lyricFont: LyricFont = LyricFont.UNBOUNDED,
+    val appFont: AppFont = AppFont.INSTRUMENT,
+    /** Brightness and size of the background's colour pools, 0 to 2 (1 is the standard look). */
+    val pools: Float = 1f,
+    /** Strength of the ripples, 0 to 2. */
+    val rippleStrength: Float = 1f,
+    /** How much the lyrics look like glass: 0 solid, 1 clear glass. */
+    val glass: Float = 0f,
+    /** Frosting of glass lyrics: 0 clear, 1 milky. */
+    val frost: Float = 0.4f,
 )
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
@@ -61,6 +73,12 @@ class SettingsStore(private val context: Context) {
             putBoolean(K_SAVER, next.batterySaver)
             putString(K_RIPPLES, next.ripples.name)
             putInt(K_BT_DELAY, next.bluetoothDelayMs)
+            putString(K_LYRIC_FONT, next.lyricFont.name)
+            putString(K_APP_FONT, next.appFont.name)
+            putFloat(K_POOLS, next.pools)
+            putFloat(K_RIPPLE_STRENGTH, next.rippleStrength)
+            putFloat(K_GLASS, next.glass)
+            putFloat(K_FROST, next.frost)
         }
         _settings.value = next
     }
@@ -82,6 +100,12 @@ class SettingsStore(private val context: Context) {
         batterySaver = prefs.getBoolean(K_SAVER, false),
         ripples = prefs.getString(K_RIPPLES, null)?.let { runCatching { RippleMode.valueOf(it) }.getOrNull() } ?: RippleMode.WORDS,
         bluetoothDelayMs = prefs.getInt(K_BT_DELAY, 0),
+        lyricFont = LyricFont.fromName(prefs.getString(K_LYRIC_FONT, null)),
+        appFont = AppFont.fromName(prefs.getString(K_APP_FONT, null)),
+        pools = prefs.getFloat(K_POOLS, 1f),
+        rippleStrength = prefs.getFloat(K_RIPPLE_STRENGTH, 1f),
+        glass = prefs.getFloat(K_GLASS, 0f),
+        frost = prefs.getFloat(K_FROST, 0.4f),
     )
 
     private companion object {
@@ -97,5 +121,11 @@ class SettingsStore(private val context: Context) {
         const val K_SAVER = "battery_saver"
         const val K_RIPPLES = "ripples"
         const val K_BT_DELAY = "bluetooth_delay_ms"
+        const val K_LYRIC_FONT = "lyric_font"
+        const val K_APP_FONT = "app_font"
+        const val K_POOLS = "pools"
+        const val K_RIPPLE_STRENGTH = "ripple_strength"
+        const val K_GLASS = "glass"
+        const val K_FROST = "frost"
     }
 }

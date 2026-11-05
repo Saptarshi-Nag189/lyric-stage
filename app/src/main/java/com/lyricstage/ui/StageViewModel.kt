@@ -81,8 +81,11 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     val playSeed: StateFlow<Int> = query.map { Random.nextInt() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Random.nextInt())
 
-    val palette: StateFlow<StagePalette> = nowPlaying.map { it?.art }.distinctUntilChanged()
-        .combine(playSeed) { art, seed -> art to seed }
+    // the same album always gets the same colours: the seed (used only when the art has no
+    // usable colour, or is missing) comes from the album and artist, not from the play
+    val palette: StateFlow<StagePalette> = nowPlaying.map { np -> np?.art to (np?.let { (it.album ?: it.title) + "|" + it.artist }?.hashCode() ?: 0) }
+        .distinctUntilChanged()
+        .map { (art, seed) -> art to seed }
         .mapLatest { (art, seed) ->
             // players often send a new song's title a moment before its artwork: keep the last
             // colours for that moment instead of flashing made-up ones

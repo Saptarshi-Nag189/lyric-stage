@@ -35,7 +35,8 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         handleSpotify(intent)
         setContent {
-            LyricStageTheme {
+            val prefs by container.settings.settings.collectAsStateWithLifecycle()
+            LyricStageTheme(prefs.appFont) {
                 val vm: StageViewModel = viewModel { StageViewModel(container) }
                 App(vm, accessGranted.value, systemReduceMotion.value)
             }

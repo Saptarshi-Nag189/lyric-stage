@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
@@ -34,7 +35,14 @@ import kotlin.math.sin
 /** Which words a pass draws: settled and slow ones, or the fast blurred ones. */
 enum class StageLayer { SETTLED, MOTION, ALL }
 
-class StageColours(palette: StagePalette, highlightIntensity: Float) {
+class StageColours(
+    palette: StagePalette,
+    highlightIntensity: Float,
+    /** 0 solid lyrics, 1 clear glass that shows the background through it. */
+    val glass: Float = 0f,
+    /** For glass: 0 clear, 1 frosted (milky). */
+    val frost: Float = 0f,
+) {
     val text = Color(palette.text)
     val accents = palette.accents.map { lerp(text, Color(it), highlightIntensity.coerceIn(0f, 1f)) }
     val glow = highlightIntensity.coerceIn(0f, 1f)
@@ -84,6 +92,8 @@ class StageRenderer {
         sweep: Boolean = true,
     ) {
         if (li < 0 || li >= prep.plan.lines.size) return
+        glassAmount = if (sweep) colours.glass else 0f
+        frostAmount = colours.frost
         // the line comes and goes on its own timestamp; only word timing is shifted
         val wpos = pos - wordShiftMs
         val plan = prep.plan
@@ -249,17 +259,29 @@ class StageRenderer {
     ) {
         val topLeft = Offset(0f, p.ascent - tl.firstBaseline)
         if (fill >= 1f) {
-            drawText(tl, colour, topLeft, alpha, shadow)
+            drawSung(tl, p, colour, topLeft, alpha, shadow)
             return
         }
         drawText(tl, dimColour, topLeft, alpha * DIM)
         if (fill > 0f) {
             val right = p.width * fill - clipLeft
             if (right > 0f) clipRect(left = -p.width, top = -p.height, right = right, bottom = p.height * 2f) {
-                drawText(tl, colour, topLeft, alpha, shadow)
+                drawSung(tl, p, colour, topLeft, alpha, shadow)
             }
         }
     }
+
+    /**
+     * A sung word: solid, or as glass. Glass lets the background show through the letters,
+     * with a light catching their top and a bright rim; frost turns the body milky, like
+     * frosted glass, so it stays readable over busy colour.
+     */
+    private fun DrawScope.drawSung(tl: TextLayoutResult, p: WordPlacement, colour: Color, topLeft: Offset, alpha: Float, shadow: Shadow) =
+        drawGlassText(tl, colour, topLeft, alpha, shadow, glassAmount, frostAmount, p.fontPx)
+
+    /** Set from [StageColours] at the start of each line draw. */
+    private var glassAmount = 0f
+    private var frostAmount = 0f
 
     private fun DrawScope.drawGlyphs(
         template: LyricTemplate, p: WordPlacement, glyphs: List<TextLayoutResult>, offsetsAtRef: FloatArray,
@@ -396,4 +418,43 @@ class StageRenderer {
         /** Opacity of words not yet sung. */
         const val DIM = 0.32f
     }
+}
+
+/**
+ * Text drawn solid, or as glass when [glass] is above zero: the background shows through the
+ * letters, light catches their top and a fine rim outlines them. [frost] turns the body milky,
+ * like frosted glass, so it stays readable over busy colour. Shared by the stage and the
+ * Settings preview.
+ */
+fun DrawScope.drawGlassText(
+    tl: TextLayoutResult,
+    colour: Color,
+    topLeft: Offset,
+    alpha: Float,
+    shadow: Shadow?,
+    glass: Float,
+    frost: Float,
+    fontPx: Float,
+) {
+    val g = glass
+    if (g <= 0.01f) {
+        drawText(tl, colour, topLeft, alpha, shadow)
+        return
+    }
+    val body = lerp(colour, Color.White, 0.55f * frost)
+    val bodyAlpha = (1f - 0.75f * g + 0.45f * g * frost).coerceIn(0.15f, 1f)
+    val bodyShadow = shadow?.let { Shadow(it.color.copy(alpha = it.color.alpha * (1f - 0.6f * g)), it.offset, it.blurRadius) }
+    drawText(tl, body, topLeft, alpha * bodyAlpha, bodyShadow)
+    drawText(
+        tl,
+        Brush.verticalGradient(
+            0f to Color.White.copy(alpha = 0.55f * g),
+            0.45f to Color.White.copy(alpha = 0.08f * g),
+            1f to Color.Transparent,
+            startY = topLeft.y, endY = topLeft.y + tl.size.height,
+        ),
+        topLeft,
+        alpha = alpha,
+    )
+    drawText(tl, Color.White.copy(alpha = 0.5f * g), topLeft, alpha, drawStyle = Stroke(width = (fontPx * 0.022f).coerceAtLeast(1f)))
 }

@@ -53,6 +53,8 @@ import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.settings.RippleMode
+import com.lyricstage.stage.AppFont
+import com.lyricstage.stage.LyricFont
 import com.lyricstage.ui.theme.Ui
 import com.lyricstage.spotify.PauseReason
 import com.lyricstage.spotify.SyncStatus
@@ -175,6 +177,18 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                 ),
                 s.background,
             ) { mode -> vm.updateSettings { it.copy(background = mode) } }
+            Spacer(Modifier.height(14.dp))
+            BackgroundPreview(s.background, palette, np?.art, s.pools, s.rippleStrength, s.glass, s.frost, s.lyricFont, s.reduceMotion || systemReduceMotion)
+            Spacer(Modifier.height(14.dp))
+            PercentSlider(stringResource(R.string.settings_pools), s.pools, 0f..2f, 0, accent) { v -> vm.updateSettings { it.copy(pools = v) } }
+            Spacer(Modifier.height(12.dp))
+            PercentSlider(stringResource(R.string.settings_ripple_strength), s.rippleStrength, 0f..2f, 0, accent) { v -> vm.updateSettings { it.copy(rippleStrength = v) } }
+            Spacer(Modifier.height(12.dp))
+            PercentSlider(stringResource(R.string.settings_glass), s.glass, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(glass = v) } }
+            if (s.glass > 0.01f) {
+                Spacer(Modifier.height(12.dp))
+                PercentSlider(stringResource(R.string.settings_frost), s.frost, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(frost = v) } }
+            }
             Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.settings_ripples), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
@@ -196,6 +210,23 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             PercentSlider(stringResource(R.string.settings_font_scale), s.fontScale, 0.6f..1.4f, 7, accent) { v -> vm.updateSettings { it.copy(fontScale = v) } }
             Spacer(Modifier.height(12.dp))
             PercentSlider(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
+        }
+
+        SectionHeader(stringResource(R.string.settings_fonts))
+        UiCard {
+            Text(stringResource(R.string.settings_lyric_font), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LyricFont.entries.forEach { f -> ChoicePill(f.label, s.lyricFont == f, accent, { vm.updateSettings { it.copy(lyricFont = f) } }) }
+            }
+            Spacer(Modifier.height(20.dp))
+            Text(stringResource(R.string.settings_app_font), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                AppFont.entries.forEach { f -> ChoicePill(f.label, s.appFont == f, accent, { vm.updateSettings { it.copy(appFont = f) } }) }
+            }
+            Spacer(Modifier.height(16.dp))
+            FontPreview(s.lyricFont, s.appFont, palette)
         }
 
         SectionHeader(stringResource(R.string.settings_motion))

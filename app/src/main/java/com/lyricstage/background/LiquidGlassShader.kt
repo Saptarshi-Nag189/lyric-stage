@@ -18,6 +18,8 @@ uniform half3 uC2;
 uniform half3 uBase;
 uniform float4 uRip[8];
 uniform float uLineT;
+uniform float uPools;
+uniform float uRipple;
 
 float hash(float2 p) {
     p = fract(p * float2(123.34, 456.21));
@@ -55,7 +57,9 @@ half3 lightField(float2 p, float t) {
     float w0 = smoothstep(0.42, 0.82, f);
     float w1 = smoothstep(0.5, 0.88, r.x) * (1.0 - w0 * 0.6);
     float w2 = smoothstep(0.55, 0.92, q.y) * (1.0 - max(w0, w1) * 0.6);
-    half3 col = uBase * 0.7 + uC0 * w0 * 0.95 + uC1 * w1 * 0.8 + uC2 * w2 * 0.65;
+    // uPools scales how much of each accent shows: 0 nearly flat base, 1 standard, 2 vivid
+    half pools = half(uPools);
+    half3 col = uBase * 0.7 + (uC0 * w0 * 0.95 + uC1 * w1 * 0.8 + uC2 * w2 * 0.65) * pools;
     half lum = dot(col, half3(0.299, 0.587, 0.114));
     return max(mix(half3(lum), col, 1.45), half3(0.0));
 }
@@ -82,8 +86,8 @@ half4 main(float2 fragCoord) {
             float dist = length(d);
             float x = dist - age * 0.32;
             float env = exp(-x * x * 90.0) * exp(-age * 1.25) * rp.w;
-            slope += (d / max(dist, 0.001)) * sin(x * 55.0) * env * 0.035;
-            ring += env;
+            slope += (d / max(dist, 0.001)) * sin(x * 55.0) * env * 0.035 * uRipple;
+            ring += env * uRipple;
         }
     }
 
@@ -110,7 +114,8 @@ half4 main(float2 fragCoord) {
     half lum0 = dot(col, half3(0.299, 0.587, 0.114));
     half dark = 1.0 - smoothstep(0.04, 0.3, lum0);
     half3 rippleTint = mix(uC0, half3(1.0), 0.45);
-    col += rippleTint * half(ring) * (0.06 + 0.24 * dark);
+    // kept gentle so the pools stay the main event; the slider scales it
+    col += rippleTint * half(ring) * (0.03 + 0.09 * dark);
 
     // vignette, then a filmic roll-off that keeps highlights under the white type
     col *= half(mix(0.4, 1.0, smoothstep(1.2, 0.3, length(p * float2(0.85, 1.1)))));

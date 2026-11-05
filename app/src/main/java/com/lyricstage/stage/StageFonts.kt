@@ -11,7 +11,25 @@ import androidx.compose.ui.unit.em
 import com.lyricstage.R
 import com.lyricstage.core.text.Script
 
-/** Bundled variable fonts, one family per script. Weight is set through the wght axis. */
+/** Typefaces for Latin lyrics, picked in Settings. All bundled, SIL Open Font License. */
+enum class LyricFont(val label: String) {
+    UNBOUNDED("Unbounded"), BRICOLAGE("Bricolage"), BIG_SHOULDERS("Big Shoulders"), SYNE("Syne"), DARKER("Darker Grotesque");
+
+    companion object {
+        fun fromName(name: String?) = entries.firstOrNull { it.name == name } ?: UNBOUNDED
+    }
+}
+
+/** Typefaces for the app's own screens, picked in Settings. */
+enum class AppFont(val label: String) {
+    INSTRUMENT("Instrument Sans"), BRICOLAGE("Bricolage"), FAMILJEN("Familjen Grotesk"), SCHIBSTED("Schibsted Grotesk"), DARKER("Darker Grotesque");
+
+    companion object {
+        fun fromName(name: String?) = entries.firstOrNull { it.name == name } ?: INSTRUMENT
+    }
+}
+
+/** Bundled variable fonts. Weights and optical sizes are set through their axes. */
 object StageFonts {
     private fun family(res: Int) = FontFamily(
         Font(res, FontWeight.Black),
@@ -19,30 +37,63 @@ object StageFonts {
         Font(res, FontWeight.Medium),
     )
 
-    /** Bricolage Grotesque at a given weight and optical size (12 for small text, 96 for display). */
+    /** One cut of a variable font: [weight] on the wght axis (clamped to what it has), optional opsz. */
     @OptIn(ExperimentalTextApi::class)
-    private fun bricolage(weight: Int, opsz: Float, as_: FontWeight = FontWeight(weight)) = Font(
-        R.font.bricolage,
-        as_,
-        variationSettings = FontVariation.Settings(FontVariation.weight(weight), FontVariation.Setting("opsz", opsz)),
-    )
+    private fun cut(res: Int, slot: FontWeight, weight: Int, maxWeight: Int, opsz: Float? = null): Font {
+        val w = weight.coerceAtMost(maxWeight)
+        val settings = if (opsz != null) FontVariation.Settings(FontVariation.weight(w), FontVariation.Setting("opsz", opsz))
+        else FontVariation.Settings(FontVariation.weight(w))
+        return Font(res, slot, variationSettings = settings)
+    }
 
-    /** Latin lyrics: Bricolage at its heaviest, display cut. */
-    private val stageLatin = FontFamily(
-        bricolage(800, 96f, FontWeight.Black),
-        bricolage(600, 48f, FontWeight.SemiBold),
-        bricolage(500, 36f, FontWeight.Medium),
-    )
+    private class Spec(val res: Int, val max: Int, val opsz: Boolean = false)
 
-    /** The app's own screens: text-size cuts for body copy, display cuts for headings. */
-    val ui = FontFamily(
-        bricolage(400, 14f),
-        bricolage(500, 14f),
-        bricolage(600, 18f),
-        bricolage(700, 24f),
-        bricolage(800, 36f),
-        bricolage(800, 72f, FontWeight.Black),
-    )
+    private fun spec(f: LyricFont) = when (f) {
+        LyricFont.UNBOUNDED -> Spec(R.font.unbounded, 900)
+        LyricFont.BRICOLAGE -> Spec(R.font.bricolage, 800, opsz = true)
+        LyricFont.BIG_SHOULDERS -> Spec(R.font.big_shoulders, 900)
+        LyricFont.SYNE -> Spec(R.font.syne, 800)
+        LyricFont.DARKER -> Spec(R.font.darker_grotesque, 900)
+    }
+
+    private fun spec(f: AppFont) = when (f) {
+        AppFont.INSTRUMENT -> Spec(R.font.instrument_sans, 700)
+        AppFont.BRICOLAGE -> Spec(R.font.bricolage, 800, opsz = true)
+        AppFont.FAMILJEN -> Spec(R.font.familjen_grotesk, 700)
+        AppFont.SCHIBSTED -> Spec(R.font.schibsted_grotesk, 900)
+        AppFont.DARKER -> Spec(R.font.darker_grotesque, 900)
+    }
+
+    private val lyricFamilies = HashMap<LyricFont, FontFamily>()
+    private val appFamilies = HashMap<AppFont, FontFamily>()
+
+    /** Lyrics in [f]: the heaviest cut for words, lighter ones for subtitles. */
+    @Synchronized
+    fun lyrics(f: LyricFont): FontFamily = lyricFamilies.getOrPut(f) {
+        val s = spec(f)
+        FontFamily(
+            cut(s.res, FontWeight.Black, 900, s.max, if (s.opsz) 96f else null),
+            cut(s.res, FontWeight.SemiBold, 600, s.max, if (s.opsz) 48f else null),
+            cut(s.res, FontWeight.Medium, 500, s.max, if (s.opsz) 36f else null),
+        )
+    }
+
+    /** The app's screens in [f]: every weight the theme uses, text optical sizes where offered. */
+    @Synchronized
+    fun app(f: AppFont): FontFamily = appFamilies.getOrPut(f) {
+        val s = spec(f)
+        FontFamily(
+            cut(s.res, FontWeight.Normal, 400, s.max, if (s.opsz) 14f else null),
+            cut(s.res, FontWeight.Medium, 500, s.max, if (s.opsz) 14f else null),
+            cut(s.res, FontWeight.SemiBold, 600, s.max, if (s.opsz) 18f else null),
+            cut(s.res, FontWeight.Bold, 700, s.max, if (s.opsz) 24f else null),
+            cut(s.res, FontWeight.ExtraBold, 800, s.max, if (s.opsz) 36f else null),
+            cut(s.res, FontWeight.Black, 900, s.max, if (s.opsz) 72f else null),
+        )
+    }
+
+    /** The lyric font in use; set from Settings before the stage is laid out. */
+    @Volatile var lyricFont: LyricFont = LyricFont.UNBOUNDED
 
     private val devanagari = family(R.font.noto_sans_devanagari)
     private val bengali = family(R.font.noto_sans_bengali)
@@ -53,7 +104,7 @@ object StageFonts {
         Script.BENGALI -> bengali
         Script.JAPANESE -> japanese
         Script.KOREAN -> FontFamily.SansSerif
-        else -> stageLatin
+        else -> lyrics(lyricFont)
     }
 
     /** Stage word style at an exact pixel size. */

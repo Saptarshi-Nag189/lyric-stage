@@ -55,6 +55,13 @@
     <!-- Settings -->
     <string name="settings_template">Layout</string>
     <string name="settings_look">Look</string>
+    <string name="settings_fonts">Fonts</string>
+    <string name="settings_lyric_font">Lyrics</string>
+    <string name="settings_app_font">App</string>
+    <string name="settings_pools">Pools</string>
+    <string name="settings_ripple_strength">Ripple strength</string>
+    <string name="settings_glass">Glass lyrics</string>
+    <string name="settings_frost">Frost</string>
     <string name="settings_motion">Motion and battery</string>
     <string name="settings_background">Background</string>
     <string name="background_liquid">Liquid</string>

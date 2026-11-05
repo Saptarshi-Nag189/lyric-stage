@@ -7,6 +7,7 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import com.lyricstage.stage.AppFont
 import com.lyricstage.stage.StageFonts
 
 private val Scheme = darkColorScheme(
@@ -23,10 +24,11 @@ private val Scheme = darkColorScheme(
 )
 
 @Composable
-fun LyricStageTheme(content: @Composable () -> Unit) {
+fun LyricStageTheme(appFont: AppFont = AppFont.INSTRUMENT, content: @Composable () -> Unit) {
     val base = Typography()
-    // every text style in the app uses Bricolage Grotesque
-    fun TextStyle.ui() = merge(TextStyle(fontFamily = StageFonts.ui))
+    // every text style in the app uses the font picked in Settings
+    val family = StageFonts.app(appFont)
+    fun TextStyle.ui() = merge(TextStyle(fontFamily = family))
     MaterialTheme(
         colorScheme = Scheme,
         typography = Typography(

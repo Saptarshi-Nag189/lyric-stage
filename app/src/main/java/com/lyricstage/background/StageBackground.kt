@@ -62,6 +62,10 @@ fun StageBackground(
     /** Battery saver: pure black, so OLED pixels stay off. */
     black: Boolean,
     modifier: Modifier = Modifier,
+    /** Pool brightness, 0 to 2 (Settings). */
+    pools: Float = 1f,
+    /** Ripple strength, 0 to 2 (Settings). */
+    rippleStrength: Float = 1f,
 ) {
     clock.speed = if (reduceMotion) 0.25f else 1f
     if (black) {
@@ -72,11 +76,11 @@ fun StageBackground(
         when {
             mode == BackgroundMode.SOLID -> Canvas(Modifier.fillMaxSize()) { drawRect(Color(palette.base)) }
             mode == BackgroundMode.ARTWORK && art != null -> ArtworkBlur(art, palette)
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock, animate)
-            else -> GradientFallback(palette, clock, animate)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock, animate, pools, rippleStrength)
+            else -> GradientFallback(palette, clock, animate, pools)
         }
         // darken behind the text when the palette is bright
-        val scrim = ContrastScrim.alphaFor(palette)
+        val scrim = ContrastScrim.alphaFor(palette, pools)
         if (scrim > 0f) Canvas(Modifier.fillMaxSize()) { drawRect(Color.Black.copy(alpha = scrim)) }
     }
 }
@@ -84,7 +88,7 @@ fun StageBackground(
 /** Liquid glass on API 33+, rendered at a third of the resolution and scaled up (it is soft). */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: BackgroundClock, animate: Boolean) {
+private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: BackgroundClock, animate: Boolean, pools: Float, rippleStrength: Float) {
     val shader = remember { RuntimeShader(LIQUID_GLASS_AGSL) }
     val brush = remember(shader) { ShaderBrush(shader) }
     var full by remember { mutableStateOf(IntSize.Zero) }
@@ -112,6 +116,8 @@ private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: Ba
             shader.setColorUniforms(palette)
             shader.setFloatUniform("uRip", ripples.data)
             shader.setFloatUniform("uLineT", ripples.lineAt)
+            shader.setFloatUniform("uPools", pools)
+            shader.setFloatUniform("uRipple", rippleStrength)
             drawRect(brush)
         }
     }
@@ -128,7 +134,7 @@ private fun RuntimeShader.setColorUniforms(p: StagePalette) {
 
 /** Below API 33: slowly drifting radial pools of the accent colours. */
 @Composable
-private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, animate: Boolean) {
+private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, animate: Boolean, pools: Float = 1f) {
     val time = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(animate) { animateTime(time, clock, animate) }
     val base = Color(palette.base)
@@ -143,7 +149,7 @@ private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, anim
                 size.width * (0.5f + 0.35f * cos(phase)),
                 size.height * (0.5f + 0.35f * sin(phase * 1.3f)),
             )
-            drawCircle(Brush.radialGradient(listOf(c.copy(alpha = 0.42f), Color.Transparent), centre, r), r, centre)
+            drawCircle(Brush.radialGradient(listOf(c.copy(alpha = (0.42f * pools).coerceIn(0f, 1f)), Color.Transparent), centre, r), r, centre)
         }
     }
 }
@@ -182,8 +188,8 @@ private fun ArtworkBlur(art: Bitmap, palette: StagePalette) {
 /** How much black to lay over the background so white text keeps at least 4.5:1. */
 object ContrastScrim {
     /** Worst-case background luminance we budget for, before the scrim. */
-    fun alphaFor(p: StagePalette): Float {
-        val brightest = (p.accents + p.base).maxOf { Colour.luminance(it) }
+    fun alphaFor(p: StagePalette, pools: Float = 1f): Float {
+        val brightest = (p.accents.map { Colour.luminance(it) * pools.coerceAtLeast(0.3f) } + Colour.luminance(p.base)).maxOf { it }
         // the shader's tone mapping keeps pools at roughly 60 % of the accent luminance
         val bg = brightest * 0.6
         val target = 0.18 // white on 0.18 luminance is about 4.5:1

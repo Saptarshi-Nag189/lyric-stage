@@ -189,6 +189,8 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
             // keeps moving with no lyrics too, so a song without them doesn't look frozen
             animate = playing && hasTrack && !saver,
             black = saver,
+            pools = settings.pools,
+            rippleStrength = settings.rippleStrength,
         )
 
         val current = np
@@ -222,6 +224,9 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         playSeed = seed,
                         lockedTemplate = settings.template,
                         fontScale = settings.fontScale,
+                        lyricFont = settings.lyricFont,
+                        glass = settings.glass,
+                        frost = settings.frost,
                         highlightIntensity = settings.highlightIntensity,
                         reduceMotion = reduceMotion || saver,
                         isPlaying = current.isPlaying,

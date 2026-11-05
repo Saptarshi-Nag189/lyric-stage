@@ -14,7 +14,9 @@ LyricStage shows word-synced lyrics for whatever is playing on your Android phon
 - Lyrics come from [LRCLIB](https://lrclib.net), NetEase Cloud Music, Musixmatch and Kugou, asked at the same time. Word-by-word timings win when any source has them, and are checked against LRCLIB's line timings so they match the playing release. Lyrics are cached on the phone and fetched in the background as songs change, along with the next two songs in the player's queue.
 - Without word timings, the app estimates them from syllables (aksharas for Hindi and Bengali), holding line endings longer. An optional audio sync setting nudges those estimates towards the vocal onsets it hears in the playing audio.
 - Shows a romanised line under Japanese, Hindi or Bengali lyrics when the lyrics file includes one.
-- The colours come from the album art: a dark base from its shadows, three vivid accents from its strongest hues, and body text tinted with its main hue. On Android 13 and later the background is a moving "liquid glass" shader in those colours, with a ripple from each sung word, and on the beat (or at a gentle pace) when nothing is being sung. Older phones get an animated gradient. Artwork blur and a plain colour are also available.
+- The colours come from the album art: a dark base from its shadows, three vivid accents from its strongest hues, and body text tinted with its main hue. On Android 13 and later the background is a moving "liquid glass" shader in those colours, with a ripple from each sung word, and on the beat (or at a gentle pace) when nothing is being sung. Older phones get an animated gradient. Artwork blur and a plain colour are also available. Colours are fixed per album, so songs from one album share them.
+- Sliders for how bright the colour pools are and how strong the ripples are, with a live preview in Settings. Glass lyrics turns the sung words into clear or frosted glass over the background.
+- Fonts chosen separately for the lyrics and the app. Lyrics default to Unbounded, the app to Instrument Sans.
 - Every line is fitted to the screen before it is shown, so words are never cut off, in portrait or landscape.
 - A reduce motion setting replaces the animation with fades. It turns on by itself when system animations are off.
 - Battery saver mode: pure black background (OLED pixels off), simple fades, and drawing only when a word changes. Nothing is drawn while music is paused.
@@ -59,7 +61,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 - If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
 - Songs with lyrics but no timings scroll slowly with the song and are labelled as unsynced.
 - The About screen (from Settings) lists the version, licences, credits and links.
-- Settings also has the layout lock, background style, a Bluetooth delay, ripples on sung words or on the beat, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
+- Settings also has the layout lock, background style, pools, ripple strength, glass and frost, lyric and app fonts, a Bluetooth delay, ripples on sung words or on the beat, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
 
 ## Privacy
 
@@ -115,4 +117,4 @@ The workflow signs with your own key when these repository secrets are set: `LYR
 
 The layout set, layout chooser, word timing estimates, clock smoothing and the liquid glass background are based on ideas from [LyricalStudio](https://github.com/arijit-debug/LyricalStudio) (MIT). LyricStage is a separate Kotlin implementation; see `ref/CREDITS.md` for the licence.
 
-Lyrics come from [LRCLIB](https://lrclib.net). Bricolage Grotesque, Noto Sans Devanagari, Noto Sans Bengali and Noto Sans JP are bundled under the SIL Open Font License 1.1 (`app/src/main/assets/licences/OFL.txt`).
+Lyrics come from [LRCLIB](https://lrclib.net). Unbounded, Instrument Sans, Bricolage Grotesque, Big Shoulders, Syne, Darker Grotesque, Familjen Grotesk, Schibsted Grotesk, Noto Sans Devanagari, Noto Sans Bengali and Noto Sans JP are bundled under the SIL Open Font License 1.1 (`app/src/main/assets/licences/OFL.txt`).

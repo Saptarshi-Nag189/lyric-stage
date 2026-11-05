@@ -63,6 +63,9 @@ fun LyricStage(
     playSeed: Int,
     lockedTemplate: TemplateId?,
     fontScale: Float,
+    lyricFont: LyricFont,
+    glass: Float = 0f,
+    frost: Float = 0f,
     highlightIntensity: Float,
     reduceMotion: Boolean,
     isPlaying: Boolean,
@@ -98,7 +101,7 @@ fun LyricStage(
         stageSize = size
     }
 
-    val prepared by produceState<PreparedStage?>(null, lyrics, stageSize, playSeed, lockedTemplate, reduceMotion, fontScale, density) {
+    val prepared by produceState<PreparedStage?>(null, lyrics, stageSize, playSeed, lockedTemplate, reduceMotion, fontScale, density, lyricFont) {
         val size = stageSize
         // another song's lines must never show while this one is prepared
         if (value?.plan?.lyrics !== lyrics) value = null
@@ -106,6 +109,7 @@ fun LyricStage(
             value = null
             return@produceState
         }
+        StageFonts.lyricFont = lyricFont
         value = withContext(Dispatchers.Default) {
             // a private measurer: the shared one is not meant for background threads
             val measurer = TextMeasurer(resolver, density, LayoutDirection.Ltr, 0)
@@ -118,7 +122,7 @@ fun LyricStage(
 
     val frame = remember { StageFrame() }
     val renderer = remember { StageRenderer() }
-    val colours = remember(palette, highlightIntensity) { StageColours(palette, highlightIntensity) }
+    val colours = remember(palette, highlightIntensity, glass, frost) { StageColours(palette, highlightIntensity, glass, frost) }
     val ripple by rememberUpdatedState(onRipple)
     val visibleTemplate by rememberUpdatedState(onVisibleTemplate)
     val calm by rememberUpdatedState(reduceMotion)

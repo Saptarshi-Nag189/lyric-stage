@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.1.3]
+
+### Added
+- Fonts in Settings, chosen separately for the lyrics and the app, with a preview. Lyrics:
+  Unbounded (default), Bricolage, Big Shoulders, Syne, Darker Grotesque. App: Instrument Sans
+  (default), Bricolage, Familjen Grotesk, Schibsted Grotesk, Darker Grotesque.
+- Pools and Ripple strength sliders, with a live preview of the background.
+- Glass lyrics: the sung words turn to glass, letting the background show through, with light
+  on top and a fine rim. A Frost slider makes the glass milky.
+
+### Changed
+- Ripples are softer and the colour pools brighter, so the liquid reads again behind the text.
+- Background colours are fixed per album: two songs from one album get the same colours.
+
 ## [1.1.2]
 
 ### Changed
