@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lyricstage.LyricStageApp
 import com.lyricstage.media.NotificationAccess
@@ -78,13 +79,18 @@ class MainActivity : ComponentActivity() {
     private fun refreshAccess() {
         val granted = NotificationAccess.isGranted(this)
         accessGranted.value = granted
-        if (granted) container.sessions.start()
+        // access turned off in system settings: stop listening, so it starts cleanly when given back
+        if (granted) container.sessions.start() else container.sessions.stop()
     }
 }
 
 @Composable
 private fun App(vm: StageViewModel, accessGranted: Boolean, systemReduceMotion: Boolean) {
-    if (!accessGranted) {
+    // Without notification access no player can be seen and no lyrics would ever come, which
+    // would look like a bug: show onboarding again. Also when the setting reads as on but
+    // Android still refuses the sessions (the listener not connected yet after an update).
+    val denied by vm.sessions.accessDenied.collectAsStateWithLifecycle()
+    if (!accessGranted || denied) {
         OnboardingScreen()
         return
     }

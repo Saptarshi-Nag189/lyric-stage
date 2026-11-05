@@ -1,5 +1,11 @@
 # Changelog
 
+## [Unreleased]
+
+### Fixed
+- When notification access is turned off (or Android refuses it), the app shows the
+  onboarding screen again instead of a stage that never gets lyrics.
+
 ## [1.1.0]
 
 ### New
