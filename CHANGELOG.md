@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.2]
+
+### Changed
+- New typeface: Bricolage Grotesque, a grotesque with ink traps and a slightly hand-made
+  feel, for the lyrics (its heaviest display cut) and for the whole app (text cuts for
+  small type). Hindi, Bengali and Japanese lyrics keep their Noto fonts. Inter is gone, and
+  the APK is smaller for it.
+
 ## [1.1.1]
 
 ### Fixed

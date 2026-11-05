@@ -25,16 +25,16 @@ private val Scheme = darkColorScheme(
 @Composable
 fun LyricStageTheme(content: @Composable () -> Unit) {
     val base = Typography()
-    val inter = TextStyle(fontFamily = StageFonts.inter)
+    // every text style in the app uses Bricolage Grotesque
+    fun TextStyle.ui() = merge(TextStyle(fontFamily = StageFonts.ui))
     MaterialTheme(
         colorScheme = Scheme,
         typography = Typography(
-            headlineMedium = base.headlineMedium.merge(inter),
-            titleLarge = base.titleLarge.merge(inter),
-            titleMedium = base.titleMedium.merge(inter),
-            bodyLarge = base.bodyLarge.merge(inter),
-            bodyMedium = base.bodyMedium.merge(inter),
-            labelLarge = base.labelLarge.merge(inter),
+            displayLarge = base.displayLarge.ui(), displayMedium = base.displayMedium.ui(), displaySmall = base.displaySmall.ui(),
+            headlineLarge = base.headlineLarge.ui(), headlineMedium = base.headlineMedium.ui(), headlineSmall = base.headlineSmall.ui(),
+            titleLarge = base.titleLarge.ui(), titleMedium = base.titleMedium.ui(), titleSmall = base.titleSmall.ui(),
+            bodyLarge = base.bodyLarge.ui(), bodyMedium = base.bodyMedium.ui(), bodySmall = base.bodySmall.ui(),
+            labelLarge = base.labelLarge.ui(), labelMedium = base.labelMedium.ui(), labelSmall = base.labelSmall.ui(),
         ),
     ) {
         // gives every screen light text on the dark background by default

@@ -115,4 +115,4 @@ The workflow signs with your own key when these repository secrets are set: `LYR
 
 The layout set, layout chooser, word timing estimates, clock smoothing and the liquid glass background are based on ideas from [LyricalStudio](https://github.com/arijit-debug/LyricalStudio) (MIT). LyricStage is a separate Kotlin implementation; see `ref/CREDITS.md` for the licence.
 
-Lyrics come from [LRCLIB](https://lrclib.net). Inter, Noto Sans Devanagari, Noto Sans Bengali and Noto Sans JP are bundled under the SIL Open Font License 1.1 (`app/src/main/assets/licences/OFL.txt`).
+Lyrics come from [LRCLIB](https://lrclib.net). Bricolage Grotesque, Noto Sans Devanagari, Noto Sans Bengali and Noto Sans JP are bundled under the SIL Open Font License 1.1 (`app/src/main/assets/licences/OFL.txt`).

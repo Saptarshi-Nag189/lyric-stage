@@ -54,13 +54,13 @@ val SAMPLES = File(System.getProperty("samples"))
 fun loadFont(name: String): Font = Font.createFont(Font.TRUETYPE_FONT, File(FONT_DIR, "$name.ttf"))
 
 val fBlack = mapOf(
-    Script.LATIN to loadFont("inter_900"),
+    Script.LATIN to loadFont("bricolage_800"),
     Script.DEVANAGARI to loadFont("noto_sans_devanagari_900"),
     Script.BENGALI to loadFont("noto_sans_bengali_900"),
     Script.JAPANESE to loadFont("noto_sans_jp_900"),
 )
-val fSemi = loadFont("inter_600")
-val fRegular = loadFont("inter_400")
+val fSemi = loadFont("bricolage_600")
+val fRegular = loadFont("bricolage_400")
 
 fun stageFont(script: Script, px: Float): Font = (fBlack[script] ?: fBlack.getValue(Script.LATIN)).deriveFont(px)
 
@@ -589,7 +589,7 @@ fun renderSettings(pal: Pal): BufferedImage {
     g.color = UI_TEXT
     g.drawString("Sync", cx, cy)
     g.color = accent
-    val off = "+0.00 s"
+    val off = "In time"
     g.drawString(off, cx + inner - 32 * dp - g.fontMetrics.stringWidth(off), cy)
     cy += 12 * dp
     val bw = (inner - 32 * dp - 16 * dp) / 3f
