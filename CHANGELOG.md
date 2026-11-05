@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.1]
 
 ### Fixed
 - When notification access is turned off (or Android refuses it), the app shows the
