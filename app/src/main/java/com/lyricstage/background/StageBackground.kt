@@ -14,6 +14,7 @@ import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
@@ -27,17 +28,20 @@ import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ShaderBrush
 import androidx.compose.ui.graphics.TileMode
 import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpSize
-import androidx.core.graphics.scale
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import com.lyricstage.core.palette.Colour
 import com.lyricstage.core.palette.StagePalette
+import com.lyricstage.palette.downscale
 import com.lyricstage.settings.BackgroundMode
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlin.math.cos
 import kotlin.math.sin
 
@@ -156,10 +160,12 @@ private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, anim
 /** Album art, heavily blurred: downscaled then drawn large with filtering, plus a RenderEffect blur on API 31+. */
 @Composable
 private fun ArtworkBlur(art: Bitmap, palette: StagePalette) {
-    val small = remember(art) {
-        val readable = if (art.config == Bitmap.Config.HARDWARE) art.copy(Bitmap.Config.ARGB_8888, false) else art
-        readable.scale(24, 24).asImageBitmap()
+    // downscaled off the main thread: the old copy(ARGB_8888) of a full-size cover stalled
+    // composition on every artwork change
+    val small by produceState<ImageBitmap?>(null, art) {
+        value = withContext(Dispatchers.Default) { downscale(art, 24, 24).asImageBitmap() }
     }
+    val sb = small
     Canvas(
         Modifier
             .fillMaxSize()
@@ -170,17 +176,19 @@ private fun ArtworkBlur(art: Bitmap, palette: StagePalette) {
             },
     ) {
         drawRect(Color(palette.base))
-        // cover the stage, keeping the square art centred
-        val side = size.maxDimension
-        drawImage(
-            small,
-            srcOffset = IntOffset.Zero,
-            srcSize = IntSize(small.width, small.height),
-            dstOffset = IntOffset(((size.width - side) / 2).toInt(), ((size.height - side) / 2).toInt()),
-            dstSize = IntSize(side.toInt(), side.toInt()),
-            alpha = 0.85f,
-            filterQuality = FilterQuality.Low,
-        )
+        if (sb != null) {
+            // cover the stage, keeping the square art centred
+            val side = size.maxDimension
+            drawImage(
+                sb,
+                srcOffset = IntOffset.Zero,
+                srcSize = IntSize(sb.width, sb.height),
+                dstOffset = IntOffset(((size.width - side) / 2).toInt(), ((size.height - side) / 2).toInt()),
+                dstSize = IntSize(side.toInt(), side.toInt()),
+                alpha = 0.85f,
+                filterQuality = FilterQuality.Low,
+            )
+        }
     }
 }
 

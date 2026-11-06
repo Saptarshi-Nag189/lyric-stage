@@ -27,9 +27,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
@@ -111,10 +109,10 @@ fun LyricStage(
         }
         StageFonts.lyricFont = lyricFont
         value = withContext(Dispatchers.Default) {
-            // a private measurer: the shared one is not meant for background threads
-            val measurer = TextMeasurer(resolver, density, LayoutDirection.Ltr, 0)
+            // prepare builds one cacheless measurer per worker itself; the resolver is the
+            // only shared thing, and its caches are synchronized
             PreparedStage.prepare(
-                lyrics, SizeF(size.width.toFloat(), size.height.toFloat()), measurer, density,
+                lyrics, SizeF(size.width.toFloat(), size.height.toFloat()), resolver, density,
                 playSeed, lockedTemplate, reduceMotion, fontScale,
             )
         }

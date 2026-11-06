@@ -24,23 +24,27 @@ fun TextMeasurer.word(text: String, script: Script, fontPx: Float, density: Dens
 /** Real advance width of a single-line layout (size.width is rounded up). */
 val TextLayoutResult.advance: Float get() = if (lineCount > 0) getLineRight(0) - getLineLeft(0) else 0f
 
+/** Word metrics from one reference-size layout, glyph offsets included. */
+fun measureWord(measurer: TextMeasurer, text: String, script: Script, density: Density): WordMetrics {
+    val r = measurer.word(text, script, REF_PX, density)
+    val glyphs = Graphemes.split(text)
+    val offsets = FloatArray(glyphs.size)
+    var index = 0
+    for (i in glyphs.indices) {
+        offsets[i] = r.getHorizontalPosition(index.coerceAtMost(text.length), usePrimaryDirection = true)
+        index += glyphs[i].length
+    }
+    return WordMetrics(
+        width = r.advance,
+        ascent = r.firstBaseline,
+        descent = r.size.height - r.firstBaseline,
+        glyphs = glyphs,
+        glyphOffsets = offsets,
+    )
+}
+
 /** Backs the core's [TextMeasure] with Compose text layout at [REF_PX]. */
 class ComposeTextMeasure(private val measurer: TextMeasurer, private val density: Density) : TextMeasure {
-    override fun measure(text: String, line: LyricLine): WordMetrics {
-        val r = measurer.word(text, line.script, REF_PX, density)
-        val glyphs = Graphemes.split(text)
-        val offsets = FloatArray(glyphs.size)
-        var index = 0
-        for (i in glyphs.indices) {
-            offsets[i] = r.getHorizontalPosition(index.coerceAtMost(text.length), usePrimaryDirection = true)
-            index += glyphs[i].length
-        }
-        return WordMetrics(
-            width = r.advance,
-            ascent = r.firstBaseline,
-            descent = r.size.height - r.firstBaseline,
-            glyphs = glyphs,
-            glyphOffsets = offsets,
-        )
-    }
+    override fun measure(text: String, line: LyricLine): WordMetrics =
+        measureWord(measurer, text, line.script, density)
 }

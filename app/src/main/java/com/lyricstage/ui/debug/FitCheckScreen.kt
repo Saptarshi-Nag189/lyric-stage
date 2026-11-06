@@ -33,10 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFontFamilyResolver
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyricstage.R
@@ -75,7 +73,7 @@ fun FitCheckScreen(vm: StageViewModel, onBack: () -> Unit) {
     val result by produceState<FitResult?>(null) {
         value = withContext(Dispatchers.Default) {
             val songs = loadSongs(context, vm)
-            run(songs, TextMeasurer(resolver, density, LayoutDirection.Ltr, 0), density)
+            run(songs, resolver, density)
         }
     }
     DebugScaffold(stringResource(R.string.debug_fitcheck), onBack) {
@@ -106,13 +104,13 @@ private suspend fun loadSongs(context: Context, vm: StageViewModel): List<Song> 
     return (samples + cached).filter { it.lyrics.lines.isNotEmpty() }
 }
 
-private fun run(songs: List<Song>, measurer: TextMeasurer, density: Density): FitResult {
+private suspend fun run(songs: List<Song>, resolver: FontFamily.Resolver, density: Density): FitResult {
     val failures = ArrayList<String>()
     var checked = 0
     for ((sizeName, dp) in SIZES_DP) {
         val stage = with(density) { SizeF(dp.first.dp.toPx(), dp.second.dp.toPx()) }
         for (song in songs) for (t in TemplateId.entries) {
-            val prep = PreparedStage.prepare(song.lyrics, stage, measurer, density, 7, t, false, 1f)
+            val prep = PreparedStage.prepare(song.lyrics, stage, resolver, density, 7, t, false, 1f)
             for ((li, layout) in prep.plan.layouts.withIndex()) {
                 checked++
                 val area = layout.safeArea
@@ -148,8 +146,7 @@ private fun Preview(songs: List<Song>, density: Density, resolver: FontFamily.Re
     var preps by remember { mutableStateOf<List<PreparedStage>>(emptyList()) }
     LaunchedEffect(song, stage) {
         preps = withContext(Dispatchers.Default) {
-            val m = TextMeasurer(resolver, density, LayoutDirection.Ltr, 0)
-            TemplateId.entries.map { PreparedStage.prepare(song.lyrics, stage, m, density, 7, it, false, 1f) }
+            TemplateId.entries.map { PreparedStage.prepare(song.lyrics, stage, resolver, density, 7, it, false, 1f) }
         }
     }
     val renderer = remember { StageRenderer() }

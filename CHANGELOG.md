@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+## [1.1.6] - 2026-11-06
+
+### Fixed
+- The stage no longer stutters when a song changes. Preparing a song's layouts (every
+  word twice - once to fit, once at final size - plus every glyph for per-glyph templates)
+  was one long single-threaded burst of text shaping while the stage waited blank; it now
+  runs across up to four workers, and repeated words ("the", "you", ...) are laid out once
+  and shared. The result is identical - only the time to it changed.
+- Album artwork is no longer copied at full resolution to read its colours: a 3000×3000
+  cover used to allocate ~36 MB per song change (and a hardware copy on the main thread
+  in Artwork mode). Both the palette and the blurred background now draw the cover into a
+  ~112×112 (or 24×24) software canvas, off the main thread - kilobytes instead of
+  megabytes, milliseconds instead of a stall.
+
 ## [1.1.5] - 2026-11-06
 
 ### Changed
