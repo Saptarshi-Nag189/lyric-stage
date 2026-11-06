@@ -29,7 +29,6 @@ class OfflineTest {
         val rows = MutableStateFlow<Map<String, LyricsEntity>>(emptyMap())
         override fun observe(key: String): Flow<LyricsEntity?> = rows.map { it[key] }
         override suspend fun get(key: String) = rows.value[key]
-        override suspend fun all() = rows.value.values.toList()
         override suspend fun withPrefix(prefix: String) = rows.value.values.filter { it.trackKey.startsWith(prefix) }
         override fun count(): Flow<Int> = rows.map { it.size }
         override fun size(): Flow<Long> = rows.map { r -> r.values.sumOf { it.raw.length.toLong() } }

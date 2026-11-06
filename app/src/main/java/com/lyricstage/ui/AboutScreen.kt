@@ -74,7 +74,7 @@ fun AboutScreen(vm: StageViewModel, onBack: () -> Unit) {
 
         SectionHeader(stringResource(R.string.about_licences))
         UiCard(padding = 0) {
-            InfoRow("Bricolage Grotesque", stringResource(R.string.licence_ofl), divider = false) { open(OFL) }
+            InfoRow("Bricolage Grotesque, Unbounded, Big Shoulders, Syne, Darker Grotesque", stringResource(R.string.licence_ofl), divider = false) { open(OFL) }
             InfoRow("Anek Devanagari, Bangla, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada and Malayalam", stringResource(R.string.licence_ofl)) { open(OFL) }
             InfoRow("Kotlin, kotlinx", stringResource(R.string.licence_apache)) { open(APACHE) }
             InfoRow("AndroidX and Jetpack Compose", stringResource(R.string.licence_apache)) { open(APACHE) }

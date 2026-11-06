@@ -61,6 +61,7 @@ fun LyricStage(
     playSeed: Int,
     lockedTemplate: TemplateId?,
     fontScale: Float,
+    lyricFont: LyricFont,
     glass: Float = 0f,
     frost: Float = 0f,
     highlightIntensity: Float,
@@ -98,7 +99,7 @@ fun LyricStage(
         stageSize = size
     }
 
-    val prepared by produceState<PreparedStage?>(null, lyrics, stageSize, playSeed, lockedTemplate, reduceMotion, fontScale, density) {
+    val prepared by produceState<PreparedStage?>(null, lyrics, stageSize, playSeed, lockedTemplate, reduceMotion, fontScale, density, lyricFont) {
         val size = stageSize
         // another song's lines must never show while this one is prepared
         if (value?.plan?.lyrics !== lyrics) value = null
@@ -106,6 +107,7 @@ fun LyricStage(
             value = null
             return@produceState
         }
+        StageFonts.lyricFont = lyricFont
         value = withContext(Dispatchers.Default) {
             // prepare builds one cacheless measurer per worker itself; the resolver is the
             // only shared thing, and its caches are synchronized

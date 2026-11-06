@@ -18,12 +18,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.lyricstage.LyricStageApp
 import com.lyricstage.media.NotificationAccess
-import com.lyricstage.ui.debug.FitCheckScreen
 import com.lyricstage.ui.debug.LyricsListScreen
 import com.lyricstage.ui.debug.NowPlayingDebugScreen
 import com.lyricstage.ui.theme.LyricStageTheme
 
-enum class Screen { STAGE, SETTINGS, ABOUT, LOOK, PLAYBACK, DATA, SPOTIFY, DEVELOPER, DEBUG_NOW_PLAYING, DEBUG_LYRICS, FIT_CHECK }
+enum class Screen { STAGE, SETTINGS, ABOUT, LOOK, FONTS, PLAYBACK, DATA, SPOTIFY, DEVELOPER, DEBUG_NOW_PLAYING, DEBUG_LYRICS }
 
 class MainActivity : ComponentActivity() {
     private val container get() = (application as LyricStageApp).container
@@ -102,6 +101,7 @@ private fun App(vm: StageViewModel, accessGranted: Boolean, systemReduceMotion: 
         Screen.STAGE -> StageScreen(vm, systemReduceMotion, onOpenSettings = { screen = Screen.SETTINGS })
         Screen.SETTINGS -> SettingsScreen(vm, systemReduceMotion, onBack = { screen = Screen.STAGE }, onOpen = { screen = it })
         Screen.LOOK -> LookPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
+        Screen.FONTS -> FontsPage(vm, onBack = { screen = Screen.SETTINGS })
         Screen.PLAYBACK -> PlaybackPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
         Screen.DATA -> DataPage(vm, onBack = { screen = Screen.SETTINGS })
         Screen.SPOTIFY -> SpotifyPage(vm, onBack = { screen = Screen.SETTINGS })
@@ -109,6 +109,5 @@ private fun App(vm: StageViewModel, accessGranted: Boolean, systemReduceMotion: 
         Screen.ABOUT -> AboutScreen(vm, onBack = { screen = Screen.SETTINGS })
         Screen.DEBUG_NOW_PLAYING -> NowPlayingDebugScreen(vm, onBack = { screen = Screen.SETTINGS })
         Screen.DEBUG_LYRICS -> LyricsListScreen(vm, onBack = { screen = Screen.SETTINGS })
-        Screen.FIT_CHECK -> FitCheckScreen(vm, onBack = { screen = Screen.SETTINGS })
     }
 }

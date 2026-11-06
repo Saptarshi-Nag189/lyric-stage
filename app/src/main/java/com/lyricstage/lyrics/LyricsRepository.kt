@@ -194,8 +194,6 @@ class LyricsRepository(
 
     suspend fun setOffset(key: String, offsetMs: Long) = offsets.upsert(OffsetEntity(key, offsetMs))
 
-    suspend fun cached(): List<LyricsEntity> = dao.all()
-
     private fun entity(t: TrackQuery, raw: String, synced: Boolean, instrumental: Boolean, source: String) =
         LyricsEntity(t.key, raw, synced, instrumental, source, t.title, t.artist, t.durationMs, System.currentTimeMillis())
 

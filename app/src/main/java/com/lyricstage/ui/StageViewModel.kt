@@ -140,8 +140,6 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
         }
     }
 
-    suspend fun cachedSongs() = c.lyrics.cached()
-
     val cachedCount: StateFlow<Int> = c.lyrics.cachedCount().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0)
     val cachedBytes: StateFlow<Long> = c.lyrics.cachedBytes().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 0L)
 

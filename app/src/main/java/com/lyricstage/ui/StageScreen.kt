@@ -217,6 +217,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         playSeed = seed,
                         lockedTemplate = settings.template,
                         fontScale = settings.fontScale,
+                        lyricFont = settings.lyricFont,
                         glass = settings.glass,
                         frost = settings.frost,
                         highlightIntensity = settings.highlightIntensity,

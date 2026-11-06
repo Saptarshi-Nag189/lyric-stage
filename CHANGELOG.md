@@ -20,16 +20,20 @@
   so a grey cover stays grey with no special case, the wash can never blow a light cover
   out to white, and the filmic tail that the light lyric shade is measured against is
   untouched. The README mockups and the pre-Android-13 gradient follow the same look.
-- One typeface everywhere: Bricolage Grotesque, at real weights through its axes, for
-  the lyrics and every screen. The font settings page is gone, and with it Unbounded,
-  Big Shoulders, Syne, Darker Grotesque, Instrument Sans, Familjen Grotesk and
-  Schibsted Grotesk - seven font files out of the APK. Anek stays for the nine Indic
-  scripts, applied automatically from the text; Japanese and Korean keep the phone's own
-  CJK typeface.
+- One typeface for the app's own screens: Bricolage Grotesque, at real weights through
+  its axes. The app font setting is gone, and with it Instrument Sans, Familjen Grotesk
+  and Schibsted Grotesk - three font files out of the APK. The lyrics font stays a
+  setting, with Bricolage as the new default and Unbounded, Big Shoulders, Syne and
+  Darker Grotesque to pick instead on a Fonts page with a live sample. Anek stays for
+  the nine Indic scripts, applied automatically from the text; Japanese and Korean keep
+  the phone's own CJK typeface.
 - Word estimates for line-timed lyrics are anchored at both ends of the line's slot:
   they start with the line and are stretched to end with it (up to 1.35x a natural
   pace; a longer gap is an instrumental break), instead of stopping at 1.1x and leaving
   the line's tail wordless. The fill now reads through the whole line.
+- The Debug page keeps what diagnoses real problems - the FPS counter, the Now playing
+  screen with the raw and smoothed clock, and the Fetched lyrics list - and drops
+  FitCheck, a layout QA tool whose checks already run in the project's tests.
 
 ### Fixed
 - Every notice pill goes away by itself after five seconds, its border running down as

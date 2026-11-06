@@ -61,7 +61,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 - If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
 - Songs with lyrics but no timings show a short "No synced lyrics" notice by default; turn on "Unsynced lyrics" in Settings to scroll the whole text with the song instead.
 - The About screen (from Settings) lists the version, licences, credits and links.
-- Settings also has the layout lock, background style, wash, ripple strength, glass and frost, a Bluetooth delay, ripples on sung words or on the beat, unsynced lyrics, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position, the fetched lyrics, and FitCheck, which lays out every cached line in every layout and lists any word that would be cut off.
+- Settings also has the layout lock, background style, wash, ripple strength, glass and frost, the lyric typeface (Bricolage by default, with Unbounded, Big Shoulders, Syne and Darker Grotesque to pick instead; Indic scripts always use Anek and CJK the phone's own font), a Bluetooth delay, ripples on sung words or on the beat, unsynced lyrics, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position and the fetched lyrics. The app's own screens always use Bricolage.
 
 ## Privacy
 

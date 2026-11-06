@@ -11,13 +11,22 @@ import androidx.compose.ui.unit.em
 import com.lyricstage.R
 import com.lyricstage.core.text.Script
 
+/** Typefaces for Latin lyrics, picked in Settings. All bundled, SIL Open Font License. */
+enum class LyricFont(val label: String) {
+    UNBOUNDED("Unbounded"), BRICOLAGE("Bricolage"), BIG_SHOULDERS("Big Shoulders"), SYNE("Syne"), DARKER("Darker Grotesque");
+
+    companion object {
+        fun fromName(name: String?) = entries.firstOrNull { it.name == name } ?: BRICOLAGE
+    }
+}
+
 /**
- * Typefaces. One family for everything Latin and every app screen - Bricolage, a variable
- * grotesque with ink traps, set at real weights through its axes - and one Anek family per
- * Indic script, applied automatically from the lyrics text; its even proportions across
- * scripts keep mixed-language songs coherent. Japanese and Korean use the system's own CJK
- * typeface (Noto Sans CJK on most phones): full quality, every glyph, no megabyte font
- * shipped in the APK. All bundled fonts are under the SIL Open Font License.
+ * Typefaces. Bricolage runs every app screen and is the default for the lyrics, with four
+ * other families pickable for the stage in Settings. One Anek family per Indic script is
+ * applied automatically from the lyrics text; its even proportions across scripts keep
+ * mixed-language songs coherent. Japanese and Korean use the system's own CJK typeface
+ * (Noto Sans CJK on most phones): full quality, every glyph, no megabyte font shipped in
+ * the APK. All bundled fonts are under the SIL Open Font License.
  */
 object StageFonts {
     /** A variable family at real weights: the stage renders heavy, so Indic lyrics get
@@ -51,6 +60,32 @@ object StageFonts {
         cut(R.font.bricolage, FontWeight.Black, 900, 800, opsz = 96f),
     )
 
+    private class Spec(val res: Int, val max: Int, val opsz: Boolean = false)
+
+    private fun spec(f: LyricFont) = when (f) {
+        LyricFont.UNBOUNDED -> Spec(R.font.unbounded, 900)
+        LyricFont.BRICOLAGE -> Spec(R.font.bricolage, 800, opsz = true)
+        LyricFont.BIG_SHOULDERS -> Spec(R.font.big_shoulders, 900)
+        LyricFont.SYNE -> Spec(R.font.syne, 800)
+        LyricFont.DARKER -> Spec(R.font.darker_grotesque, 900)
+    }
+
+    private val lyricFamilies = HashMap<LyricFont, FontFamily>()
+
+    /** Lyrics in [f]: the heaviest cut for words, lighter ones for subtitles. */
+    @Synchronized
+    fun lyrics(f: LyricFont): FontFamily = lyricFamilies.getOrPut(f) {
+        val s = spec(f)
+        FontFamily(
+            cut(s.res, FontWeight.Black, 900, s.max, if (s.opsz) 96f else null),
+            cut(s.res, FontWeight.SemiBold, 600, s.max, if (s.opsz) 48f else null),
+            cut(s.res, FontWeight.Medium, 500, s.max, if (s.opsz) 36f else null),
+        )
+    }
+
+    /** The lyric font in use; set from Settings before the stage is laid out. */
+    @Volatile var lyricFont: LyricFont = LyricFont.BRICOLAGE
+
     // Anek for the nine Indic scripts, one family per script, applied automatically from
     // the lyrics text
     private val devanagari = vfam(R.font.anek_devanagari)
@@ -74,7 +109,7 @@ object StageFonts {
         Script.KANNADA -> kannada
         Script.MALAYALAM -> malayalam
         Script.JAPANESE, Script.KOREAN -> FontFamily.SansSerif
-        else -> bricolage
+        else -> lyrics(lyricFont)
     }
 
     /** Stage word style at an exact pixel size. */

@@ -4,6 +4,7 @@ import android.content.Context
 import android.provider.Settings as SystemSettings
 import androidx.core.content.edit
 import com.lyricstage.core.stage.TemplateId
+import com.lyricstage.stage.LyricFont
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -38,6 +39,8 @@ data class StageSettings(
     val ripples: RippleMode = RippleMode.WORDS,
     /** Extra delay for Bluetooth audio, in ms, applied only while it is connected. */
     val bluetoothDelayMs: Int = 0,
+    /** The stage's typeface for Latin lyrics; every app screen stays on Bricolage. */
+    val lyricFont: LyricFont = LyricFont.BRICOLAGE,
     /** Show unsynced lyrics as scrolling text; off by default, so a song without timing
      *  shows a short notice instead of a wall of text. */
     val paragraphLyrics: Boolean = false,
@@ -72,6 +75,7 @@ class SettingsStore(private val context: Context) {
             putBoolean(K_SAVER, next.batterySaver)
             putString(K_RIPPLES, next.ripples.name)
             putInt(K_BT_DELAY, next.bluetoothDelayMs)
+            putString(K_LYRIC_FONT, next.lyricFont.name)
             putBoolean(K_PARAGRAPH, next.paragraphLyrics)
             putFloat(K_POOLS, next.pools)
             putFloat(K_RIPPLE_STRENGTH, next.rippleStrength)
@@ -98,6 +102,7 @@ class SettingsStore(private val context: Context) {
         batterySaver = prefs.getBoolean(K_SAVER, false),
         ripples = prefs.getString(K_RIPPLES, null)?.let { runCatching { RippleMode.valueOf(it) }.getOrNull() } ?: RippleMode.WORDS,
         bluetoothDelayMs = prefs.getInt(K_BT_DELAY, 0),
+        lyricFont = LyricFont.fromName(prefs.getString(K_LYRIC_FONT, null)),
         paragraphLyrics = prefs.getBoolean(K_PARAGRAPH, false),
         pools = prefs.getFloat(K_POOLS, 1f),
         rippleStrength = prefs.getFloat(K_RIPPLE_STRENGTH, 1f),
@@ -118,6 +123,7 @@ class SettingsStore(private val context: Context) {
         const val K_SAVER = "battery_saver"
         const val K_RIPPLES = "ripples"
         const val K_BT_DELAY = "bluetooth_delay_ms"
+        const val K_LYRIC_FONT = "lyric_font"
         const val K_PARAGRAPH = "paragraph_lyrics"
         const val K_POOLS = "pools"
         const val K_RIPPLE_STRENGTH = "ripple_strength"

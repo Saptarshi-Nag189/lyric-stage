@@ -43,9 +43,6 @@ interface LyricsDao {
     @Query("SELECT * FROM lyrics WHERE trackKey = :key")
     suspend fun get(key: String): LyricsEntity?
 
-    @Query("SELECT * FROM lyrics ORDER BY updatedAt DESC")
-    suspend fun all(): List<LyricsEntity>
-
     /** Rows for the same artist and title with any duration (keys are `artist|title|seconds`). */
     @Query("SELECT * FROM lyrics WHERE substr(trackKey, 1, length(:prefix)) = :prefix")
     suspend fun withPrefix(prefix: String): List<LyricsEntity>

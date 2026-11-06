@@ -53,6 +53,7 @@ import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.settings.RippleMode
+import com.lyricstage.stage.LyricFont
 import com.lyricstage.ui.theme.Ui
 import com.lyricstage.spotify.PauseReason
 import com.lyricstage.spotify.SyncStatus
@@ -116,6 +117,7 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
         Spacer(Modifier.height(24.dp))
         UiCard(padding = 0) {
             LinkRow(stringResource(R.string.settings_look), { onOpen(Screen.LOOK) }, divider = false)
+            LinkRow(stringResource(R.string.settings_fonts), { onOpen(Screen.FONTS) })
             LinkRow(stringResource(R.string.settings_playback), { onOpen(Screen.PLAYBACK) })
             LinkRow(stringResource(R.string.settings_data), { onOpen(Screen.DATA) })
             LinkRow(stringResource(R.string.settings_spotify), { onOpen(Screen.SPOTIFY) })
@@ -244,7 +246,7 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
                 s.background,
             ) { mode -> vm.updateSettings { it.copy(background = mode) } }
             Spacer(Modifier.height(14.dp))
-            BackgroundPreview(s.background, palette, np?.art, s.pools, s.rippleStrength, s.glass, s.frost, s.reduceMotion || systemReduceMotion)
+            BackgroundPreview(s.background, palette, np?.art, s.pools, s.rippleStrength, s.glass, s.frost, s.lyricFont, s.reduceMotion || systemReduceMotion)
             Spacer(Modifier.height(14.dp))
             PercentSlider(stringResource(R.string.settings_pools), s.pools, 0f..2f, 0, accent) { v -> vm.updateSettings { it.copy(pools = v) } }
             Spacer(Modifier.height(12.dp))
@@ -277,6 +279,34 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
             Spacer(Modifier.height(12.dp))
             PercentSlider(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
         }
+    }
+}
+
+/** Fonts: the stage's lyric typeface. The app's own screens stay on Bricolage. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+fun FontsPage(vm: StageViewModel, onBack: () -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
+
+    SettingsPage(stringResource(R.string.settings_fonts), onBack) {
+        UiCard {
+            Text(stringResource(R.string.settings_lyric_font), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LyricFont.entries.forEach { f -> ChoicePill(f.label, s.lyricFont == f, accent, { vm.updateSettings { it.copy(lyricFont = f) } }) }
+            }
+            Spacer(Modifier.height(16.dp))
+            FontPreview(s.lyricFont, palette)
+        }
+        Spacer(Modifier.height(12.dp))
+        Text(
+            stringResource(R.string.hint_lyric_font),
+            color = Ui.Muted,
+            fontSize = 13.sp,
+            lineHeight = 18.sp,
+        )
     }
 }
 
@@ -385,7 +415,6 @@ fun DeveloperPage(vm: StageViewModel, onBack: () -> Unit, onOpen: (Screen) -> Un
             ToggleRow(stringResource(R.string.settings_fps), s.showFps, accent, { on -> vm.updateSettings { it.copy(showFps = on) } }, divider = false)
             LinkRow(stringResource(R.string.debug_now_playing), { onOpen(Screen.DEBUG_NOW_PLAYING) })
             LinkRow(stringResource(R.string.debug_lyrics), { onOpen(Screen.DEBUG_LYRICS) })
-            LinkRow(stringResource(R.string.debug_fitcheck), { onOpen(Screen.FIT_CHECK) })
         }
     }
 }
