@@ -1,12 +1,12 @@
 package com.lyricstage.background
 
 /**
- * AGSL "liquid glass": pools of the artwork's accent colours drift behind a slowly
- * undulating glass slab that refracts them. Sung words send ripples through the glass and
- * each new line sweeps a soft band of light across it. Ripples are lit in a light shade of
- * the main accent; on dark glass they become a soft, wide swell of colour instead of a hard
- * ring, so black covers don't show stark lines. Tone mapped so the brightest spots
- * stay well below white text.
+ * AGSL "liquid glass": the background is the artwork's top colour as it comes, with pools
+ * of the next top colours drifting behind a slowly undulating glass slab that refracts them.
+ * Sung words send ripples through the glass and each new line sweeps a soft band of light
+ * across it. Ripples carry their own contrast-pushed colour, so the same ring reads on a
+ * black cover exactly as it does on a purple one. Tone mapped so the brightest spots
+ * stay well below the lyrics.
  *
  * Coordinates: fragCoord has a top-left origin; p is centred, y down, aspect corrected.
  */
@@ -49,6 +49,7 @@ float fbm(float2 p) {
 
 // Domain-warped noise picks where each accent glows. Colours are added, not blended,
 // so neighbouring hues glow side by side instead of averaging into brown.
+// uBase is the artwork's top colour, used exactly as it comes.
 half3 lightField(float2 p, float t) {
     float2 s = p * 0.62;
     float2 q = float2(fbm(s + float2(0.0, t * 0.035)), fbm(s + float2(5.2, -t * 0.03)));
@@ -60,7 +61,7 @@ half3 lightField(float2 p, float t) {
     float w2 = smoothstep(0.55, 0.92, q.y) * (1.0 - max(w0, w1) * 0.6);
     // uPools scales how much of each accent shows: 0 nearly flat base, 1 standard, 2 vivid
     half pools = half(uPools);
-    half3 col = uBase * 0.7 + (uC0 * w0 * 0.95 + uC1 * w1 * 0.8 + uC2 * w2 * 0.65) * pools;
+    half3 col = uBase + (uC0 * w0 * 0.95 + uC1 * w1 * 0.8 + uC2 * w2 * 0.65) * pools;
     half lum = dot(col, half3(0.299, 0.587, 0.114));
     return max(mix(half3(lum), col, 1.45), half3(0.0));
 }
@@ -118,9 +119,9 @@ half4 main(float2 fragCoord) {
     float spec = pow(max(dot(reflect(-L, n), float3(0.0, 0.0, 1.0)), 0.0), 40.0);
     col += half(spec * 0.2) * edge + half(sweep * 0.1);
 
-    // ripples glow in a light shade of the main accent: a faint fine ring on lit glass,
-    // a soft wide swell of colour on dark glass
-    half3 rippleTint = mix(uC0, half3(1.0), 0.3);
+    // ripples carry their own colour, already pushed apart from the background in
+    // lightness: a fine ring on lit glass, a soft wide swell on dark glass
+    half3 rippleTint = uC0;
     col += rippleTint * (half(ring) * 0.03 * (1.0 - dark) + half(min(glow, 1.5)) * 0.07 * dark);
 
     // vignette, then a filmic roll-off that keeps highlights under the white type

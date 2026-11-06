@@ -87,17 +87,26 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     val playSeed: StateFlow<Int> = query.filterNotNull().map { it.title + "|" + it.artist }.distinctUntilChanged().map { Random.nextInt() }
         .stateIn(viewModelScope, SharingStarted.Eagerly, Random.nextInt())
 
-    // the same album always gets the same colours: the seed (used only when the art has no
-    // usable colour, or is missing) comes from the album and artist, not from the play
-    val palette: StateFlow<StagePalette> = nowPlaying.map { np -> np?.art to (np?.let { (it.album ?: it.title) + "|" + it.artist }?.hashCode() ?: 0) }
-        .distinctUntilChanged()
-        .map { (art, seed) -> art to seed }
-        .mapLatest { (art, seed) ->
-            // players often send a new song's title a moment before its artwork: keep the last
-            // colours for that moment instead of flashing made-up ones
-            if (art == null) delay(ART_WAIT_MS)
-            ArtworkPalette.from(art, seed)
+    // the same album always gets the same colours, remembered for as long as the app
+    // lives: re-delivered artwork (a new Bitmap object or a different size) can never
+    // change them, so a black-dominant cover no longer drifts while it is on screen
+    private val paletteCache = java.util.concurrent.ConcurrentHashMap<Int, StagePalette>()
+
+    val palette: StateFlow<StagePalette> = nowPlaying
+        .mapLatest { np ->
+            val seed = np?.let { (it.album ?: it.title) + "|" + it.artist }?.hashCode() ?: 0
+            paletteCache[seed]?.let { return@mapLatest it }
+            val art = np?.art
+            if (art == null) {
+                // players often send a new song's title a moment before its artwork: keep
+                // the last colours for that moment instead of flashing made-up ones; the
+                // fallback itself is not remembered, so the artwork still gets its say
+                delay(ART_WAIT_MS)
+                if (np?.art == null) return@mapLatest StagePalette.fallback(seed)
+            }
+            ArtworkPalette.from(np?.art, seed).also { paletteCache[seed] = it }
         }
+        .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Eagerly, StagePalette.fallback(0))
 
     fun nudge(deltaMs: Long) {

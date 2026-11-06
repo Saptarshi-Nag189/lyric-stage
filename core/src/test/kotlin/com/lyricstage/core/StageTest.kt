@@ -3,7 +3,6 @@ package com.lyricstage.core
 import com.lyricstage.core.lyrics.LyricsBuilder
 import com.lyricstage.core.palette.Colour
 import com.lyricstage.core.palette.PaletteBuilder
-import com.lyricstage.core.palette.StagePalette
 import com.lyricstage.core.palette.Swatch
 import com.lyricstage.core.stage.Highlights
 import com.lyricstage.core.stage.MeasuredLine
@@ -62,25 +61,96 @@ class StageTest {
         assertTrue(Highlights.pick(hindi, 3).isNotEmpty())
     }
 
-    @Test fun paletteTextContrast() {
+    @Test fun paletteTopColourIsTheBackground() {
         val p = PaletteBuilder.build(listOf(Swatch(0xFFE0C040.toInt(), 500), Swatch(0xFF3060E0.toInt(), 300), Swatch(0xFFF0F0F0.toInt(), 900)), 1)
-        assertTrue(Colour.contrast(p.base, p.text) >= PaletteBuilder.MIN_CONTRAST)
-        p.accents.forEach { assertTrue(Colour.contrast(it, p.base) >= PaletteBuilder.ACCENT_CONTRAST - 0.05) }
-        // text carries the cover's hue rather than plain white
-        assertTrue(p.text != StagePalette.WHITE)
+        // the most-covered colour becomes the background, used exactly as it comes
+        assertEquals(0xFFF0F0F0.toInt(), p.base)
         assertEquals(3, p.accents.size)
-        assertTrue(Colour.darkenForContrast(0xFFFFFF00.toInt(), -1, 7.0).let { Colour.contrast(it, -1) >= 7.0 })
+        // text is a shade of the artwork's most saturated colour, never the background
+        assertTrue(p.text != p.base)
+        val (th, ts, tl) = Colour.toHsl(p.text)
+        assertTrue("text carries the cover's hue", Colour.hueDistance(th, Colour.toHsl(0xFFE0C040.toInt())[0]) < 0.08f || Colour.hueDistance(th, Colour.toHsl(0xFF3060E0.toInt())[0]) < 0.08f)
+        assertTrue("text saturation is a tint, not a pure colour", ts <= PaletteBuilder.TEXT_SAT_MAX + 0.01f)
+        // light background: black is added to the text, and the glint goes further
+        assertTrue(tl <= 0.3f)
+        val glint = Colour.toHsl(p.accents[2])
+        assertTrue(glint[2] <= PaletteBuilder.L_MIN + 0.01f)
+    }
+
+    @Test fun paletteRipplesStandOffTheBackground() {
+        val p = PaletteBuilder.build(listOf(Swatch(0xFFE0C040.toInt(), 500), Swatch(0xFF3060E0.toInt(), 300), Swatch(0xFFF0F0F0.toInt(), 900)), 1)
+        val bl = Colour.toHsl(p.base)[2]
+        p.accents.take(2).forEach {
+            val l = Colour.toHsl(it)[2]
+            assertTrue("ripple clears the background (Δl ${kotlin.math.abs(l - bl)})", kotlin.math.abs(l - bl) >= PaletteBuilder.RIPPLE_GAP - 0.02f)
+            assertTrue("ripple lightness stays in bounds", l >= PaletteBuilder.L_MIN - 0.01f && l <= PaletteBuilder.L_MAX + 0.01f)
+        }
+        // the two ripples sit apart in lightness, so the waves read as depth
+        assertTrue(kotlin.math.abs(Colour.toHsl(p.accents[0])[2] - Colour.toHsl(p.accents[1])[2]) >= PaletteBuilder.RIPPLE_SPREAD - 0.02f)
+    }
+
+    @Test fun paletteIsTheSameEveryTime() {
+        // no randomness, no time, no callback order: the same swatches give the same
+        // palette however often the artwork is re-delivered or the app is restarted
+        val swatches = listOf(
+            Swatch(0xFF050505.toInt(), 580), Swatch(0xFF6B1F2A.toInt(), 210), Swatch(0xFFE8E4E4.toInt(), 110),
+            Swatch(0xFF29141A.toInt(), 100),
+        )
+        val first = PaletteBuilder.build(swatches, 7)
+        repeat(50) { assertEquals(first, PaletteBuilder.build(swatches, 7)) }
+        // a differently sized but equivalent artwork (same shares) is the same cover
+        val rescaled = swatches.map { Swatch(it.rgb, it.population * 3) }
+        assertEquals(first, PaletteBuilder.build(rescaled, 7))
+        // shuffling the input cannot change anything
+        assertEquals(first, PaletteBuilder.build(shuffled(swatches, kotlin.random.Random(3)), 7))
+    }
+
+    @Test fun paletteBlackDominantCoverStaysPut() {
+        // the reported case: mostly black with one strong colour. The background is the
+        // cover's own near-black, as-is; the colour returns as the ripples, never as a
+        // different background on the next open
+        val black = 0xFF0C0C0C.toInt()
+        val crimson = 0xFFD23C4C.toInt()
+        val swatches = listOf(Swatch(black, 580), Swatch(crimson, 210), Swatch(0xFFE8E4E4.toInt(), 110))
+        val p = PaletteBuilder.build(swatches, 11)
+        assertEquals(black, p.base)
+        val bl = Colour.toHsl(black)[2]
+        p.accents.take(2).forEach { assertTrue(kotlin.math.abs(Colour.toHsl(it)[2] - bl) >= PaletteBuilder.RIPPLE_GAP - 0.02f) }
+        // the crimson's hue returns in the ripples or the text, never a made-up colour
+        val ch = Colour.toHsl(crimson)[0]
+        assertTrue(
+            p.accents.take(2).any { Colour.hueDistance(Colour.toHsl(it)[0], ch) < 0.08f } ||
+                Colour.hueDistance(Colour.toHsl(p.text)[0], ch) < 0.08f,
+        )
+        // dark cover: white is added to the text
+        assertTrue(Colour.toHsl(p.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
+        // one strong hue only: the second ripple is derived from the cover, not invented
+        val r2h = Colour.toHsl(p.accents[1])[0]
+        assertTrue(Colour.hueDistance(r2h, ch) < 0.1f || Colour.hueDistance(r2h, Colour.toHsl(black)[0]) < 0.1f)
     }
 
     @Test fun paletteStaysWithTheCover() {
         // one blue hue: every accent stays blue-ish, none is a made-up colour
         val blue = PaletteBuilder.build(listOf(Swatch(0xFF2050D0.toInt(), 800), Swatch(0xFF101828.toInt(), 900)), 4)
         blue.accents.forEach { assertTrue(Colour.hueDistance(Colour.toHsl(it)[0], Colour.toHsl(0xFF2050D0.toInt())[0]) < 0.08f) }
-        // a black and white cover: soft greys, nothing saturated
+        // a black and white cover: greys in the artwork's own tones, nothing saturated
         val grey = PaletteBuilder.build(listOf(Swatch(0xFF202020.toInt(), 900), Swatch(0xFFD0D0D0.toInt(), 400)), 4)
         grey.accents.forEach { assertTrue(Colour.toHsl(it)[1] <= 0.25f) }
-        grey.accents.forEach { assertTrue(Colour.contrast(it, grey.base) >= PaletteBuilder.ACCENT_CONTRAST - 0.05) }
-        assertTrue(Colour.contrast(grey.base, grey.text) >= PaletteBuilder.MIN_CONTRAST)
+        assertTrue(Colour.toHsl(grey.text)[1] <= 0.25f)
+        // near-black cover: the background is that near-black, exactly as the artwork has it
+        assertEquals(0xFF202020.toInt(), grey.base)
+        // and a dark cover: white is added to the text, the light grey rides above it
+        assertTrue(Colour.toHsl(grey.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
+        assertTrue(Colour.toHsl(grey.accents[0])[2] >= PaletteBuilder.L_MIN + 0.5f)
+    }
+
+    private fun <T> shuffled(items: List<T>, rnd: kotlin.random.Random): List<T> {
+        val out = items.toMutableList()
+        for (i in out.size - 1 downTo 1) {
+            val j = rnd.nextInt(i + 1)
+            val t = out[i]; out[i] = out[j]; out[j] = t
+        }
+        return out
     }
 
     @Test fun templatesKeepWordsApart() {

@@ -1,8 +1,12 @@
 package com.lyricstage.core.palette
 
 /**
- * Colours for one track: a dark base for the background, three vivid accents for
- * highlighted words and the light field, and a text colour with safe contrast on the base.
+ * Colours for one track: the background is the artwork's top colour used exactly as it
+ * comes, the first two accents are the next top colours pushed apart in lightness until
+ * they stand off the background, and the third is a glint beyond the lyrics' shade.
+ * The lyrics colour is a white- or black-tinted shade of the artwork's most saturated
+ * colour; the renderer's shadow keeps it readable, so it never has to out-contrast the
+ * background on its own.
  */
 data class StagePalette(
     val base: Int,
@@ -33,83 +37,84 @@ data class StagePalette(
 /** A colour sampled from artwork and how much of the image it covers. */
 data class Swatch(val rgb: Int, val population: Int)
 
-/** Builds a [StagePalette] from artwork swatches. Pure maths; the app feeds AndroidX Palette output. */
+/**
+ * Builds a [StagePalette] from artwork swatches. Pure maths; the app feeds AndroidX Palette output.
+ *
+ * One rule for every cover, near-black included: the top colour by coverage becomes the
+ * background as-is, the next two become the ripples, pushed in lightness until they clear
+ * the background. Nothing is averaged into a new colour and no branch treats black
+ * differently, so the same artwork always yields exactly the same palette.
+ */
 object PaletteBuilder {
-    /** Minimum contrast of text on the base: WCAG AAA for body text. */
-    const val MIN_CONTRAST = 7.0
+    /** Minimum lightness gap between the background and a ripple colour. */
+    const val RIPPLE_GAP = 0.26f
 
-    /** Highlighted words: WCAG AA for large text and then some. */
-    const val ACCENT_CONTRAST = 4.5
+    /** Minimum lightness gap between the two ripple colours, so the waves read as depth. */
+    const val RIPPLE_SPREAD = 0.08f
+
+    /** Lightness of the second ripple is pushed to this fraction of [RIPPLE_GAP] before separation. */
+    private const val RIPPLE_GAP2 = 0.7f
+
+    /** Lyrics on dark backgrounds: a white-added shade between these lightnesses. */
+    const val TEXT_DARK_L = 0.88f
+
+    /** Lyrics on light backgrounds: a black-added shade. */
+    const val TEXT_LIGHT_L = 0.18f
+
+    /** Highest saturation the lyrics shade may carry: a tint, not a pure colour. */
+    const val TEXT_SAT_MAX = 0.32f
+
+    /** Ripple lightness is kept inside these bounds: never blinding, never void. */
+    const val L_MIN = 0.04f
+    const val L_MAX = 0.96f
 
     fun build(swatches: List<Swatch>, seed: Int): StagePalette {
         if (swatches.isEmpty()) return StagePalette.fallback(seed)
-        val scored = swatches.mapNotNull { sw ->
-            val (h, s, l) = Colour.toHsl(sw.rgb)
-            if (s < 0.2f || l < 0.12f || l > 0.92f) null
-            else Triple(sw, floatArrayOf(h, s, l), sw.population * s * (1f - kotlin.math.abs(l - 0.55f)))
-        }.sortedByDescending { it.third }
+        // coverage first, ties by saturation, then lightness, then hue: a fixed order with
+        // no seed and no randomness, so re-deriving can never change the colours
+        val ranked = swatches.sortedWith(
+            compareByDescending<Swatch> { it.population }
+                .thenByDescending { Colour.toHsl(it.rgb)[1] }
+                .thenByDescending { Colour.toHsl(it.rgb)[2] }
+                .thenBy { Colour.toHsl(it.rgb)[0] },
+        )
+        val top = ranked[0]
+        val (bh, bs, bl) = Colour.toHsl(top.rgb)
+        val dark = bl < 0.5f
+        val dir = if (dark) 1f else -1f
 
-        // up to three hues that are visibly different from each other
-        val chosen = ArrayList<FloatArray>()
-        for ((_, hsl, _) in scored) {
-            if (chosen.all { Colour.hueDistance(it[0], hsl[0]) > 0.07f }) chosen += hsl
-            if (chosen.size == 3) break
+        fun ripple(src: Swatch?, gap: Float): FloatArray {
+            // a missing colour is derived from the background's own hue and saturation:
+            // never a made-up colour, and black covers keep their greys
+            val (h, s, l) = src?.let { Colour.toHsl(it.rgb) } ?: floatArrayOf(bh, bs, bl)
+            var nl = l
+            if (kotlin.math.abs(nl - bl) < gap) nl = bl + dir * gap
+            return floatArrayOf(h, (s * 1.08f + 0.08f).coerceAtMost(1f), nl.coerceIn(L_MIN, L_MAX))
         }
-        // a grey or nearly colourless cover keeps its own muted tones, never made-up colours
-        if (chosen.isEmpty()) return muted(swatches)
 
-        val base0 = darkBase(swatches, chosen[0][0])
-        // body text: near white, faintly tinted with the cover's main hue
-        val (h0, s0, _) = chosen[0]
-        val tint = Colour.fromHsl(h0, (s0 * 0.45f).coerceAtMost(0.4f), 0.93f)
-        val base = Colour.darkenForContrast(base0, tint, MIN_CONTRAST)
-        // highlights: the cover's colours, saturated, and bright enough to read on the base;
-        // a cover with fewer than three hues gets neighbours of its own, not unrelated colours
-        val accents = (0 until 3).map { i ->
-            val (h, s, l) = chosen.getOrNull(i) ?: chosen[0].let { c ->
-                floatArrayOf((c[0] + NEIGHBOUR[i] + 1f) % 1f, c[1], c[2] + if (i == 1) 0.08f else -0.06f)
-            }
-            val a = Colour.fromHsl(h, (s * 1.25f).coerceIn(0.65f, 1f), l.coerceIn(0.55f, 0.72f))
-            Colour.lightenForContrast(a, base, ACCENT_CONTRAST)
+        val r1 = ripple(ranked.getOrNull(1), RIPPLE_GAP)
+        val r2 = ripple(ranked.getOrNull(2), RIPPLE_GAP * RIPPLE_GAP2)
+        // keep the two ripples apart in lightness; push the second one further in the same direction
+        if (kotlin.math.abs(r2[2] - r1[2]) < RIPPLE_SPREAD) {
+            r2[2] = (r1[2] + dir * RIPPLE_SPREAD).coerceIn(L_MIN, L_MAX)
         }
-        return StagePalette(base, accents, tint)
-    }
 
-    /** Hue steps for accents made from the main hue when a cover has only one or two. */
-    private val NEIGHBOUR = floatArrayOf(0f, 0.045f, -0.045f)
+        // lyrics: hue from the most saturated colour in the artwork, saturation carried at
+        // half and capped; lightness on the far side of the background, whites added on
+        // dark covers, blacks added on light ones
+        val accentSrc = ranked.maxWithOrNull(compareBy { Colour.toHsl(it.rgb)[1] }) ?: top
+        val (ah, as, _) = Colour.toHsl(accentSrc.rgb)
+        val ts = (as * 0.5f).coerceAtMost(TEXT_SAT_MAX)
+        val tl = if (dark) TEXT_DARK_L else TEXT_LIGHT_L
+        val text = Colour.fromHsl(ah, ts, tl)
+        // the third accent, for highlighted words and the brightest pool: the lyrics' own
+        // shade one lightness step beyond, near white on dark covers, near black on light ones
+        val glint = Colour.fromHsl(ah, ts, if (dark) L_MAX else L_MIN)
 
-    /** Black, white, grey or sepia covers: the cover's own hue, kept soft. */
-    private fun muted(swatches: List<Swatch>): StagePalette {
-        val main = swatches.maxBy { it.population }
-        val (h, s, _) = Colour.toHsl(main.rgb)
-        val sat = s.coerceIn(0f, 0.22f)
-        val base = Colour.darkenForContrast(darkBase(swatches, h), Colour.fromHsl(h, sat * 0.5f, 0.93f), MIN_CONTRAST)
-        val text = Colour.fromHsl(h, sat * 0.5f, 0.93f)
-        val accents = listOf(0.80f, 0.70f, 0.88f).map { l ->
-            Colour.lightenForContrast(Colour.fromHsl(h, sat, l), base, ACCENT_CONTRAST)
-        }
-        return StagePalette(base, accents, text)
-    }
-
-    /** Average hue of the darker swatches, at very low lightness. */
-    private fun darkBase(swatches: List<Swatch>, fallbackHue: Float?): Int {
-        val dark = swatches.map { it to Colour.toHsl(it.rgb) }.filter { it.second[2] < 0.35f }
-        return if (dark.isNotEmpty()) {
-            val pop = dark.sumOf { it.first.population }.coerceAtLeast(1).toFloat()
-            // hue is circular: average it as a vector
-            var x = 0.0
-            var y = 0.0
-            var s = 0f
-            for ((sw, hsl) in dark) {
-                val w = sw.population / pop
-                x += kotlin.math.cos(hsl[0] * 2 * Math.PI) * w
-                y += kotlin.math.sin(hsl[0] * 2 * Math.PI) * w
-                s += hsl[1] * w
-            }
-            val h = ((kotlin.math.atan2(y, x) / (2 * Math.PI)) + 1.0).toFloat() % 1f
-            Colour.fromHsl(h, s.coerceAtMost(0.5f), 0.07f)
-        } else {
-            Colour.fromHsl(fallbackHue ?: 0.66f, 0.4f, 0.07f)
-        }
+        return StagePalette(
+            base = top.rgb,
+            accents = listOf(Colour.fromHsl(r1[0], r1[1], r1[2]), Colour.fromHsl(r2[0], r2[1], r2[2]), glint),
+            text = text,
+        )
     }
 }

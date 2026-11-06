@@ -79,9 +79,8 @@ fun StageBackground(
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock, animate, pools, rippleStrength)
             else -> GradientFallback(palette, clock, animate, pools)
         }
-        // darken behind the text when the palette is bright
-        val scrim = ContrastScrim.alphaFor(palette, pools)
-        if (scrim > 0f) Canvas(Modifier.fillMaxSize()) { drawRect(Color.Black.copy(alpha = scrim)) }
+        // the lyrics' own shadow carries their readability on any background colour, so no
+        // scrim is laid over the stage: the artwork's top colour shows as it comes
     }
 }
 
@@ -182,20 +181,6 @@ private fun ArtworkBlur(art: Bitmap, palette: StagePalette) {
             alpha = 0.85f,
             filterQuality = FilterQuality.Low,
         )
-    }
-}
-
-/** How much black to lay over the background so white text keeps at least 4.5:1. */
-object ContrastScrim {
-    /** Worst-case background luminance we budget for, before the scrim. */
-    fun alphaFor(p: StagePalette, pools: Float = 1f): Float {
-        val brightest = (p.accents.map { Colour.luminance(it) * pools.coerceAtLeast(0.3f) } + Colour.luminance(p.base)).maxOf { it }
-        // the shader's tone mapping keeps pools at roughly 60 % of the accent luminance
-        val bg = brightest * 0.6
-        val target = 0.18 // white on 0.18 luminance is about 4.5:1
-        if (bg <= target) return 0f
-        // luminance scales with (1 - alpha) under a black overlay
-        return (1.0 - target / bg).coerceIn(0.0, 0.55).toFloat()
     }
 }
 
