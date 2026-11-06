@@ -13,7 +13,10 @@ python3 -m fontTools.varLib.instancer -q $RES/bricolage.ttf wght=400 opsz=14 wdt
 for s in devanagari bangla gurmukhi gujarati odia tamil telugu kannada malayalam; do
   python3 -m fontTools.varLib.instancer -q $RES/anek_$s.ttf wght=800 -o $FONTS/anek_${s}_800.ttf
 done
-python3 -m fontTools.varLib.instancer -q $RES/noto_sans_jp.ttf wght=900 -o $FONTS/noto_sans_jp_900.ttf
+# Japanese renders with the phone's own CJK typeface now (no bundled JP font), so the
+# mockups use this system's Japanese font the same way
+JP=$(fc-match -f '%{file}' :lang=ja 2>/dev/null || true)
+[ -n "$JP" ] && cp -f "$JP" $FONTS/jp.ttf
 $ROOT/gradlew -p . -q installDist
 JAVA_OPTS="-Djava.awt.headless=true -Dfonts=$FONTS -Dout=$ROOT/docs/screenshots -Dsamples=$ROOT/core/src/test/resources/samples -DextraSamples=samples -Xmx3g" \
   build/install/shots/bin/shots

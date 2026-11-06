@@ -31,12 +31,6 @@ enum class AppFont(val label: String) {
 
 /** Bundled variable fonts. Weights and optical sizes are set through their axes. */
 object StageFonts {
-    private fun family(res: Int) = FontFamily(
-        Font(res, FontWeight.Black),
-        Font(res, FontWeight.SemiBold),
-        Font(res, FontWeight.Medium),
-    )
-
     /** A variable family at real weights: the stage renders heavy, so Indic lyrics get
      *  genuinely bold cuts through the wght axis like the Latin lyric fonts, not a
      *  default-weight instance. */
@@ -105,7 +99,9 @@ object StageFonts {
     @Volatile var lyricFont: LyricFont = LyricFont.UNBOUNDED
 
     // Anek for the nine Indic scripts, one family per script, applied automatically from
-    // the lyrics text; its even proportions across scripts keep mixed-language songs coherent
+    // the lyrics text; its even proportions across scripts keep mixed-language songs coherent.
+    // Japanese and Korean use the system's own CJK typeface (Noto Sans CJK on most phones):
+    // full quality, every glyph, and no 9 MB font shipped in the APK
     private val devanagari = vfam(R.font.anek_devanagari)
     private val bangla = vfam(R.font.anek_bangla)
     private val gurmukhi = vfam(R.font.anek_gurmukhi)
@@ -115,7 +111,6 @@ object StageFonts {
     private val telugu = vfam(R.font.anek_telugu)
     private val kannada = vfam(R.font.anek_kannada)
     private val malayalam = vfam(R.font.anek_malayalam)
-    private val japanese = family(R.font.noto_sans_jp)
 
     fun forScript(script: Script): FontFamily = when (script) {
         Script.DEVANAGARI -> devanagari
@@ -127,8 +122,7 @@ object StageFonts {
         Script.TELUGU -> telugu
         Script.KANNADA -> kannada
         Script.MALAYALAM -> malayalam
-        Script.JAPANESE -> japanese
-        Script.KOREAN -> FontFamily.SansSerif
+        Script.JAPANESE, Script.KOREAN -> FontFamily.SansSerif
         else -> lyrics(lyricFont)
     }
 

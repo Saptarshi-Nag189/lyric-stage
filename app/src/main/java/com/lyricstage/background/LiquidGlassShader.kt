@@ -10,8 +10,14 @@ package com.lyricstage.background
  *
  * Coordinates: fragCoord has a top-left origin; p is centred, y down, aspect corrected.
  *
+ * Every stage colour stays bounded: pools and ripple rings mix toward the accent colours
+ * instead of adding light onto the base, so a light cover can never wash out to white and
+ * the brightest thing on screen stays the type. Nothing reaches the tone map below zero
+ * either - pow() of a negative is NaN, and a NaN pixel is garbage on some GPUs - so the
+ * colour is clamped before the filmic tail runs.
+ *
  * A black-and-white cover stays black-and-white: when every palette colour is a grey
- * (as PaletteBuilder keeps a grey artwork), the glass works in luminance alone — no
+ * (as PaletteBuilder keeps a grey artwork), the glass works in luminance alone - no
  * saturation push, no coloured dispersion, no tinted ripple rings. Light still bends;
  * no colour appears that the cover never had.
  */
@@ -52,9 +58,12 @@ float fbm(float2 p) {
     return v / 0.88;
 }
 
-// Domain-warped noise picks where each accent glows. Colours are added, not blended,
-// so neighbouring hues glow side by side instead of averaging into brown.
-// uBase is the artwork's top colour, used exactly as it comes.
+// Domain-warped noise picks where each accent shows. Pools are bounded tints toward the
+// ripple colours, never added light: on a dark cover the ripples are lighter than the
+// base so the pools glow, on a light cover they are darker so the pools shade - yellow
+// gets olive waves, light grey gets grey ones - and no cover can blow out to white.
+// uBase is the artwork's top colour, used exactly as it comes; the filmic tail at the
+// end of main() darkens it into the mid tones the light lyric shade is measured against.
 // mono is 1 when every palette colour is a grey: the saturation push is off, so greys
 // stay exactly on their own luminance.
 half3 lightField(float2 p, float t, half mono) {
@@ -66,9 +75,12 @@ half3 lightField(float2 p, float t, half mono) {
     float w0 = smoothstep(0.42, 0.82, f);
     float w1 = smoothstep(0.5, 0.88, r.x) * (1.0 - w0 * 0.6);
     float w2 = smoothstep(0.55, 0.92, q.y) * (1.0 - max(w0, w1) * 0.6);
-    // uPools scales how much of each accent shows: 0 nearly flat base, 1 standard, 2 vivid
-    half pools = half(uPools);
-    half3 col = uBase + (uC0 * w0 * 0.95 + uC1 * w1 * 0.8 + uC2 * w2 * 0.65) * pools;
+    // uPools scales how far each mix reaches: 0 nearly flat base, 1 standard, 2 vivid
+    half pools = half(min(uPools, 2.0));
+    half3 col = uBase;
+    col = mix(col, uC0, half(min(w0 * 0.85 * pools, 1.0)));
+    col = mix(col, uC1, half(min(w1 * 0.70 * pools, 1.0)));
+    col = mix(col, uC2, half(min(w2 * 0.55 * pools, 1.0)));
     half lum = dot(col, half3(0.299, 0.587, 0.114));
     half sat = mix(half(1.45), half(1.0), mono);
     return max(mix(half3(lum), col, sat), half3(0.0));
@@ -141,13 +153,18 @@ half4 main(float2 fragCoord) {
     col += half(spec * 0.2) * edge + half(sweep * 0.1);
 
     // ripples carry their own colour, already pushed apart from the background in
-    // lightness: a fine ring on lit glass, a soft wide swell on dark glass - plain
-    // luminance when the palette is grey
+    // lightness: the ring mixes toward it, bounded like the pools - a fine light ring on
+    // dark glass, a fine dark ring on light glass, plain luminance when the palette is grey
     half3 rippleTint = mix(uC0, half3(dot(uC0, half3(0.299, 0.587, 0.114))), mono);
-    col += rippleTint * (half(ring) * 0.03 * (1.0 - dark) + half(min(glow, 1.5)) * 0.07 * dark);
+    half rw = half(min(ring * 0.55 * (1.0 - dark) + min(glow, 1.5) * 0.30 * dark, 1.0));
+    col = mix(col, rippleTint, rw);
+
+    // nothing negative survives to the tone map: pow() of a negative is NaN, and a NaN
+    // pixel is garbage on some GPUs
+    col = max(col, half3(0.0));
 
     // vignette, then a filmic roll-off that keeps highlights under the white type
-    col *= half(mix(0.4, 1.0, smoothstep(1.2, 0.3, length(p * float2(0.85, 1.1)))));
+    col *= half(1.0 - 0.6 * smoothstep(0.3, 1.2, length(p * float2(0.85, 1.1))));
     col = col / (1.0 + col * 0.7);
     col = pow(col, half3(1.18)) * 0.95;
     col += half((hash(fragCoord + fract(t) * 100.0) - 0.5) * 0.018);

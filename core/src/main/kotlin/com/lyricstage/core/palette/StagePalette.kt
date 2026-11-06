@@ -1,18 +1,34 @@
 package com.lyricstage.core.palette
 
 /**
- * Colours for one track: the background is the artwork's top colour used exactly as it
- * comes, the first two accents are the next top colours pushed apart in lightness until
- * they stand off the background, and the third is a glint beyond the lyrics' shade.
- * The lyrics colour is a white- or black-tinted shade of the artwork's most saturated
- * colour; the renderer's shadow keeps it readable, so it never has to out-contrast the
- * background on its own.
+ * Colours for one track: the background is the artwork's top colour as the stage shows
+ * it (the glass shader's filmic tail darkens a light cover - yellow becomes olive, green
+ * becomes dark green, light grey becomes grey), the first two accents are the next top
+ * colours pushed apart in lightness until they stand off the background, and the third is
+ * a glint beyond the lyrics' shade. The lyrics colour is always a light, white-added shade
+ * of the artwork's most saturated colour - yellow on olive, light grey on grey, light
+ * greens on dark green - floored at a contrast bar against the background as the stage
+ * draws it; the renderer's shadow adds the rest of the readability.
  */
 data class StagePalette(
     val base: Int,
     val accents: List<Int>,
     val text: Int,
 ) {
+    /**
+     * A colour for highlighted words from [accent]. The ripple rule pushes a light cover's
+     * ripples to the background's dark side, and a word glowing in one would sink into the
+     * mid tones the stage draws; such an accent is lifted to the lyric shade's lightness
+     * with its saturation damped to a tint, so the glow keeps the art's hue and reads as
+     * light type. Accents on the background's light side pass unchanged.
+     */
+    fun highlightColour(accent: Int): Int {
+        val bl = Colour.toHsl(base)[2]
+        if (Colour.toHsl(accent)[2] >= bl - PaletteBuilder.RIPPLE_GAP / 2f) return accent
+        val (h, s, _) = Colour.toHsl(accent)
+        return Colour.fromHsl(h, s * 0.6f, Colour.toHsl(text)[2])
+    }
+
     companion object {
         const val WHITE = 0xFFFFFFFF.toInt()
 
@@ -47,9 +63,13 @@ data class Swatch(val rgb: Int, val population: Int)
  *
  * A cover is dark or light by the light the eye sees — WCAG luminance — never by HSL
  * lightness, which puts every pure hue at exactly 50 %: a saturated blue cover is "light"
- * to HSL and night to the eye, and black lyrics on it would vanish. Red and blue fall
- * below the line and wear the white-added shade; green and yellow fall above it and wear
- * the black-added one.
+ * to HSL and night to the eye. That line now picks only which side the ripples fall on
+ * (red and blue get lighter ones, green and yellow darker ones), because the lyrics are
+ * always light: the stage sends every background through one filmic tone map (the glass
+ * shader's tail; the solid and gradient modes apply the same curve), which turns a light
+ * cover dark enough for light type - yellow shows as olive, green as dark green, light
+ * grey as grey. Dark lyrics on light covers are gone; against the mid tones the stage
+ * actually draws, they read as mud.
  *
  * A grey artwork stays grey: no saturation is invented for it, so a black-and-white
  * cover gives a black-and-white stage — background, ripples, lyrics and glint all on the
@@ -65,11 +85,8 @@ object PaletteBuilder {
     /** Lightness of the second ripple is pushed to this fraction of [RIPPLE_GAP] before separation. */
     private const val RIPPLE_GAP2 = 0.7f
 
-    /** Lyrics on dark backgrounds: a white-added shade between these lightnesses. */
-    const val TEXT_DARK_L = 0.88f
-
-    /** Lyrics on light backgrounds: a black-added shade. */
-    const val TEXT_LIGHT_L = 0.18f
+    /** Lyrics are always a light, white-added shade at this lightness. */
+    const val TEXT_L = 0.88f
 
     /**
      * WCAG relative luminance at which a cover starts counting as light — the same line
@@ -79,11 +96,10 @@ object PaletteBuilder {
      */
     const val LIGHT_LUMINANCE = 0.35
 
-    /** The lyric shade is floored at this contrast against its background - the
-     * large-type bar. The white-added shade is measured against the artwork itself (solid
-     * and artwork backgrounds draw it raw), the black-added shade against the background
-     * as the liquid glass shader shows it, whose filmic tail darkens a light cover into
-     * the mid tones where a light black would sink. */
+    /** The lyric shade is floored at this contrast against the background as the stage
+     *  draws it — every mode sends the background through the same filmic tail
+     *  ([Colour.rolled]) — so one measurement covers the glass, the solid colour and the
+     *  gradient fallback alike. */
     const val TEXT_MIN_CONTRAST = 3.0
 
     /** Highest saturation the lyrics shade may carry: a tint, not a pure colour. */
@@ -134,24 +150,18 @@ object PaletteBuilder {
         }
 
         // lyrics: hue from the most saturated colour in the artwork, saturation carried at
-        // half and capped; lightness on the far side of the background, whites added on
-        // dark covers, blacks added on light ones. Each shade is then floored where it is
-        // weakest: the white-added one against the raw artwork (a red cover), the
-        // black-added one against the background as the shader shows it (a green cover
-        // is drawn in the mid tones, and a light black would sink into it)
+        // half and capped, always the light shade - the stage's filmic tail darkens even a
+        // yellow or light grey cover into the mid tones, so light type reads on every
+        // cover and dark type never appears. The shade is floored against the background
+        // as the stage draws it, tone-mapped, which is the bar it must actually clear.
         val accentSrc = ranked.maxWithOrNull(compareBy { Colour.toHsl(it.rgb)[1] }) ?: top
         val (ah, srcSat, _) = Colour.toHsl(accentSrc.rgb)
         val ts = (srcSat * 0.5f).coerceAtMost(TEXT_SAT_MAX)
-        val tl = if (dark) TEXT_DARK_L else TEXT_LIGHT_L
-        var text = Colour.fromHsl(ah, ts, tl)
-        text = if (dark) {
-            Colour.lightenForContrast(text, top.rgb, TEXT_MIN_CONTRAST)
-        } else {
-            Colour.deepenForContrast(text, Colour.rolled(top.rgb), TEXT_MIN_CONTRAST)
-        }
+        var text = Colour.fromHsl(ah, ts, TEXT_L)
+        text = Colour.lightenForContrast(text, Colour.rolled(top.rgb), TEXT_MIN_CONTRAST)
         // the third accent, for highlighted words and the brightest pool: the lyrics' own
-        // shade one lightness step beyond, near white on dark covers, near black on light ones
-        val glint = Colour.fromHsl(ah, ts, if (dark) L_MAX else L_MIN)
+        // shade one lightness step beyond, near white
+        val glint = Colour.fromHsl(ah, ts, L_MAX)
 
         return StagePalette(
             base = top.rgb,

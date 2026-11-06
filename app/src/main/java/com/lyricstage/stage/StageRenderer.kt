@@ -44,7 +44,10 @@ class StageColours(
     val frost: Float = 0f,
 ) {
     val text = Color(palette.text)
-    val accents = palette.accents.map { lerp(text, Color(it), highlightIntensity.coerceIn(0f, 1f)) }
+    // highlighted words glow in the palette's colours, lifted where the ripple rule put
+    // them on the background's dark side: a light cover's dark ripple would sink a
+    // highlighted word into the mid tones the stage draws
+    val accents = palette.accents.map { lerp(text, Color(palette.highlightColour(it)), highlightIntensity.coerceIn(0f, 1f)) }
     val glow = highlightIntensity.coerceIn(0f, 1f)
 }
 

@@ -12,23 +12,42 @@
   folded onto plain luminance, ripple rings in grey. Light still bends; no colour appears
   that the cover never had. The ±1/255 chroma noise a JPEG greyscale carries is inside
   the same tolerance.
-- Lyrics, ripples and the highlight glint now take their shade by the light the eye sees,
-  not by HSL lightness. HSL puts every pure hue at exactly 50 % lightness, so a saturated
-  blue or violet cover counted as "light" and wore black lyrics on night-blue (1.9:1); a
-  red cover did the same. A cover is now dark or light by WCAG luminance, across the same
-  0.35 line the app's accent chips use: red and blue wear the white-added shade, green and
-  yellow the black-added one, and the ripples follow, so they stand off on every hue.
-- The lyric shade is floored at 3:1 - the large-type bar - where each shade is weakest:
-  the white-added shade against the artwork itself (solid and artwork backgrounds draw it
-  raw; on a red cover it was 2.9:1), the black-added shade against the background as the
-  liquid glass shader shows it. The shader's filmic tail darkens a light cover into the
-  mid tones, so a green or a pale cover showed black lyrics at 2.4:1 on the stage even
-  though the artwork promised 8:1; they now clear the bar on the stage as drawn.
-- The README mockups now apply the shader's saturation push as well as its tone map, and
-  its dispersion fringes (folded to grey for a grey palette), so they show the colour the
-  app draws. The proof sheet gains the black-and-white cover - light- and dark-dominant -
-  alongside pure red, green, blue and yellow, the four colours that all sit at HSL
-  lightness 0.5.
+- The lyrics are always a light shade of the cover's own colour. The previous rule shaded
+  by cover luminance and set a black-added tint on light covers - but the stage draws
+  every background through one filmic tone map, which turns a light cover dark: yellow
+  shows as olive, green as dark green, light grey as grey. Against those mid tones the
+  black lyrics read as mud. Now: yellow lyrics on olive, light grey on grey, light greens
+  on dark green, and the white shades that already read well (red, blue, dark covers) are
+  unchanged. The highlight glint is light on every cover too, and the shade is floored at
+  3:1 - the large-type bar - against the background as that tone map leaves it. Ripples
+  still pick their side by WCAG luminance (red and blue lighter, green and yellow
+  darker), so the waves stand off on every hue.
+- The liquid glass shader is rebuilt. Its pools of colour were added straight onto the
+  background, so a bright cover blew out to white and the type had nothing to sit on; and
+  the dispersion term could take the colour below zero into pow(), which is NaN - garbage
+  pixels on some GPUs. Pools and ripple rings now mix toward the palette's own colours -
+  bounded, so no cover can wash out: light covers get darker olive/grey waves, dark
+  covers lighter ones - and nothing reaches the tone map below zero. Ripple rings carry
+  their own colour instead of white light, so they read on light glass too.
+- The solid colour and animated gradient backgrounds now show the background through the
+  same filmic tone map as the glass, so the lyric shade's 3:1 bar holds in every mode and
+  a yellow cover is olive whichever background is set.
+- The background clock no longer jumps when its speed changes (reduce motion turning on
+  or off): it accumulates scaled time instead of scaling elapsed time after the fact, so
+  ripples in flight keep their ages and the noise field stays continuous.
+- The README mockups apply the shader's saturation push, tone map and dispersion fringes
+  (folded to grey for a grey palette), so they show the colour the app draws; ripple
+  rings carry the ripple colour as the shader now mixes them. The proof sheet's two rows
+  compare the luminance rule's black lyrics on light covers with the always-light rule
+  - yellow on olive, light grey on grey, light greens on dark green - across the
+  black-and-white cover (light- and dark-dominant) and pure red, green, blue and yellow,
+  the four colours that all sit at HSL lightness 0.5.
+
+### Changed
+- Japanese lyrics render in the phone's own CJK typeface (as Korean already does)
+  instead of a bundled 9.2 MB font. The APK shrinks by roughly half, and the first
+  Japanese line no longer waits for a 9 MB font to parse before it can draw.
+- Library locale resources beyond English are stripped.
 
 ## [1.1.6] - 2026-11-06
 

@@ -60,6 +60,11 @@ android {
         buildConfig = true
     }
 
+    // the app ships English strings only; keep library locale resources from riding along
+    androidResources {
+        localeFilters += listOf("en")
+    }
+
     packaging {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }

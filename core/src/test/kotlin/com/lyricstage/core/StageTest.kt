@@ -71,10 +71,11 @@ class StageTest {
         val (th, ts, tl) = Colour.toHsl(p.text)
         assertTrue("text carries the cover's hue", Colour.hueDistance(th, Colour.toHsl(0xFFE0C040.toInt())[0]) < 0.08f || Colour.hueDistance(th, Colour.toHsl(0xFF3060E0.toInt())[0]) < 0.08f)
         assertTrue("text saturation is a tint, not a pure colour", ts <= PaletteBuilder.TEXT_SAT_MAX + 0.01f)
-        // light background: black is added to the text, and the glint goes further
-        assertTrue(tl <= 0.3f)
+        // the lyrics are always the light shade, whatever the cover, and the glint goes
+        // one step beyond: the tone map draws even a light cover in the mid tones
+        assertTrue(tl >= PaletteBuilder.TEXT_L - 0.11f)
         val glint = Colour.toHsl(p.accents[2])
-        assertTrue(glint[2] <= PaletteBuilder.L_MIN + 0.01f)
+        assertTrue(glint[2] >= PaletteBuilder.L_MAX - 0.01f)
     }
 
     @Test fun paletteRipplesStandOffTheBackground() {
@@ -122,18 +123,19 @@ class StageTest {
             p.accents.take(2).any { Colour.hueDistance(Colour.toHsl(it)[0], ch) < 0.08f } ||
                 Colour.hueDistance(Colour.toHsl(p.text)[0], ch) < 0.08f,
         )
-        // dark cover: white is added to the text
-        assertTrue(Colour.toHsl(p.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
+        // dark cover: the lyrics are the light shade
+        assertTrue(Colour.toHsl(p.text)[2] >= PaletteBuilder.TEXT_L - 0.11f)
         // one strong hue only: the second ripple is derived from the cover, not invented
         val r2h = Colour.toHsl(p.accents[1])[0]
         assertTrue(Colour.hueDistance(r2h, ch) < 0.1f || Colour.hueDistance(r2h, Colour.toHsl(black)[0]) < 0.1f)
     }
 
     @Test fun palettePrimariesWearTheShadeThatReads() {
-        // pure red, green, blue and yellow covers all sit at HSL lightness 0.5, so the old
-        // HSL test called all four "light" and set black lyrics on blue (1.9:1). Dark is
-        // now decided by the light the eye sees: red and blue wear the white-added shade,
-        // green and yellow the black-added one, and every shade clears the large-type bar
+        // pure red, green, blue and yellow covers all sit at HSL lightness 0.5, and every
+        // shade rule before this one picked a side. The stage's filmic tone map decides
+        // it instead: red and blue show dark, green shows dark green, yellow shows olive,
+        // so the light shade reads on all four - and the lyrics are ALWAYS light, never
+        // the black tint that read as mud against those mid tones
         fun primary(base: Int, darker: Int, lighter: Int) =
             PaletteBuilder.build(listOf(Swatch(base, 900), Swatch(darker, 250), Swatch(lighter, 150)), 3)
         val red = primary(0xFFFF0000.toInt(), 0xFFB00000.toInt(), 0xFFFF7070.toInt())
@@ -141,30 +143,48 @@ class StageTest {
         val blue = primary(0xFF0000FF.toInt(), 0xFF0000B0.toInt(), 0xFF7070FF.toInt())
         val yellow = primary(0xFFFFFF00.toInt(), 0xFFB0B000.toInt(), 0xFFFFFF70.toInt())
 
-        listOf("red" to red, "blue" to blue).forEach { (name, p) ->
-            assertTrue("$name is dark to the eye: white is added to the lyrics", Colour.toHsl(p.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
-            assertTrue("$name lyrics clear the large-type bar (${Colour.contrast(p.base, p.text)})",
-                Colour.contrast(p.base, p.text) >= PaletteBuilder.TEXT_MIN_CONTRAST)
-        }
-        listOf("green" to green, "yellow" to yellow).forEach { (name, p) ->
-            assertTrue("$name is light to the eye: black is added to the lyrics", Colour.toHsl(p.text)[2] <= 0.3f)
-            assertTrue("$name lyrics clear the large-type bar (${Colour.contrast(p.base, p.text)})",
-                Colour.contrast(p.base, p.text) >= PaletteBuilder.TEXT_MIN_CONTRAST)
-        }
-        // and every shade still clears the bar against the background as the liquid glass
-        // shader shows it: its filmic tail darkens a light cover into the mid tones
         listOf("red" to red, "green" to green, "blue" to blue, "yellow" to yellow).forEach { (name, p) ->
+            assertTrue("$name lyrics are the light shade", Colour.toHsl(p.text)[2] >= PaletteBuilder.TEXT_L - 0.11f)
+            // and the shade clears the large-type bar against the background as the stage
+            // draws it: every mode sends the background through the same filmic tail
             val shown = Colour.contrast(Colour.rolled(p.base), p.text)
             assertTrue("$name lyrics clear the bar on the stage as drawn ($shown)", shown >= PaletteBuilder.TEXT_MIN_CONTRAST - 0.01)
+            assertTrue("$name glint is light", Colour.toHsl(p.accents[2])[2] >= PaletteBuilder.L_MAX - 0.01f)
         }
-        // ripples follow the same direction, so they stand off the background on every hue
-        // (the second ripple is held to its own smaller gap)
+        // ripples still pick their side by the light the eye sees, so they stand off the
+        // background on every hue (the second ripple is held to its own smaller gap)
         val gaps = listOf(PaletteBuilder.RIPPLE_GAP, PaletteBuilder.RIPPLE_GAP * 0.7f)
         listOf(red, green, blue, yellow).forEach { p ->
             val bl = Colour.toHsl(p.base)[2]
             p.accents.take(2).forEachIndexed { i, acc ->
                 assertTrue("ripple clears the background", kotlin.math.abs(Colour.toHsl(acc)[2] - bl) >= gaps[i] - 0.02f)
             }
+        }
+    }
+
+    @Test fun highlightColoursGlowOnEveryCover() {
+        // highlighted words glow in the palette's colours. On a light cover the ripple rule
+        // puts the first ripple on the background's dark side, and a word glowing in it
+        // would sink into the mid tones the stage draws; the highlight is lifted to the
+        // lyric lightness with its saturation damped, keeping the art's hue
+        fun primary(base: Int, darker: Int, lighter: Int) =
+            PaletteBuilder.build(listOf(Swatch(base, 900), Swatch(darker, 250), Swatch(lighter, 150)), 3)
+        val yellow = primary(0xFFFFFF00.toInt(), 0xFFB0B000.toInt(), 0xFFFFFF70.toInt())
+        val green = primary(0xFF00FF00.toInt(), 0xFF00B000.toInt(), 0xFF70FF70.toInt())
+        val grey = PaletteBuilder.build(listOf(Swatch(0xFFF0F0F0.toInt(), 900), Swatch(0xFFA5A5A5.toInt(), 270), Swatch(0xFF141414.toInt(), 270)), 5)
+        listOf("yellow" to yellow, "green" to green, "grey" to grey).forEach { (name, p) ->
+            p.accents.forEach { acc ->
+                val hl = p.highlightColour(acc)
+                assertTrue("$name highlight clears the bar as drawn (${Colour.contrast(Colour.rolled(p.base), hl)})",
+                    Colour.contrast(Colour.rolled(p.base), hl) >= PaletteBuilder.TEXT_MIN_CONTRAST - 0.01)
+            }
+        }
+        // dark covers: the ripples are already on the light side and pass unchanged, so
+        // the glow keeps exactly the colour it had
+        val red = primary(0xFFFF0000.toInt(), 0xFFB00000.toInt(), 0xFFFF7070.toInt())
+        val blue = primary(0xFF0000FF.toInt(), 0xFF0000B0.toInt(), 0xFF7070FF.toInt())
+        listOf(red, blue).forEach { p ->
+            assertEquals(p.accents, p.accents.map { p.highlightColour(it) })
         }
     }
 
@@ -179,15 +199,15 @@ class StageTest {
         assertEquals(0xFFF0F0F0.toInt(), p.base)
         p.accents.forEach { assertTrue("accent ${"%06X".format(it and 0xFFFFFF)} is a pure grey", pureGrey(it)) }
         assertTrue("lyrics are a pure grey", pureGrey(p.text))
-        // light cover: black is added to the lyrics, and it clears the bar as drawn
-        assertTrue(Colour.toHsl(p.text)[2] <= 0.3f)
+        // light cover: the lyrics are the light grey shade, and they clear the bar as drawn
+        assertTrue(Colour.toHsl(p.text)[2] >= PaletteBuilder.TEXT_L - 0.11f)
         assertTrue(Colour.contrast(Colour.rolled(p.base), p.text) >= PaletteBuilder.TEXT_MIN_CONTRAST - 0.01)
         // a dark-dominant monochrome cover: light grey pools under white lyrics, all grey
         val dark = PaletteBuilder.build(listOf(Swatch(0xFF141414.toInt(), 900), Swatch(0xFFD0D0D0.toInt(), 300), Swatch(0xFFA5A5A5.toInt(), 150)), 5)
         assertTrue(pureGrey(dark.base))
         dark.accents.forEach { assertTrue(pureGrey(it)) }
         assertTrue(pureGrey(dark.text))
-        assertTrue(Colour.toHsl(dark.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
+        assertTrue(Colour.toHsl(dark.text)[2] >= PaletteBuilder.TEXT_L - 0.11f)
         // and a coloured cover keeps its colour: the saturation floor only ramps in past
         // near-grey, so nothing changes for artwork that actually has hue
         val coloured = PaletteBuilder.build(listOf(Swatch(0xFFD23C4C.toInt(), 900), Swatch(0xFF101828.toInt(), 300)), 5)
@@ -204,8 +224,8 @@ class StageTest {
         assertTrue(Colour.toHsl(grey.text)[1] <= 0.25f)
         // near-black cover: the background is that near-black, exactly as the artwork has it
         assertEquals(0xFF202020.toInt(), grey.base)
-        // and a dark cover: white is added to the text, the light grey rides above it
-        assertTrue(Colour.toHsl(grey.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
+        // and a dark cover: the lyrics are the light shade, the light grey rides above it
+        assertTrue(Colour.toHsl(grey.text)[2] >= PaletteBuilder.TEXT_L - 0.11f)
         assertTrue(Colour.toHsl(grey.accents[0])[2] >= PaletteBuilder.L_MIN + 0.5f)
     }
 

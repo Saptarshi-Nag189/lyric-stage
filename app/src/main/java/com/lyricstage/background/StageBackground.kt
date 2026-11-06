@@ -47,10 +47,21 @@ import kotlin.math.sin
 
 /** Shader time in seconds, shared by the background and the ripple emitter. */
 class BackgroundClock {
-    private val start = System.nanoTime()
+    private var last = System.nanoTime()
+    private var acc = 0f
     var speed = 1f
 
-    fun seconds(): Float = ((System.nanoTime() - start) / 1e9).toFloat() * speed
+    /**
+     * Advanced by real elapsed time scaled by [speed] rather than scaled after the fact,
+     * so changing the speed never jumps the clock: ripples in flight keep their ages and
+     * the noise field stays continuous.
+     */
+    fun seconds(): Float {
+        val now = System.nanoTime()
+        acc += ((now - last) / 1e9).toFloat() * speed
+        last = now
+        return acc
+    }
 }
 
 @Composable
@@ -77,14 +88,19 @@ fun StageBackground(
         return
     }
     Box(modifier.fillMaxSize()) {
+        // every mode shows the background through the same filmic tail as the glass
+        // shader, so a light cover reads as the stage always draws it - yellow as olive,
+        // green as dark green, light grey as grey - and the light lyric shade clears its
+        // contrast bar in all of them alike
+        val shownBase = Colour.rolled(palette.base)
         when {
-            mode == BackgroundMode.SOLID -> Canvas(Modifier.fillMaxSize()) { drawRect(Color(palette.base)) }
-            mode == BackgroundMode.ARTWORK && art != null -> ArtworkBlur(art, palette)
+            mode == BackgroundMode.SOLID -> Canvas(Modifier.fillMaxSize()) { drawRect(Color(shownBase)) }
+            mode == BackgroundMode.ARTWORK && art != null -> ArtworkBlur(art, shownBase)
             Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock, animate, pools, rippleStrength)
             else -> GradientFallback(palette, clock, animate, pools)
         }
         // the lyrics' own shadow carries their readability on any background colour, so no
-        // scrim is laid over the stage: the artwork's top colour shows as it comes
+        // scrim is laid over the stage
     }
 }
 
@@ -140,7 +156,7 @@ private fun RuntimeShader.setColorUniforms(p: StagePalette) {
 private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, animate: Boolean, pools: Float = 1f) {
     val time = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(animate) { animateTime(time, clock, animate) }
-    val base = Color(palette.base)
+    val base = Color(Colour.rolled(palette.base))
     val accents = palette.accents.map { Color(it) }
     Canvas(Modifier.fillMaxSize()) {
         val t = time.floatValue
@@ -159,7 +175,7 @@ private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, anim
 
 /** Album art, heavily blurred: downscaled then drawn large with filtering, plus a RenderEffect blur on API 31+. */
 @Composable
-private fun ArtworkBlur(art: Bitmap, palette: StagePalette) {
+private fun ArtworkBlur(art: Bitmap, shownBase: Int) {
     // downscaled off the main thread: the old copy(ARGB_8888) of a full-size cover stalled
     // composition on every artwork change
     val small by produceState<ImageBitmap?>(null, art) {
@@ -175,7 +191,7 @@ private fun ArtworkBlur(art: Bitmap, palette: StagePalette) {
                 }
             },
     ) {
-        drawRect(Color(palette.base))
+        drawRect(Color(shownBase))
         if (sb != null) {
             // cover the stage, keeping the square art centred
             val side = size.maxDimension

@@ -67,7 +67,7 @@ val fBlack = mapOf(
     Script.TELUGU to loadFont("anek_telugu_800"),
     Script.KANNADA to loadFont("anek_kannada_800"),
     Script.MALAYALAM to loadFont("anek_malayalam_800"),
-    Script.JAPANESE to loadFont("noto_sans_jp_900"),
+    Script.JAPANESE to loadFont("jp"),
 )
 val fSemi = loadFont("bricolage_600")
 val fRegular = loadFont("bricolage_400")
@@ -160,7 +160,7 @@ fun Graphics2D.hq() {
     setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE)
 }
 
-data class Pal(val base: Int, val accents: List<Int>)
+data class Pal(val base: Int, val accents: List<Int>, val highlights: List<Int>? = null)
 
 /** Body text colour, as PaletteBuilder makes it: near white with a hint of the cover's hue. */
 fun textTint(p: Pal): Color {
@@ -169,10 +169,12 @@ fun textTint(p: Pal): Color {
 }
 
 /**
- * The palette as 1.1.6 built it - dark by HSL lightness, no contrast floor - kept only so
- * the comparison sheet can show what that rule did to red and blue covers.
+ * The palette as the luminance rule built it - light lyrics on dark covers, black ones on
+ * light covers - kept only so the comparison sheet can show why the black shades failed:
+ * the stage's filmic tail darkens every light cover into the mid tones, and the black
+ * shade, measured against those mid tones, still reads as mud under big type.
  */
-fun oldBuild(swatches: List<Swatch>): StagePalette {
+fun midBuild(swatches: List<Swatch>): StagePalette {
     val ranked = swatches.sortedWith(
         compareByDescending<Swatch> { it.population }
             .thenByDescending { Colour.toHsl(it.rgb)[1] }
@@ -181,13 +183,14 @@ fun oldBuild(swatches: List<Swatch>): StagePalette {
     )
     val top = ranked[0]
     val (bh, bs, bl) = Colour.toHsl(top.rgb)
-    val dark = bl < 0.5f
+    val dark = Colour.luminance(top.rgb) < 0.35
     val dir = if (dark) 1f else -1f
     fun ripple(src: Swatch?, gap: Float): FloatArray {
         val (h, s, l) = src?.let { Colour.toHsl(it.rgb) } ?: floatArrayOf(bh, bs, bl)
         var nl = l
         if (kotlin.math.abs(nl - bl) < gap) nl = bl + dir * gap
-        return floatArrayOf(h, (s * 1.08f + 0.08f).coerceAtMost(1f), nl.coerceIn(0.04f, 0.96f))
+        val sat = (s * 1.08f + 0.08f * (s / 0.06f).coerceAtMost(1f)).coerceAtMost(1f)
+        return floatArrayOf(h, sat, nl.coerceIn(0.04f, 0.96f))
     }
     val r1 = ripple(ranked.getOrNull(1), 0.26f)
     val r2 = ripple(ranked.getOrNull(2), 0.26f * 0.7f)
@@ -195,7 +198,9 @@ fun oldBuild(swatches: List<Swatch>): StagePalette {
     val accentSrc = ranked.maxWithOrNull(compareBy { Colour.toHsl(it.rgb)[1] }) ?: top
     val (ah, srcSat, _) = Colour.toHsl(accentSrc.rgb)
     val ts = (srcSat * 0.5f).coerceAtMost(0.32f)
-    val text = Colour.fromHsl(ah, ts, if (dark) 0.88f else 0.18f)
+    var text = Colour.fromHsl(ah, ts, if (dark) 0.88f else 0.18f)
+    text = if (dark) Colour.lightenForContrast(text, top.rgb, 3.0)
+    else Colour.deepenForContrast(text, Colour.rolled(top.rgb), 3.0)
     val glint = Colour.fromHsl(ah, ts, if (dark) 0.96f else 0.04f)
     return StagePalette(top.rgb, listOf(Colour.fromHsl(r1[0], r1[1], r1[2]), Colour.fromHsl(r2[0], r2[1], r2[2]), glint), text)
 }
@@ -243,10 +248,12 @@ fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): Buf
     g.paint = GradientPaint(0f, h * 0.25f, Color(255, 255, 255, 0), w * 0.6f, h * 0.55f, Color(255, 255, 255, 22), true)
     g.fillRect(0, 0, w, h)
     if (ripple != null) {
+        // the ring carries the ripple colour, as the shader mixes toward it: light rings on
+        // dark glass, dark rings on light glass
         for (k in 0 until 3) {
             val rr = w * (0.08f + k * 0.07f)
             g.stroke = BasicStroke(w * 0.006f)
-            g.color = Color(255, 255, 255, 34 - k * 10)
+            g.color = hex(pal.accents[0], (44 - k * 12).toFloat().coerceAtLeast(12f))
             g.draw(Ellipse2D.Float(ripple.x - rr, ripple.y - rr, rr * 2, rr * 2))
         }
     }
@@ -339,7 +346,7 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
     val word = line.words[k]
     val pos = word.startMs + (word.durationMs * s.fill).toLong()
     val highlights = Highlights.pick(line, s.playSeed)
-    val accent = s.pal.accents[Highlights.accentIndex(line, s.playSeed)]
+    val accent = (s.pal.highlights ?: s.pal.accents)[Highlights.accentIndex(line, s.playSeed)]
     val bodyText = s.text ?: textTint(s.pal)
     val subColour = Color(bodyText.red, bodyText.green, bodyText.blue, 185)
 
@@ -858,12 +865,14 @@ fun main() {
     // pure red, green, blue and yellow, which all sit at HSL lightness 0.5 - plus a
     // black-and-white cover (the DEMI portrait: light greys dominant, near-black
     // portrait, one mid grey) in its light- and dark-dominant readings, which must come
-    // out grey end to end. Top row: the 1.1.6 rule, which shaded by HSL lightness and
-    // floored every ripple's saturation - and a grey's hue is red by convention, so the
-    // greys pinked. Bottom row: the current builder. Both rows are real builder code on
-    // the same line and template; the ratio under each phone is measured against the
-    // background as the shader's tone map leaves it, and the chips are the palette
-    // itself: background, the two ripples, the glint, the lyrics.
+    // out grey end to end. Top row: the luminance rule, which shaded light covers with
+    // a black-added tint - and the tone map those covers actually draw under is mid-tone,
+    // so the black type reads as mud. Bottom row: the current builder, where the lyrics
+    // are always the light shade - yellow on olive, light grey on grey, light greens on
+    // dark green. Both rows are real builder code on the same line and template; the
+    // ratio under each phone is measured against the background as the shader's tone map
+    // leaves it, and the chips are the palette itself: background, the two ripples, the
+    // glint, the lyrics.
     val covers = listOf(
         "B&W light" to listOf(Swatch(0xFFF0F0F0.toInt(), 900), Swatch(0xFFA5A5A5.toInt(), 270), Swatch(0xFF141414.toInt(), 270)),
         "B&W dark" to listOf(Swatch(0xFF141414.toInt(), 900), Swatch(0xFFD0D0D0.toInt(), 300), Swatch(0xFFA5A5A5.toInt(), 150)),
@@ -885,7 +894,7 @@ fun main() {
         var x = gap
         for ((name, sw) in covers) {
             val p = build(sw)
-            val shot = Shot(name, "rickroll", "Never gonna", TemplateId.STACK, Pal(p.base, p.accents), 0.85f, 11, 4, text = hex(p.text))
+            val shot = Shot(name, "rickroll", "Never gonna", TemplateId.STACK, Pal(p.base, p.accents, p.accents.map { p.highlightColour(it) }), 0.85f, 11, 4, text = hex(p.text))
             g.drawImage(scale(phone(renderStage(shot)), pw), x, 56, null)
             // the palette itself: background, the two ripples, the glint, the lyrics
             val chips = listOf(p.base, p.accents[0], p.accents[1], p.accents[2], p.text)
@@ -917,8 +926,8 @@ fun main() {
         g.dispose()
         return img
     }
-    val before = row("BEFORE  ·  1.1.6  ·  SHADE BY HSL LIGHTNESS, GREYS TINTED") { oldBuild(it) }
-    val after = row("AFTER  ·  SHADE BY LUMINANCE, GREYS STAY GREY") { PaletteBuilder.build(it, 3) }
+    val before = row("BEFORE  ·  LUMINANCE RULE: BLACK LYRICS ON LIGHT COVERS") { midBuild(it) }
+    val after = row("AFTER  ·  ALWAYS LIGHT: YELLOW ON OLIVE, GREY ON GREY, GREEN ON DARK GREEN") { PaletteBuilder.build(it, 3) }
     val bandGap = 40
     val sheet = BufferedImage(before.width, before.height * 2 + bandGap, BufferedImage.TYPE_INT_ARGB)
     val sg = sheet.createGraphics()
