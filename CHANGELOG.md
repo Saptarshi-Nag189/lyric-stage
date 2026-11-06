@@ -1,5 +1,45 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed
+- The lyrics lookup is a chain in a fixed order instead of a race: Musixmatch is asked
+  first, then NetEase; Kugou is asked only when both of them came back with nothing, a
+  miss or an error alike, so a less trusted source can never win by being faster. LRCLIB
+  is the last resort for the lyrics, but it starts at the same moment as Musixmatch:
+  its line timings are what word timings made for a different release are corrected
+  against, so the cross-check is kept without LRCLIB ever being waited for. The playing
+  song and the background cache follow the same order, and fewer requests go out: when
+  Musixmatch has the song, NetEase and Kugou are not asked at all.
+- The liquid glass is redrawn the way Apple draws a background: the artwork's own
+  colours in a soft, slowly drifting wash - as smooth as a blur, with no visible edge
+  anywhere - a fine ripple in its own colour from each sung word, and a soft band of
+  light when a new line begins. What is gone is everything that read as tricks: the
+  undulating slab and its refraction, the dispersion fringes at the edges of the light,
+  the specular glints and the saturation push. The colour is exactly what the cover has,
+  so a grey cover stays grey with no special case, the wash can never blow a light cover
+  out to white, and the filmic tail that the light lyric shade is measured against is
+  untouched. The README mockups and the pre-Android-13 gradient follow the same look.
+- One typeface everywhere: Bricolage Grotesque, at real weights through its axes, for
+  the lyrics and every screen. The font settings page is gone, and with it Unbounded,
+  Big Shoulders, Syne, Darker Grotesque, Instrument Sans, Familjen Grotesk and
+  Schibsted Grotesk - seven font files out of the APK. Anek stays for the nine Indic
+  scripts, applied automatically from the text; Japanese and Korean keep the phone's own
+  CJK typeface.
+- Word estimates for line-timed lyrics are anchored at both ends of the line's slot:
+  they start with the line and are stretched to end with it (up to 1.35x a natural
+  pace; a longer gap is an instrumental break), instead of stopping at 1.1x and leaving
+  the line's tail wordless. The fill now reads through the whole line.
+
+### Fixed
+- Every notice pill goes away by itself after five seconds, its border running down as
+  the timer, the way the Instrumental pill always has: No lyrics found, service
+  unreachable, Offline and the new No synced lyrics. The bottom of the stage is never
+  occupied for a whole song.
+- Unsynced lyrics no longer take over the stage as a wall of text. A song whose lyrics
+  have no timings now shows a short notice instead; a new Unsynced lyrics switch in
+  Settings (off by default) scrolls the whole text with the song the way it used to.
+
 ## [1.1.7] - 2026-11-06
 
 ### Fixed
