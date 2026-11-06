@@ -145,30 +145,31 @@ private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: Ba
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private fun RuntimeShader.setColorUniforms(p: StagePalette) {
     fun set(name: String, c: Int) = setFloatUniform(name, Colour.red(c) / 255f, Colour.green(c) / 255f, Colour.blue(c) / 255f)
+    // the wash and the rings carry the two ripple colours; the third accent (the glint)
+    // belongs to highlighted words only
     set("uC0", p.accents[0])
     set("uC1", p.accents.getOrElse(1) { p.accents[0] })
-    set("uC2", p.accents.getOrElse(2) { p.accents[0] })
     set("uBase", p.base)
 }
 
-/** Below API 33: slowly drifting radial pools of the accent colours. */
+/** Below API 33: slowly drifting pools of the ripple colours, as soft as the wash. */
 @Composable
 private fun GradientFallback(palette: StagePalette, clock: BackgroundClock, animate: Boolean, pools: Float = 1f) {
     val time = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(animate) { animateTime(time, clock, animate) }
     val base = Color(Colour.rolled(palette.base))
-    val accents = palette.accents.map { Color(it) }
+    val accents = palette.accents.take(2).map { Color(it) }
     Canvas(Modifier.fillMaxSize()) {
         val t = time.floatValue
         drawRect(base)
-        val r = size.maxDimension * 0.65f
+        val r = size.maxDimension * 0.75f
         accents.forEachIndexed { i, c ->
-            val phase = t * (0.05f + i * 0.013f) + i * 2.1f
+            val phase = t * (0.04f + i * 0.013f) + i * 2.1f
             val centre = Offset(
-                size.width * (0.5f + 0.35f * cos(phase)),
-                size.height * (0.5f + 0.35f * sin(phase * 1.3f)),
+                size.width * (0.5f + 0.3f * cos(phase)),
+                size.height * (0.5f + 0.3f * sin(phase * 1.3f)),
             )
-            drawCircle(Brush.radialGradient(listOf(c.copy(alpha = (0.42f * pools).coerceIn(0f, 1f)), Color.Transparent), centre, r), r, centre)
+            drawCircle(Brush.radialGradient(listOf(c.copy(alpha = (0.35f * pools).coerceIn(0f, 1f)), Color.Transparent), centre, r), r, centre)
         }
     }
 }
