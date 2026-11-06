@@ -14,3 +14,4 @@ secrets.properties
 
 # Reference checkout (MIT, see ref/CREDITS.md)
 ref/LyricalStudio/
+.kotlin/
