@@ -53,7 +53,9 @@
     <!-- Settings -->
     <string name="settings_template">Layout</string>
     <string name="settings_look">Look</string>
+    <string name="settings_playback">Playback and motion</string>
     <string name="settings_fonts">Fonts</string>
+    <string name="settings_data">Lyrics and storage</string>
     <string name="settings_lyric_font">Lyrics</string>
     <string name="settings_app_font">App</string>
     <string name="settings_pools">Pools</string>

@@ -10,6 +10,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -62,17 +62,19 @@ import android.text.format.DateUtils
 import androidx.compose.ui.platform.LocalUriHandler
 import kotlin.math.roundToInt
 
+/**
+ * Settings, split into pages: the root is the current song and one grouped list of
+ * destinations. Every page is its own destination on the back stack, so the arrow and the
+ * system back gesture return here from anywhere, previews included.
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit, onOpen: (Screen) -> Unit) {
-    val s by vm.settings.collectAsStateWithLifecycle()
     val track by vm.query.collectAsStateWithLifecycle()
     val np by vm.nowPlaying.collectAsStateWithLifecycle()
     val lyrics by vm.lyrics.collectAsStateWithLifecycle()
     val palette by vm.palette.collectAsStateWithLifecycle()
     val offset by vm.offset.collectAsStateWithLifecycle()
-    val cached by vm.cachedCount.collectAsStateWithLifecycle()
-    val cacheBytes by vm.cachedBytes.collectAsStateWithLifecycle()
     val accent = Ui.accent(palette)
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -82,11 +84,6 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             }
         }
     }
-    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        vm.updateSettings { it.copy(audioSync = granted) }
-    }
-    // beat ripples work without the microphone too (gentle pace), so a refusal keeps the choice
-    val beatPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     Column(
         Modifier
@@ -113,52 +110,123 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
 
         val current = track
         if (current != null) {
-            UiCard {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    val art = remember(np?.art) { np?.art?.asImageBitmap() }
-                    Box(Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(accent), contentAlignment = Alignment.Center) {
-                        if (art != null) {
-                            Image(art, stringResource(R.string.artwork), contentScale = ContentScale.Crop, modifier = Modifier.size(64.dp))
-                        }
-                    }
-                    Column(Modifier.weight(1f).padding(start = 14.dp)) {
-                        Text(current.title, color = Ui.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(current.artist, color = Ui.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val ready = lyrics as? LyricsState.Ready
-                        if (ready != null) {
-                            GapRow(6, Modifier.padding(top = 6.dp)) {
-                                Tag(sourceName(ready.source))
-                                timingLabel(ready.lyrics.kind)?.let { Tag(stringResource(it)) }
-                            }
-                        }
-                    }
-                }
-                Spacer(Modifier.height(18.dp))
-                // a positive offset shows the lyrics earlier
-                val syncText = when {
-                    offset > 0 -> stringResource(R.string.sync_value_earlier, offset / 1000f)
-                    offset < 0 -> stringResource(R.string.sync_value_later, -offset / 1000f)
-                    else -> stringResource(R.string.sync_value_none)
-                }
-                LabelValue(stringResource(R.string.sync_title), syncText, valueColour = accent)
-                Spacer(Modifier.height(10.dp))
-                GapRow(8) {
-                    PillButton(stringResource(R.string.sync_earlier), { vm.nudge(250) }, Modifier.weight(1f))
-                    PillButton(stringResource(R.string.sync_reset), { vm.resetOffset() }, Modifier.weight(1f), style = PillStyle.OUTLINE, enabled = offset != 0L)
-                    PillButton(stringResource(R.string.sync_later), { vm.nudge(-250) }, Modifier.weight(1f))
-                }
-                Spacer(Modifier.height(10.dp))
-                PillButton(
-                    stringResource(R.string.import_lrc_file),
-                    { importLauncher.launch(arrayOf("*/*")) },
-                    Modifier.fillMaxWidth(),
-                    style = PillStyle.PRIMARY,
-                    accent = accent,
-                )
-            }
+            ThisSongCard(current, np?.art, lyrics as? LyricsState.Ready, offset, accent, { vm.nudge(250) }, { vm.resetOffset() }, { vm.nudge(-250) }, {
+                importLauncher.launch(arrayOf("*/*"))
+            })
         }
 
-        SectionHeader(stringResource(R.string.settings_look))
+        Spacer(Modifier.height(24.dp))
+        UiCard(padding = 0) {
+            LinkRow(stringResource(R.string.settings_look), { onOpen(Screen.LOOK) }, divider = false)
+            LinkRow(stringResource(R.string.settings_fonts), { onOpen(Screen.FONTS) })
+            LinkRow(stringResource(R.string.settings_playback), { onOpen(Screen.PLAYBACK) })
+            LinkRow(stringResource(R.string.settings_data), { onOpen(Screen.DATA) })
+            LinkRow(stringResource(R.string.settings_spotify), { onOpen(Screen.SPOTIFY) })
+            LinkRow(stringResource(R.string.about), { onOpen(Screen.ABOUT) })
+            LinkRow(stringResource(R.string.settings_debug), { onOpen(Screen.DEVELOPER) })
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** Header with a working back arrow, shared by every Settings page. */
+@Composable
+private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .fillMaxSize()
+            .background(Ui.Ground)
+            .safeDrawingPadding()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    ) {
+        Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+            CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
+            Text(
+                title,
+                Modifier.padding(start = 16.dp),
+                color = Ui.Text,
+                fontSize = 30.sp,
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = (-0.5).sp,
+            )
+        }
+        Spacer(Modifier.height(16.dp))
+        content()
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/** The song playing now: artwork, source tags, sync buttons and .lrc import. */
+@Composable
+private fun ThisSongCard(
+    track: com.lyricstage.lyrics.TrackQuery,
+    art: android.graphics.Bitmap?,
+    ready: LyricsState.Ready?,
+    offset: Long,
+    accent: Color,
+    onEarlier: () -> Unit,
+    onReset: () -> Unit,
+    onLater: () -> Unit,
+    onImport: () -> Unit,
+) {
+    UiCard {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            val artBitmap = remember(art) { art?.asImageBitmap() }
+            Box(Modifier.size(64.dp).clip(RoundedCornerShape(16.dp)).background(accent), contentAlignment = Alignment.Center) {
+                if (artBitmap != null) {
+                    Image(artBitmap, stringResource(R.string.artwork), contentScale = ContentScale.Crop, modifier = Modifier.size(64.dp))
+                }
+            }
+            Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                Text(track.title, color = Ui.Text, fontSize = 18.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(track.artist, color = Ui.Muted, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (ready != null) {
+                    GapRow(6, Modifier.padding(top = 6.dp)) {
+                        Tag(sourceName(ready.source))
+                        timingLabel(ready.lyrics.kind)?.let { Tag(stringResource(it)) }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(18.dp))
+        // a positive offset shows the lyrics earlier
+        val syncText = when {
+            offset > 0 -> stringResource(R.string.sync_value_earlier, offset / 1000f)
+            offset < 0 -> stringResource(R.string.sync_value_later, -offset / 1000f)
+            else -> stringResource(R.string.sync_value_none)
+        }
+        LabelValue(stringResource(R.string.sync_title), syncText, valueColour = accent)
+        Spacer(Modifier.height(10.dp))
+        GapRow(8) {
+            PillButton(stringResource(R.string.sync_earlier), onEarlier, Modifier.weight(1f))
+            PillButton(stringResource(R.string.sync_reset), onReset, Modifier.weight(1f), style = PillStyle.OUTLINE, enabled = offset != 0L)
+            PillButton(stringResource(R.string.sync_later), onLater, Modifier.weight(1f))
+        }
+        Spacer(Modifier.height(10.dp))
+        PillButton(
+            stringResource(R.string.import_lrc_file),
+            onImport,
+            Modifier.fillMaxWidth(),
+            style = PillStyle.PRIMARY,
+            accent = accent,
+        )
+    }
+}
+
+/** Look: layouts, background with its live preview, pools, ripples, glass and text size. */
+@Composable
+fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val np by vm.nowPlaying.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
+    val context = LocalContext.current
+    // beat ripples work without the microphone too (gentle pace), so a refusal keeps the choice
+    val beatPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+
+    SettingsPage(stringResource(R.string.settings_look), onBack) {
         UiCard {
             Text(stringResource(R.string.settings_template), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
@@ -211,8 +279,17 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             Spacer(Modifier.height(12.dp))
             PercentSlider(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
         }
+    }
+}
 
-        SectionHeader(stringResource(R.string.settings_fonts))
+/** Fonts: lyric and app typefaces with a live preview. */
+@Composable
+fun FontsPage(vm: StageViewModel, onBack: () -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
+
+    SettingsPage(stringResource(R.string.settings_fonts), onBack) {
         UiCard {
             Text(stringResource(R.string.settings_lyric_font), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
@@ -228,8 +305,21 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
             Spacer(Modifier.height(16.dp))
             FontPreview(s.lyricFont, s.appFont, palette)
         }
+    }
+}
 
-        SectionHeader(stringResource(R.string.settings_motion))
+/** Playback: motion, battery, the microphone listener and the Bluetooth delay. */
+@Composable
+fun PlaybackPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
+    val context = LocalContext.current
+    val micPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        vm.updateSettings { it.copy(audioSync = granted) }
+    }
+
+    SettingsPage(stringResource(R.string.settings_playback), onBack) {
         UiCard(padding = 0) {
             ToggleRow(stringResource(R.string.settings_battery_saver), s.batterySaver, accent, { on -> vm.updateSettings { it.copy(batterySaver = on) } },
                 hint = stringResource(R.string.hint_battery_saver), divider = false)
@@ -240,15 +330,9 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                 if (on && !granted) micPermission.launch(Manifest.permission.RECORD_AUDIO) else vm.updateSettings { it.copy(audioSync = on) }
             }, hint = stringResource(R.string.hint_audio_sync))
         }
-
-        SectionHeader(stringResource(R.string.settings_lyrics))
-        UiCard(padding = 0) {
-            ToggleRow(stringResource(R.string.settings_prefetch), s.backgroundPrefetch, accent, { on -> vm.updateSettings { it.copy(backgroundPrefetch = on) } },
-                hint = stringResource(R.string.hint_prefetch), divider = false)
-            ToggleRow(stringResource(R.string.settings_lookahead_wifi), s.lookAheadWifiOnly, accent, { on -> vm.updateSettings { it.copy(lookAheadWifiOnly = on) } },
-                hint = stringResource(R.string.hint_lookahead), enabled = s.backgroundPrefetch)
-            HorizontalDivider(color = Ui.Raised)
-            Column(Modifier.padding(top = 14.dp, bottom = 6.dp)) {
+        Spacer(Modifier.height(16.dp))
+        UiCard {
+            Column(Modifier.padding(top = 6.dp, bottom = 6.dp)) {
                 LabelValue(stringResource(R.string.settings_bt_delay), stringResource(R.string.bt_delay_value, s.bluetoothDelayMs))
                 Slider(
                     s.bluetoothDelayMs.toFloat(),
@@ -261,7 +345,29 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                     ),
                 )
             }
-            HorizontalDivider(color = Ui.Raised)
+        }
+    }
+}
+
+/** Lyrics and storage: prefetching, the cache and the Delete cache button. */
+@Composable
+fun DataPage(vm: StageViewModel, onBack: () -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val cached by vm.cachedCount.collectAsStateWithLifecycle()
+    val cacheBytes by vm.cachedBytes.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
+    val context = LocalContext.current
+
+    SettingsPage(stringResource(R.string.settings_data), onBack) {
+        UiCard(padding = 0) {
+            ToggleRow(stringResource(R.string.settings_prefetch), s.backgroundPrefetch, accent, { on -> vm.updateSettings { it.copy(backgroundPrefetch = on) } },
+                hint = stringResource(R.string.hint_prefetch), divider = false)
+            ToggleRow(stringResource(R.string.settings_lookahead_wifi), s.lookAheadWifiOnly, accent, { on -> vm.updateSettings { it.copy(lookAheadWifiOnly = on) } },
+                hint = stringResource(R.string.hint_lookahead), enabled = s.backgroundPrefetch)
+        }
+        Spacer(Modifier.height(16.dp))
+        UiCard {
             Row(Modifier.fillMaxWidth().heightIn(min = 72.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(stringResource(R.string.settings_saved_lyrics), color = Ui.Text, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
@@ -281,24 +387,32 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                 )
             }
         }
+    }
+}
 
-        SectionHeader(stringResource(R.string.settings_spotify))
+/** Spotify link and library sync. */
+@Composable
+fun SpotifyPage(vm: StageViewModel, onBack: () -> Unit) {
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
+    SettingsPage(stringResource(R.string.settings_spotify), onBack) {
         SpotifyCard(vm, accent)
+    }
+}
 
-        Spacer(Modifier.height(24.dp))
-        UiCard(padding = 0) {
-            LinkRow(stringResource(R.string.about), { onOpen(Screen.ABOUT) }, divider = false)
-        }
-
-        SectionHeader(stringResource(R.string.settings_debug))
+/** Debugging: the FPS counter and the inspection screens. */
+@Composable
+fun DeveloperPage(vm: StageViewModel, onBack: () -> Unit, onOpen: (Screen) -> Unit) {
+    val s by vm.settings.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val accent = Ui.accent(palette)
+    SettingsPage(stringResource(R.string.settings_debug), onBack) {
         UiCard(padding = 0) {
             ToggleRow(stringResource(R.string.settings_fps), s.showFps, accent, { on -> vm.updateSettings { it.copy(showFps = on) } }, divider = false)
             LinkRow(stringResource(R.string.debug_now_playing), { onOpen(Screen.DEBUG_NOW_PLAYING) })
             LinkRow(stringResource(R.string.debug_lyrics), { onOpen(Screen.DEBUG_LYRICS) })
             LinkRow(stringResource(R.string.debug_fitcheck), { onOpen(Screen.FIT_CHECK) })
         }
-
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -407,4 +521,3 @@ private fun SpotifyCard(vm: StageViewModel, accent: Color) {
         }
     }
 }
-

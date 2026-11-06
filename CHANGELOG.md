@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Changed
+- Liquid mode colours come from the artwork's top colours. The background is the top
+  colour exactly as it comes - near-black covers included, one rule for everything - the
+  ripples are the next top colours pushed apart in lightness until they stand off, and the
+  lyrics are a white- or black-tinted shade of the cover's most saturated colour, carried
+  by the shadow that is always under them. The black scrim is gone; it fought the colour.
+- The palette is remembered per album for the life of the app, so re-delivered artwork
+  (a new Bitmap object, a different size) can no longer change the colours mid-song, and
+  the same album opens with the same colours every time. The drift on black-dominant
+  covers is gone: no branch treats black differently any more.
+- Lyrics in all nine Indic scripts - Devanagari, Bangla, Gurmukhi, Gujarati, Odia, Tamil,
+  Telugu, Kannada and Malayalam - are set in Anek automatically, detected from the text,
+  at real weights through the wght axis. Anek's even proportions across scripts keep
+  mixed-language songs coherent. Akshara timing applies to all nine. The two Noto Indic
+  fonts are gone.
+- Settings is a short list of pages: the current song at the top, then Look, Fonts,
+  Playback and motion, Lyrics and storage, Spotify, About and Debug. Every page is its
+  own destination: the back arrow and the system back gesture return to Settings, live
+  previews included. The long single scroll is gone.
+
 ### Fixed
 - Songs with lyrics could show "No lyrics" for a day (Lush Life by Zara Larsson). When
   LRCLIB was slow or failed and the other sources had nothing, that counted as a miss and
