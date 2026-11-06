@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.7] - 2026-11-06
 
 ### Fixed
 - A black-and-white cover stays black-and-white. The ripple colours carried a flat
