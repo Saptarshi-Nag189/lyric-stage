@@ -44,6 +44,12 @@ data class Swatch(val rgb: Int, val population: Int)
  * background as-is, the next two become the ripples, pushed in lightness until they clear
  * the background. Nothing is averaged into a new colour and no branch treats black
  * differently, so the same artwork always yields exactly the same palette.
+ *
+ * A cover is dark or light by the light the eye sees — WCAG luminance — never by HSL
+ * lightness, which puts every pure hue at exactly 50 %: a saturated blue cover is "light"
+ * to HSL and night to the eye, and black lyrics on it would vanish. Red and blue fall
+ * below the line and wear the white-added shade; green and yellow fall above it and wear
+ * the black-added one.
  */
 object PaletteBuilder {
     /** Minimum lightness gap between the background and a ripple colour. */
@@ -60,6 +66,21 @@ object PaletteBuilder {
 
     /** Lyrics on light backgrounds: a black-added shade. */
     const val TEXT_LIGHT_L = 0.18f
+
+    /**
+     * WCAG relative luminance at which a cover starts counting as light — the same line
+     * the app's accent chips use to decide they are light enough for dark text. HSL
+     * lightness cannot be used: it calls a saturated blue cover "light" (its maths puts
+     * every pure hue at 50 %) and that cover is night to the eye.
+     */
+    const val LIGHT_LUMINANCE = 0.35
+
+    /** The lyric shade is floored at this contrast against its background - the
+     * large-type bar. The white-added shade is measured against the artwork itself (solid
+     * and artwork backgrounds draw it raw), the black-added shade against the background
+     * as the liquid glass shader shows it, whose filmic tail darkens a light cover into
+     * the mid tones where a light black would sink. */
+    const val TEXT_MIN_CONTRAST = 3.0
 
     /** Highest saturation the lyrics shade may carry: a tint, not a pure colour. */
     const val TEXT_SAT_MAX = 0.32f
@@ -80,7 +101,10 @@ object PaletteBuilder {
         )
         val top = ranked[0]
         val (bh, bs, bl) = Colour.toHsl(top.rgb)
-        val dark = bl < 0.5f
+        // dark by the light the eye sees, not by HSL lightness: pure hues all sit at HSL
+        // 50 %, and a saturated blue or red cover is night to the eye while green and
+        // yellow are light. The line is the one the app's accent chips already use.
+        val dark = Colour.luminance(top.rgb) < LIGHT_LUMINANCE
         val dir = if (dark) 1f else -1f
 
         fun ripple(src: Swatch?, gap: Float): FloatArray {
@@ -101,12 +125,20 @@ object PaletteBuilder {
 
         // lyrics: hue from the most saturated colour in the artwork, saturation carried at
         // half and capped; lightness on the far side of the background, whites added on
-        // dark covers, blacks added on light ones
+        // dark covers, blacks added on light ones. Each shade is then floored where it is
+        // weakest: the white-added one against the raw artwork (a red cover), the
+        // black-added one against the background as the shader shows it (a green cover
+        // is drawn in the mid tones, and a light black would sink into it)
         val accentSrc = ranked.maxWithOrNull(compareBy { Colour.toHsl(it.rgb)[1] }) ?: top
         val (ah, srcSat, _) = Colour.toHsl(accentSrc.rgb)
         val ts = (srcSat * 0.5f).coerceAtMost(TEXT_SAT_MAX)
         val tl = if (dark) TEXT_DARK_L else TEXT_LIGHT_L
-        val text = Colour.fromHsl(ah, ts, tl)
+        var text = Colour.fromHsl(ah, ts, tl)
+        text = if (dark) {
+            Colour.lightenForContrast(text, top.rgb, TEXT_MIN_CONTRAST)
+        } else {
+            Colour.deepenForContrast(text, Colour.rolled(top.rgb), TEXT_MIN_CONTRAST)
+        }
         // the third accent, for highlighted words and the brightest pool: the lyrics' own
         // shade one lightness step beyond, near white on dark covers, near black on light ones
         val glint = Colour.fromHsl(ah, ts, if (dark) L_MAX else L_MIN)

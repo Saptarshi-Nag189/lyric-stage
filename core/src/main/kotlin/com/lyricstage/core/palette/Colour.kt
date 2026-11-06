@@ -50,6 +50,17 @@ object Colour {
         return 0.2126 * ch(red(c)) + 0.7152 * ch(green(c)) + 0.0722 * ch(blue(c))
     }
 
+    /**
+     * A colour as the liquid glass background shows it: the shader ends in a filmic
+     * roll-off that no background escapes, so a light cover is drawn well darker than its
+     * artwork. A shade that must read on the stage has to clear its bar against this,
+     * not against the raw artwork.
+     */
+    fun rolled(c: Int): Int {
+        fun t(v: Int): Int = ((v / 255f / (1f + 0.7f * (v / 255f))).pow(1.18f) * 0.95f * 255f).toInt().coerceIn(0, 255)
+        return argb(alpha(c), t(red(c)), t(green(c)), t(blue(c)))
+    }
+
     fun contrast(a: Int, b: Int): Double {
         val la = luminance(a)
         val lb = luminance(b)
@@ -82,5 +93,18 @@ object Colour {
             if (contrast(fromHsl(h, s, mid), bg) >= minRatio) hi = mid else lo = mid
         }
         return fromHsl(h, s, hi)
+    }
+
+    /** Lower [fg]'s HSL lightness (keeping hue) until it reaches [minRatio] against [bg]. */
+    fun deepenForContrast(fg: Int, bg: Int, minRatio: Double): Int {
+        if (contrast(fg, bg) >= minRatio) return fg
+        val (h, s, l) = toHsl(fg)
+        var lo = 0f
+        var hi = l
+        repeat(14) {
+            val mid = (lo + hi) / 2
+            if (contrast(fromHsl(h, s, mid), bg) >= minRatio) lo = mid else hi = mid
+        }
+        return fromHsl(h, s, lo)
     }
 }

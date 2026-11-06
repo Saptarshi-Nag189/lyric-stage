@@ -3,6 +3,9 @@ package shots
 import com.lyricstage.core.lyrics.LyricLine
 import com.lyricstage.core.lyrics.LyricsBuilder
 import com.lyricstage.core.palette.Colour
+import com.lyricstage.core.palette.PaletteBuilder
+import com.lyricstage.core.palette.StagePalette
+import com.lyricstage.core.palette.Swatch
 import com.lyricstage.core.stage.ENTRY_LEAD_MS
 import com.lyricstage.core.stage.Highlights
 import com.lyricstage.core.stage.LineTiming
@@ -165,6 +168,49 @@ fun textTint(p: Pal): Color {
     return hex(Colour.fromHsl(h, (sat * 0.45f).coerceAtMost(0.4f), 0.93f))
 }
 
+/**
+ * The palette as 1.1.6 built it - dark by HSL lightness, no contrast floor - kept only so
+ * the comparison sheet can show what that rule did to red and blue covers.
+ */
+fun oldBuild(swatches: List<Swatch>): StagePalette {
+    val ranked = swatches.sortedWith(
+        compareByDescending<Swatch> { it.population }
+            .thenByDescending { Colour.toHsl(it.rgb)[1] }
+            .thenByDescending { Colour.toHsl(it.rgb)[2] }
+            .thenBy { Colour.toHsl(it.rgb)[0] },
+    )
+    val top = ranked[0]
+    val (bh, bs, bl) = Colour.toHsl(top.rgb)
+    val dark = bl < 0.5f
+    val dir = if (dark) 1f else -1f
+    fun ripple(src: Swatch?, gap: Float): FloatArray {
+        val (h, s, l) = src?.let { Colour.toHsl(it.rgb) } ?: floatArrayOf(bh, bs, bl)
+        var nl = l
+        if (kotlin.math.abs(nl - bl) < gap) nl = bl + dir * gap
+        return floatArrayOf(h, (s * 1.08f + 0.08f).coerceAtMost(1f), nl.coerceIn(0.04f, 0.96f))
+    }
+    val r1 = ripple(ranked.getOrNull(1), 0.26f)
+    val r2 = ripple(ranked.getOrNull(2), 0.26f * 0.7f)
+    if (kotlin.math.abs(r2[2] - r1[2]) < 0.08f) r2[2] = (r1[2] + dir * 0.08f).coerceIn(0.04f, 0.96f)
+    val accentSrc = ranked.maxWithOrNull(compareBy { Colour.toHsl(it.rgb)[1] }) ?: top
+    val (ah, srcSat, _) = Colour.toHsl(accentSrc.rgb)
+    val ts = (srcSat * 0.5f).coerceAtMost(0.32f)
+    val text = Colour.fromHsl(ah, ts, if (dark) 0.88f else 0.18f)
+    val glint = Colour.fromHsl(ah, ts, if (dark) 0.96f else 0.04f)
+    return StagePalette(top.rgb, listOf(Colour.fromHsl(r1[0], r1[1], r1[2]), Colour.fromHsl(r2[0], r2[1], r2[2]), glint), text)
+}
+
+/** The shader's filmic tail (Colour.rolled) applied to a whole image, so mockups show
+ *  the lightness the app draws. */
+fun toneMap(img: BufferedImage): BufferedImage {
+    val w = img.width
+    val h = img.height
+    val px = img.getRGB(0, 0, w, h, null, 0, w)
+    for (i in px.indices) px[i] = Colour.rolled(px[i])
+    img.setRGB(0, 0, w, h, px, 0, w)
+    return img
+}
+
 /** Approximation of the AGSL liquid glass: soft pools of accent light, a glass sheen, vignette, grain. */
 fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): BufferedImage {
     val img = BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
@@ -200,9 +246,8 @@ fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): Buf
     val soft = blur(img, (w * 0.01f).toInt())
     val g2 = soft.createGraphics()
     g2.hq()
-    // keep the brightest spots well under the white type, then vignette
-    g2.color = Color(0, 0, 0, 70)
-    g2.fillRect(0, 0, w, h)
+    // vignette as the shader does, then its filmic tail, so the mockup shows the
+    // lightness the app really draws: the brightest background stays well under the type
     g2.paint = RadialGradientPaint(
         Point2D.Float(w / 2f, h / 2f), max(w, h) * 0.75f, floatArrayOf(0f, 0.6f, 1f),
         arrayOf(Color(0, 0, 0, 0), Color(0, 0, 0, 60), Color(0, 0, 0, 170)),
@@ -210,6 +255,7 @@ fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): Buf
     )
     g2.fillRect(0, 0, w, h)
     g2.dispose()
+    toneMap(soft)
     val rnd = Random(seed + 7)
     for (y in 0 until h step 1) for (x in 0 until w step 2) {
         if (rnd.nextFloat() < 0.15f) {
@@ -236,6 +282,8 @@ class Shot(
     val playSeed: Int,
     /** How far through that word's sung time the frame is. */
     val fill: Float = 0.5f,
+    /** The lyrics colour; a real PaletteBuilder output when set, else the mockup tint. */
+    val text: Color? = null,
 )
 
 const val W = 1080
@@ -262,6 +310,8 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
     val pos = word.startMs + (word.durationMs * s.fill).toLong()
     val highlights = Highlights.pick(line, s.playSeed)
     val accent = s.pal.accents[Highlights.accentIndex(line, s.playSeed)]
+    val bodyText = s.text ?: textTint(s.pal)
+    val subColour = Color(bodyText.red, bodyText.green, bodyText.blue, 185)
 
     val rippleAt = layout.words.firstOrNull { it.index == k }?.let { Point2D.Float(it.x + it.width / 2, it.y + it.height / 2) }
     val img = background(W, H, s.pal, s.seed, rippleAt)
@@ -290,11 +340,11 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
         if (reveal <= 0f) continue
         val sw = max(3f, (layout.words.firstOrNull()?.fontPx ?: 40f) * 0.045f)
         gt.stroke = BasicStroke(sw, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND)
-        gt.color = Color(255, 255, 255, 128)
+        gt.color = Color(bodyText.red, bodyText.green, bodyText.blue, 128)
         val x1 = seg.x0 + (seg.x1 - seg.x0) * reveal
         val y1 = seg.y0 + (seg.y1 - seg.y0) * reveal
         gt.draw(Line2D.Float(seg.x0, seg.y0, x1, y1))
-        gt.color = Color(255, 255, 255, 210)
+        gt.color = Color(bodyText.red, bodyText.green, bodyText.blue, 210)
         val d = sw * 1.6f
         gt.fill(Ellipse2D.Float(seg.x0 - d, seg.y0 - d, d * 2, d * 2))
         if (reveal >= 1f) gt.fill(Ellipse2D.Float(x1 - d, y1 - d, d * 2, d * 2))
@@ -312,7 +362,7 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
         val colour = when {
             w.backing -> Color(255, 255, 255, 160)
             hl -> hex(accent)
-            else -> textTint(s.pal)
+            else -> bodyText
         }
         val font = stageFont(line.script, p.fontPx)
         val at = AffineTransform()
@@ -367,7 +417,7 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
             if (hl) drawPieces(gg, colour, alpha * 0.9f, null)
             drawPieces(gt, colour, alpha, null)
         } else {
-            drawPieces(gt, Color.WHITE, alpha * 0.32f, null)
+            drawPieces(gt, bodyText, alpha * 0.32f, null)
             if (!upcoming && fill > 0f) {
                 drawPieces(gs, Color(0, 0, 0, 115), alpha, p.width * fill)
                 if (hl) drawPieces(gg, colour, alpha * 0.9f, p.width * fill)
@@ -385,7 +435,7 @@ fun renderStage(s: Shot, dim: Float = 1f): BufferedImage {
         val str = java.text.AttributedString(sub).apply { addAttribute(java.awt.font.TextAttribute.FONT, f) }
         val lbm = java.awt.font.LineBreakMeasurer(str.iterator, FRC)
         var ty = area.top
-        gt.color = Color(255, 255, 255, 185)
+        gt.color = subColour
         var lines = 0
         while (lbm.position < sub.length && lines < 2) {
             val tl = lbm.nextLayout(area.width)
@@ -773,4 +823,57 @@ fun main() {
     }
     g.dispose()
     save(band, "hero.png")
+
+    // the primaries sheet: pure red, green, blue and yellow covers - the four colours that
+    // all sit at HSL lightness 0.5, where the 1.1.6 rule called every one of them "light".
+    // Top row: the 1.1.6 rule. Bottom row: the luminance rule. Both are the real builder
+    // code, the same line and template - only the shade decision differs. The contrast in
+    // each label is measured against the background as the shader's tone map leaves it.
+    val covers = listOf(
+        "Red" to listOf(Swatch(0xFFFF0000.toInt(), 900), Swatch(0xFFB00000.toInt(), 250), Swatch(0xFFFF7070.toInt(), 150)),
+        "Green" to listOf(Swatch(0xFF00FF00.toInt(), 900), Swatch(0xFF00B000.toInt(), 250), Swatch(0xFF70FF70.toInt(), 150)),
+        "Blue" to listOf(Swatch(0xFF0000FF.toInt(), 900), Swatch(0xFF0000B0.toInt(), 250), Swatch(0xFF7070FF.toInt(), 150)),
+        "Yellow" to listOf(Swatch(0xFFFFFF00.toInt(), 900), Swatch(0xFFB0B000.toInt(), 250), Swatch(0xFFFFFF70.toInt(), 150)),
+    )
+    fun row(caption: String, build: (List<Swatch>) -> StagePalette): BufferedImage {
+        val pw = 300
+        val ph = 631
+        val gap = 36
+        val width = gap * 2 + pw * 4 + gap * 3
+        val img = BufferedImage(width, 56 + ph + 104, BufferedImage.TYPE_INT_ARGB)
+        val g = img.createGraphics()
+        g.hq()
+        g.color = UI_MUTED
+        g.font = fSemi.deriveFont(26f)
+        g.drawString(caption, gap + 2f, 40f)
+        var x = gap
+        for ((name, sw) in covers) {
+            val p = build(sw)
+            val shot = Shot(name, "rickroll", "Never gonna", TemplateId.STACK, Pal(p.base, p.accents), 0.85f, 11, 4, text = hex(p.text))
+            g.drawImage(scale(phone(renderStage(shot)), pw), x, 56, null)
+            val shade = if (Colour.toHsl(p.text)[2] > 0.5f) "white lyrics" else "black lyrics"
+            val ratio = "%.1f".format(Colour.contrast(Colour.rolled(p.base), p.text))
+            g.color = UI_TEXT
+            g.font = fSemi.deriveFont(30f)
+            g.centred(name, x + pw / 2f, 56 + ph + 46f)
+            g.color = UI_MUTED
+            g.font = fRegular.deriveFont(24f)
+            g.centred("$shade $ratio:1", x + pw / 2f, 56 + ph + 82f)
+            x += pw + gap
+        }
+        g.dispose()
+        return img
+    }
+    val before = row("BEFORE  ·  1.1.6  ·  HSL LIGHTNESS PICKS THE SHADE") { oldBuild(it) }
+    val after = row("AFTER  ·  LUMINANCE PICKS THE SHADE") { PaletteBuilder.build(it, 3) }
+    val bandGap = 40
+    val sheet = BufferedImage(before.width, before.height + after.height + bandGap, BufferedImage.TYPE_INT_ARGB)
+    val sg = sheet.createGraphics()
+    sg.hq()
+    sg.paint = GradientPaint(0f, 0f, Color(0x0b, 0x0b, 0x12), sheet.width.toFloat(), sheet.height.toFloat(), Color(0x1a, 0x10, 0x24))
+    sg.fill(RoundRectangle2D.Float(0f, 0f, sheet.width.toFloat(), sheet.height.toFloat(), 48f, 48f))
+    sg.drawImage(before, 0, 0, null)
+    sg.drawImage(after, 0, before.height + bandGap, null)
+    sg.dispose()
+    save(sheet, "primaries.png")
 }

@@ -129,6 +129,45 @@ class StageTest {
         assertTrue(Colour.hueDistance(r2h, ch) < 0.1f || Colour.hueDistance(r2h, Colour.toHsl(black)[0]) < 0.1f)
     }
 
+    @Test fun palettePrimariesWearTheShadeThatReads() {
+        // pure red, green, blue and yellow covers all sit at HSL lightness 0.5, so the old
+        // HSL test called all four "light" and set black lyrics on blue (1.9:1). Dark is
+        // now decided by the light the eye sees: red and blue wear the white-added shade,
+        // green and yellow the black-added one, and every shade clears the large-type bar
+        fun primary(base: Int, darker: Int, lighter: Int) =
+            PaletteBuilder.build(listOf(Swatch(base, 900), Swatch(darker, 250), Swatch(lighter, 150)), 3)
+        val red = primary(0xFFFF0000.toInt(), 0xFFB00000.toInt(), 0xFFFF7070.toInt())
+        val green = primary(0xFF00FF00.toInt(), 0xFF00B000.toInt(), 0xFF70FF70.toInt())
+        val blue = primary(0xFF0000FF.toInt(), 0xFF0000B0.toInt(), 0xFF7070FF.toInt())
+        val yellow = primary(0xFFFFFF00.toInt(), 0xFFB0B000.toInt(), 0xFFFFFF70.toInt())
+
+        listOf("red" to red, "blue" to blue).forEach { (name, p) ->
+            assertTrue("$name is dark to the eye: white is added to the lyrics", Colour.toHsl(p.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
+            assertTrue("$name lyrics clear the large-type bar (${Colour.contrast(p.base, p.text)})",
+                Colour.contrast(p.base, p.text) >= PaletteBuilder.TEXT_MIN_CONTRAST)
+        }
+        listOf("green" to green, "yellow" to yellow).forEach { (name, p) ->
+            assertTrue("$name is light to the eye: black is added to the lyrics", Colour.toHsl(p.text)[2] <= 0.3f)
+            assertTrue("$name lyrics clear the large-type bar (${Colour.contrast(p.base, p.text)})",
+                Colour.contrast(p.base, p.text) >= PaletteBuilder.TEXT_MIN_CONTRAST)
+        }
+        // and every shade still clears the bar against the background as the liquid glass
+        // shader shows it: its filmic tail darkens a light cover into the mid tones
+        listOf("red" to red, "green" to green, "blue" to blue, "yellow" to yellow).forEach { (name, p) ->
+            val shown = Colour.contrast(Colour.rolled(p.base), p.text)
+            assertTrue("$name lyrics clear the bar on the stage as drawn ($shown)", shown >= PaletteBuilder.TEXT_MIN_CONTRAST - 0.01)
+        }
+        // ripples follow the same direction, so they stand off the background on every hue
+        // (the second ripple is held to its own smaller gap)
+        val gaps = listOf(PaletteBuilder.RIPPLE_GAP, PaletteBuilder.RIPPLE_GAP * 0.7f)
+        listOf(red, green, blue, yellow).forEach { p ->
+            val bl = Colour.toHsl(p.base)[2]
+            p.accents.take(2).forEachIndexed { i, acc ->
+                assertTrue("ripple clears the background", kotlin.math.abs(Colour.toHsl(acc)[2] - bl) >= gaps[i] - 0.02f)
+            }
+        }
+    }
+
     @Test fun paletteStaysWithTheCover() {
         // one blue hue: every accent stays blue-ish, none is a made-up colour
         val blue = PaletteBuilder.build(listOf(Swatch(0xFF2050D0.toInt(), 800), Swatch(0xFF101828.toInt(), 900)), 4)

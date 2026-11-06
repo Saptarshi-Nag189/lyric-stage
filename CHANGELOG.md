@@ -2,6 +2,24 @@
 
 ## [Unreleased]
 
+### Fixed
+- Lyrics, ripples and the highlight glint now take their shade by the light the eye sees,
+  not by HSL lightness. HSL puts every pure hue at exactly 50 % lightness, so a saturated
+  blue or violet cover counted as "light" and wore black lyrics on night-blue (1.9:1); a
+  red cover did the same. A cover is now dark or light by WCAG luminance, across the same
+  0.35 line the app's accent chips use: red and blue wear the white-added shade, green and
+  yellow the black-added one, and the ripples follow, so they stand off on every hue.
+- The lyric shade is floored at 3:1 - the large-type bar - where each shade is weakest:
+  the white-added shade against the artwork itself (solid and artwork backgrounds draw it
+  raw; on a red cover it was 2.9:1), the black-added shade against the background as the
+  liquid glass shader shows it. The shader's filmic tail darkens a light cover into the
+  mid tones, so a green or a pale cover showed black lyrics at 2.4:1 on the stage even
+  though the artwork promised 8:1; they now clear the bar on the stage as drawn.
+- The README mockups run their backgrounds through the shader's own tone map, so what
+  they show is the lightness the app draws. `docs/screenshots/primaries.png` is the proof
+  sheet: pure red, green, blue and yellow covers - the four colours that all sit at HSL
+  lightness 0.5 - before and after.
+
 ## [1.1.6] - 2026-11-06
 
 ### Fixed
