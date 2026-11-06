@@ -61,8 +61,12 @@ object LyricsBuilder {
             } else {
                 val tokens = Tokenizer.tokenize(r.text, script)
                 val estimated = WordTimingEstimator.lineWeight(r.text, script) * WordTimingEstimator.msPerWeight(script) * pace
-                // never stretch a short line across a long instrumental gap
-                val span = min(gap * 0.95, max(600.0, estimated * 1.1)).toLong()
+                // the words are anchored at both ends of the line's slot: they start with the
+                // line and are stretched to end with it, so the fill reads through the whole
+                // line instead of dying out early and leaving its tail wordless - but never
+                // past 1.35x a natural pace (a longer gap is an instrumental break, not slow
+                // singing) and never into the next line
+                val span = min(gap * 0.95, max(600.0, estimated * 1.35)).toLong()
                 WordTimingEstimator.estimate(tokens, script, r.startMs, span)
             }
             words = markBackingAndEmphasis(words)

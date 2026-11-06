@@ -2,15 +2,19 @@ package com.lyricstage.core.lyrics
 
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.selects.select
 import kotlinx.coroutines.withTimeoutOrNull
 
 /**
- * Asks every lyrics source at once and keeps the best answer: word-timed lyrics win over
- * line-timed, then an instrumental flag, then plain text. Sources are listed most trusted
- * first. As soon as a source returns word-timed lyrics, more trusted sources get a short
- * moment to answer too, and the others to supply a line-timed copy, which [LineAligner]
- * uses to correct word timings made for a different release; then they are cancelled.
+ * The lookup order for one song, fixed. Musixmatch is asked first; then NetEase; Kugou is
+ * asked only when both of them came back with nothing, whether a miss or an error, so a
+ * less trusted source can never win the race by being faster. LRCLIB is the last resort
+ * for the lyrics themselves, but it starts at the same moment as Musixmatch, because its
+ * line timing has a second job: word timings are sometimes made against a different
+ * release of the song, and they are moved onto LRCLIB's lines - one shift when the lines
+ * agree, line by line when they do not ([LineAligner]).
+ *
+ * The first source in [sources] is the LRCLIB one; the rest are the word-timing chain in
+ * trust order.
  */
 class LyricsSources(private val sources: List<Source>) {
     fun interface Source {
@@ -18,42 +22,28 @@ class LyricsSources(private val sources: List<Source>) {
     }
 
     suspend fun find(title: String, artist: String, album: String?, durationMs: Long?): LyricsLookup = coroutineScope {
-        val jobs = sources.mapIndexed { i, s ->
-            i to async { withTimeoutOrNull(TIMEOUT_MS) { runCatching { s.find(title, artist, album, durationMs) }.getOrNull() } ?: LyricsLookup.Unavailable }
-        }.toMutableList()
-        // keep the source's position so ties go to the earlier (more trusted) source
-        val results = ArrayList<Pair<Int, LyricsLookup>>()
-        while (jobs.isNotEmpty()) {
-            val (entry, r) = select {
-                jobs.forEach { e -> e.second.onAwait { e to it } }
-            }
-            jobs.remove(entry)
-            results += entry.first to r
+        // LRCLIB starts at once; it is the timing reference and the last resort
+        val reference = async { ask(sources.first(), title, artist, album, durationMs) }
+        val seen = ArrayList<Pair<Int, LyricsLookup>>()
+        for (i in 1 until sources.size) {
+            val r = ask(sources[i], title, artist, album, durationMs)
+            seen += i to r
             if (r is LyricsLookup.Found && r.wordSynced) {
-                // a more trusted source may still bring word timings, and a line-timed copy
-                // checks the timing: wait a moment for either, then stop the rest
-                withTimeoutOrNull(ALIGN_WAIT_MS) {
-                    while (jobs.isNotEmpty() && (jobs.any { it.first < bestWord(results) } || reference(results) == null)) {
-                        val (e, more) = select { jobs.forEach { j -> j.second.onAwait { j to it } } }
-                        jobs.remove(e)
-                        results += e.first to more
-                    }
-                }
-                jobs.forEach { it.second.cancel() }
-                val word = results.first { it.first == bestWord(results) }.second as LyricsLookup.Found
-                return@coroutineScope aligned(word, reference(results))
+                // correct its timing against LRCLIB's line copy, but never hold the answer
+                // for it: the reference gets a short moment, then the answer goes out as it is
+                val ref = withTimeoutOrNull(ALIGN_WAIT_MS) { reference.await() as? LyricsLookup.Found }
+                if (ref == null && reference.isActive) reference.cancel()
+                return@coroutineScope aligned(r, ref)
             }
         }
-        best(results)
+        // nothing word-timed anywhere: LRCLIB's own answer is the last resort
+        seen += 0 to reference.await()
+        best(seen)
     }
 
-    /** Position of the most trusted word-timed answer so far. */
-    private fun bestWord(results: List<Pair<Int, LyricsLookup>>): Int =
-        results.filter { (it.second as? LyricsLookup.Found)?.wordSynced == true }.minOf { it.first }
-
-    private fun reference(results: List<Pair<Int, LyricsLookup>>): LyricsLookup.Found? =
-        results.sortedBy { it.first }.map { it.second }
-            .firstOrNull { it is LyricsLookup.Found && it.synced && !it.wordSynced } as LyricsLookup.Found?
+    private suspend fun ask(s: Source, title: String, artist: String, album: String?, durationMs: Long?): LyricsLookup =
+        withTimeoutOrNull(TIMEOUT_MS) { runCatching { s.find(title, artist, album, durationMs) }.getOrNull() }
+            ?: LyricsLookup.Unavailable
 
     private fun aligned(word: LyricsLookup.Found, ref: LyricsLookup.Found?): LyricsLookup.Found {
         if (ref == null) return word
@@ -64,7 +54,7 @@ class LyricsSources(private val sources: List<Source>) {
     companion object {
         /** LRCLIB can take a while: an exact lookup, then a search when that misses. */
         const val TIMEOUT_MS = 15_000L
-        /** How long a word-timed answer waits for a line-timed one to align against. */
+        /** How long a word-timed answer waits for LRCLIB's line copy to align against. */
         const val ALIGN_WAIT_MS = 4_000L
 
         fun rank(r: LyricsLookup): Int = when {

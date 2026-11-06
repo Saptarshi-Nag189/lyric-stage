@@ -102,7 +102,7 @@ class SourcesTest {
     private val word = LyricsLookup.Found(true, "[00:01.00]<00:01.00>a <00:01.50>b", false, "musixmatch")
     private val line = LyricsLookup.Found(true, "[00:01.00]a b", false, "lrclib")
 
-    @Test fun wordTimedSourceWinsAndCancelsTheRest() = runBlocking {
+    @Test fun wordTimedSourceWinsAndTheRestAreNeverAsked() = runBlocking {
         var slowFinished = false
         val sources = LyricsSources(
             listOf(
@@ -115,6 +115,54 @@ class SourcesTest {
         assertEquals(word, sources.find("t", "a", null, null))
         assertTrue(System.nanoTime() - started < 2_000_000_000L)
         assertFalse(slowFinished)
+    }
+
+    @Test fun kugouIsAskedOnlyWhenMusixmatchAndNeteaseHaveNothing() = runBlocking {
+        val asked = ArrayList<String>()
+        val fromKugou = word.copy(source = "kugou")
+        val sources = LyricsSources(
+            listOf(
+                LyricsSources.Source { _, _, _, _ -> asked += "lrclib"; line },
+                LyricsSources.Source { _, _, _, _ -> asked += "musixmatch"; LyricsLookup.NotFound },
+                LyricsSources.Source { _, _, _, _ -> asked += "netease"; LyricsLookup.Unavailable },
+                LyricsSources.Source { _, _, _, _ -> asked += "kugou"; fromKugou },
+            ),
+        )
+        assertEquals(fromKugou, sources.find("t", "a", null, null))
+        // the chain runs in trust order; LRCLIB runs beside it, so only its presence is fixed
+        assertEquals(listOf("musixmatch", "netease", "kugou"), asked.filter { it != "lrclib" })
+        assertTrue(asked.contains("lrclib"))
+    }
+
+    @Test fun musixmatchWinsEvenWhenKugouWouldAnswerFirst() = runBlocking {
+        val asked = ArrayList<String>()
+        val sources = LyricsSources(
+            listOf(
+                LyricsSources.Source { _, _, _, _ -> asked += "lrclib"; line },
+                LyricsSources.Source { _, _, _, _ -> asked += "musixmatch"; delay(80); word },
+                LyricsSources.Source { _, _, _, _ -> asked += "netease"; LyricsLookup.NotFound },
+                LyricsSources.Source { _, _, _, _ -> asked += "kugou"; word.copy(source = "kugou") },
+            ),
+        )
+        assertEquals(word, sources.find("t", "a", null, null))
+        // the chain stops at Musixmatch: NetEase and Kugou are never asked. LRCLIB runs
+        // beside it, so only its presence is fixed, not its place in the log
+        assertEquals(listOf("musixmatch"), asked.filter { it != "lrclib" })
+        assertTrue(asked.contains("lrclib"))
+    }
+
+    @Test fun aSlowReferenceDoesNotHoldTheAnswer() = runBlocking {
+        // LRCLIB never answers; the word-timed answer still goes out after the wait
+        val sources = LyricsSources(
+            listOf(
+                LyricsSources.Source { _, _, _, _ -> delay(30_000); line },
+                LyricsSources.Source { _, _, _, _ -> word },
+            ),
+        )
+        val started = System.nanoTime()
+        assertEquals(word, sources.find("t", "a", null, null))
+        // 4 s wait for the reference, not the 30 s it would take
+        assertTrue(System.nanoTime() - started < 6_000_000_000L)
     }
 
     @Test fun bestFallsBackInOrder() = runBlocking {

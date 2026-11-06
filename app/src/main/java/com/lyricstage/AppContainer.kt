@@ -41,11 +41,11 @@ class AppContainer(context: Context) {
     val connectivity = Connectivity(context)
     val output = AudioOutput(context)
 
-    /** All sources are asked at once; LRCLIB first so it wins ties. */
+    /** LRCLIB is the timing reference and the last resort; the word-timing chain runs in
+     *  trust order behind it: Musixmatch, then NetEase, then Kugou. */
     private val sources = LyricsSources(
         listOf(
             LyricsSources.Source { t, a, al, d -> lrclib.find(t, a, al, d) },
-            // word timings: Musixmatch first, then NetEase, then Kugou
             LyricsSources.Source { t, a, al, d -> musixmatch.find(t, a, al, d) },
             LyricsSources.Source { t, a, _, d -> netease.find(t, a, d) },
             LyricsSources.Source { t, a, _, d -> kugou.find(t, a, d) },
