@@ -50,6 +50,10 @@ data class Swatch(val rgb: Int, val population: Int)
  * to HSL and night to the eye, and black lyrics on it would vanish. Red and blue fall
  * below the line and wear the white-added shade; green and yellow fall above it and wear
  * the black-added one.
+ *
+ * A grey artwork stays grey: no saturation is invented for it, so a black-and-white
+ * cover gives a black-and-white stage — background, ripples, lyrics and glint all on the
+ * one grey axis.
  */
 object PaletteBuilder {
     /** Minimum lightness gap between the background and a ripple colour. */
@@ -113,7 +117,13 @@ object PaletteBuilder {
             val (h, s, l) = src?.let { Colour.toHsl(it.rgb) } ?: floatArrayOf(bh, bs, bl)
             var nl = l
             if (kotlin.math.abs(nl - bl) < gap) nl = bl + dir * gap
-            return floatArrayOf(h, (s * 1.08f + 0.08f).coerceAtMost(1f), nl.coerceIn(L_MIN, L_MAX))
+            // colours are pushed a little beyond what the artwork had so the waves read,
+            // but a grey keeps its own (zero) saturation: a grey's hue is red by
+            // convention in HSL, so even a small flat floor would pink a black-and-white
+            // cover. The floor ramps in only past near-grey, so every coloured cover
+            // keeps exactly the saturation it had before
+            val sat = (s * 1.08f + 0.08f * (s / 0.06f).coerceAtMost(1f)).coerceAtMost(1f)
+            return floatArrayOf(h, sat, nl.coerceIn(L_MIN, L_MAX))
         }
 
         val r1 = ripple(ranked.getOrNull(1), RIPPLE_GAP)

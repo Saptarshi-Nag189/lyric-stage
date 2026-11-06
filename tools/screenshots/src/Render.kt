@@ -200,13 +200,21 @@ fun oldBuild(swatches: List<Swatch>): StagePalette {
     return StagePalette(top.rgb, listOf(Colour.fromHsl(r1[0], r1[1], r1[2]), Colour.fromHsl(r2[0], r2[1], r2[2]), glint), text)
 }
 
-/** The shader's filmic tail (Colour.rolled) applied to a whole image, so mockups show
- *  the lightness the app draws. */
+/** The shader's filmic tail (Colour.rolled) plus its saturation push, applied to a whole
+ *  image, so mockups show the lightness and colour the app draws: colours are pushed off
+ *  their luma as lightField does, greys (r == g == b) are untouched by it. */
 fun toneMap(img: BufferedImage): BufferedImage {
     val w = img.width
     val h = img.height
     val px = img.getRGB(0, 0, w, h, null, 0, w)
-    for (i in px.indices) px[i] = Colour.rolled(px[i])
+    for (i in px.indices) {
+        val r = ((px[i] shr 16) and 255) / 255f
+        val g = ((px[i] shr 8) and 255) / 255f
+        val b = (px[i] and 255) / 255f
+        val l = 0.299f * r + 0.587f * g + 0.114f * b
+        fun push(c: Float): Int = ((c + 0.45f * (c - l)).coerceAtLeast(0f) * 255f).toInt().coerceIn(0, 255)
+        px[i] = Colour.rolled((255 shl 24) or (push(r) shl 16) or (push(g) shl 8) or push(b))
+    }
     img.setRGB(0, 0, w, h, px, 0, w)
     return img
 }
@@ -254,6 +262,28 @@ fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): Buf
         MultipleGradientPaint.CycleMethod.NO_CYCLE,
     )
     g2.fillRect(0, 0, w, h)
+    // the dispersion the bent glass adds, as the shader does after the light field:
+    // colour at the edges of the light, folded to plain luminance when every palette
+    // colour is grey - a black-and-white cover stays black-and-white
+    val baseL = (0.299f * Colour.red(pal.base) + 0.587f * Colour.green(pal.base) + 0.114f * Colour.blue(pal.base)) / 255f
+    val edge = 0.2f + 0.8f * ((baseL - 0.04f) / 0.26f).coerceIn(0f, 1f)
+    fun chroma(c: Int) = (maxOf(Colour.red(c), Colour.green(c), Colour.blue(c)) - minOf(Colour.red(c), Colour.green(c), Colour.blue(c))) / 255f
+    val mono = chroma(pal.base) < 0.004f && pal.accents.all { chroma(it) < 0.004f }
+    val amp = (13f * edge).toInt()
+    if (amp > 0) for (k in 0 until 2) {
+        val y0 = h * (0.32f + k * 0.44f)
+        val tint = when {
+            mono && k == 0 -> Color(255, 255, 255, amp)
+            mono -> Color(0, 0, 0, amp)
+            k == 0 -> Color(255, 190, 170, amp)
+            else -> Color(170, 205, 255, amp)
+        }
+        g2.paint = GradientPaint(
+            w * 0.1f, y0 - h * 0.15f, Color(tint.red, tint.green, tint.blue, 0),
+            w * 0.38f, y0 + h * 0.15f, tint, true,
+        )
+        g2.fillRect(0, 0, w, h)
+    }
     g2.dispose()
     toneMap(soft)
     val rnd = Random(seed + 7)
@@ -824,12 +854,19 @@ fun main() {
     g.dispose()
     save(band, "hero.png")
 
-    // the primaries sheet: pure red, green, blue and yellow covers - the four colours that
-    // all sit at HSL lightness 0.5, where the 1.1.6 rule called every one of them "light".
-    // Top row: the 1.1.6 rule. Bottom row: the luminance rule. Both are the real builder
-    // code, the same line and template - only the shade decision differs. The contrast in
-    // each label is measured against the background as the shader's tone map leaves it.
+    // the colour-rule proof sheet. The four colours every shade rule disagrees about -
+    // pure red, green, blue and yellow, which all sit at HSL lightness 0.5 - plus a
+    // black-and-white cover (the DEMI portrait: light greys dominant, near-black
+    // portrait, one mid grey) in its light- and dark-dominant readings, which must come
+    // out grey end to end. Top row: the 1.1.6 rule, which shaded by HSL lightness and
+    // floored every ripple's saturation - and a grey's hue is red by convention, so the
+    // greys pinked. Bottom row: the current builder. Both rows are real builder code on
+    // the same line and template; the ratio under each phone is measured against the
+    // background as the shader's tone map leaves it, and the chips are the palette
+    // itself: background, the two ripples, the glint, the lyrics.
     val covers = listOf(
+        "B&W light" to listOf(Swatch(0xFFF0F0F0.toInt(), 900), Swatch(0xFFA5A5A5.toInt(), 270), Swatch(0xFF141414.toInt(), 270)),
+        "B&W dark" to listOf(Swatch(0xFF141414.toInt(), 900), Swatch(0xFFD0D0D0.toInt(), 300), Swatch(0xFFA5A5A5.toInt(), 150)),
         "Red" to listOf(Swatch(0xFFFF0000.toInt(), 900), Swatch(0xFFB00000.toInt(), 250), Swatch(0xFFFF7070.toInt(), 150)),
         "Green" to listOf(Swatch(0xFF00FF00.toInt(), 900), Swatch(0xFF00B000.toInt(), 250), Swatch(0xFF70FF70.toInt(), 150)),
         "Blue" to listOf(Swatch(0xFF0000FF.toInt(), 900), Swatch(0xFF0000B0.toInt(), 250), Swatch(0xFF7070FF.toInt(), 150)),
@@ -837,10 +874,9 @@ fun main() {
     )
     fun row(caption: String, build: (List<Swatch>) -> StagePalette): BufferedImage {
         val pw = 300
-        val ph = 631
         val gap = 36
-        val width = gap * 2 + pw * 4 + gap * 3
-        val img = BufferedImage(width, 56 + ph + 104, BufferedImage.TYPE_INT_ARGB)
+        val width = gap * 2 + pw * covers.size + gap * (covers.size - 1)
+        val img = BufferedImage(width, 840, BufferedImage.TYPE_INT_ARGB)
         val g = img.createGraphics()
         g.hq()
         g.color = UI_MUTED
@@ -851,23 +887,40 @@ fun main() {
             val p = build(sw)
             val shot = Shot(name, "rickroll", "Never gonna", TemplateId.STACK, Pal(p.base, p.accents), 0.85f, 11, 4, text = hex(p.text))
             g.drawImage(scale(phone(renderStage(shot)), pw), x, 56, null)
+            // the palette itself: background, the two ripples, the glint, the lyrics
+            val chips = listOf(p.base, p.accents[0], p.accents[1], p.accents[2], p.text)
+            var cx = x + (pw - (chips.size * 46 + (chips.size - 1) * 6)) / 2f
+            for (c in chips) {
+                g.color = UI_LINE
+                g.fill(RoundRectangle2D.Float(cx - 1f, 698f, 48f, 24f, 8f, 8f))
+                g.color = hex(c)
+                g.fill(RoundRectangle2D.Float(cx, 699f, 46f, 22f, 7f, 7f))
+                cx += 52f
+            }
             val shade = if (Colour.toHsl(p.text)[2] > 0.5f) "white lyrics" else "black lyrics"
             val ratio = "%.1f".format(Colour.contrast(Colour.rolled(p.base), p.text))
             g.color = UI_TEXT
             g.font = fSemi.deriveFont(30f)
-            g.centred(name, x + pw / 2f, 56 + ph + 46f)
+            g.centred(name, x + pw / 2f, 762f)
             g.color = UI_MUTED
             g.font = fRegular.deriveFont(24f)
-            g.centred("$shade $ratio:1", x + pw / 2f, 56 + ph + 82f)
+            g.centred("$shade $ratio:1", x + pw / 2f, 794f)
+            if (name.startsWith("B&W")) {
+                val grey = p.accents.take(2).all { Colour.red(it) == Colour.green(it) && Colour.green(it) == Colour.blue(it) }
+                val r1 = "%06X".format(p.accents[0] and 0xFFFFFF)
+                val r2 = "%06X".format(p.accents[1] and 0xFFFFFF)
+                g.font = fRegular.deriveFont(18f)
+                g.centred("${if (grey) "pure greys" else "ripples tinted"} $r1 $r2", x + pw / 2f, 824f)
+            }
             x += pw + gap
         }
         g.dispose()
         return img
     }
-    val before = row("BEFORE  ·  1.1.6  ·  HSL LIGHTNESS PICKS THE SHADE") { oldBuild(it) }
-    val after = row("AFTER  ·  LUMINANCE PICKS THE SHADE") { PaletteBuilder.build(it, 3) }
+    val before = row("BEFORE  ·  1.1.6  ·  SHADE BY HSL LIGHTNESS, GREYS TINTED") { oldBuild(it) }
+    val after = row("AFTER  ·  SHADE BY LUMINANCE, GREYS STAY GREY") { PaletteBuilder.build(it, 3) }
     val bandGap = 40
-    val sheet = BufferedImage(before.width, before.height + after.height + bandGap, BufferedImage.TYPE_INT_ARGB)
+    val sheet = BufferedImage(before.width, before.height * 2 + bandGap, BufferedImage.TYPE_INT_ARGB)
     val sg = sheet.createGraphics()
     sg.hq()
     sg.paint = GradientPaint(0f, 0f, Color(0x0b, 0x0b, 0x12), sheet.width.toFloat(), sheet.height.toFloat(), Color(0x1a, 0x10, 0x24))

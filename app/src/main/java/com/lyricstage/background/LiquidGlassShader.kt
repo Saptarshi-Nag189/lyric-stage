@@ -9,6 +9,11 @@ package com.lyricstage.background
  * stay well below the lyrics.
  *
  * Coordinates: fragCoord has a top-left origin; p is centred, y down, aspect corrected.
+ *
+ * A black-and-white cover stays black-and-white: when every palette colour is a grey
+ * (as PaletteBuilder keeps a grey artwork), the glass works in luminance alone — no
+ * saturation push, no coloured dispersion, no tinted ripple rings. Light still bends;
+ * no colour appears that the cover never had.
  */
 internal const val LIQUID_GLASS_AGSL = """
 uniform float2 uRes;
@@ -50,7 +55,9 @@ float fbm(float2 p) {
 // Domain-warped noise picks where each accent glows. Colours are added, not blended,
 // so neighbouring hues glow side by side instead of averaging into brown.
 // uBase is the artwork's top colour, used exactly as it comes.
-half3 lightField(float2 p, float t) {
+// mono is 1 when every palette colour is a grey: the saturation push is off, so greys
+// stay exactly on their own luminance.
+half3 lightField(float2 p, float t, half mono) {
     float2 s = p * 0.62;
     float2 q = float2(fbm(s + float2(0.0, t * 0.035)), fbm(s + float2(5.2, -t * 0.03)));
     float2 r = float2(fbm(s + 1.6 * q + float2(1.7, 9.2) + t * 0.022),
@@ -63,7 +70,8 @@ half3 lightField(float2 p, float t) {
     half pools = half(uPools);
     half3 col = uBase + (uC0 * w0 * 0.95 + uC1 * w1 * 0.8 + uC2 * w2 * 0.65) * pools;
     half lum = dot(col, half3(0.299, 0.587, 0.114));
-    return max(mix(half3(lum), col, 1.45), half3(0.0));
+    half sat = mix(half(1.45), half(1.0), mono);
+    return max(mix(half3(lum), col, sat), half3(0.0));
 }
 
 half4 main(float2 fragCoord) {
@@ -105,14 +113,27 @@ half4 main(float2 fragCoord) {
         slope += float2(0.7, -0.45) * sweep * 0.02;
     }
 
+    // a black-and-white cover stays black-and-white: mono is 1 when every palette colour
+    // is a grey (PaletteBuilder keeps a grey artwork grey; the spread over all twelve
+    // channel differences also swallows the ±1/255 chroma noise a JPEG greyscale carries)
+    float colourFul = 0.0;
+    colourFul += abs(uBase.r - uBase.g) + abs(uBase.g - uBase.b) + abs(uBase.b - uBase.r);
+    colourFul += abs(uC0.r - uC0.g) + abs(uC0.g - uC0.b) + abs(uC0.b - uC0.r);
+    colourFul += abs(uC1.r - uC1.g) + abs(uC1.g - uC1.b) + abs(uC1.b - uC1.r);
+    colourFul += abs(uC2.r - uC2.g) + abs(uC2.g - uC2.b) + abs(uC2.b - uC2.r);
+    half mono = half(1.0 - smoothstep(0.05, 0.12, colourFul));
+
     // refraction: the light is seen through the bent glass
-    half3 col = lightField(p + slope * 6.0, t);
+    half3 col = lightField(p + slope * 6.0, t, mono);
     // where the glass is dark (black covers) there is nothing bright to refract, and the
     // ring's colour fringes and glints read as hard lines on black; soften them there
     half lum0 = dot(col, half3(0.299, 0.587, 0.114));
     half dark = 1.0 - smoothstep(0.04, 0.3, lum0);
     half edge = mix(1.0, 0.2, dark);
-    col += half3(slope.x, 0.3 * (slope.y - slope.x), -slope.y) * 1.6 * edge;
+    // the dispersion the bent glass adds, folded onto its own luminance for a grey
+    // palette: the light still fringes, but only in brightness
+    half3 dispersion = half3(slope.x, 0.3 * (slope.y - slope.x), -slope.y) * 1.6 * edge;
+    col += mix(dispersion, half3(dot(dispersion, half3(0.299, 0.587, 0.114))), mono);
 
     float3 n = normalize(float3(-slope * 14.0, 1.0));
     float3 L = normalize(float3(-0.45, -0.55, 0.7));
@@ -120,8 +141,9 @@ half4 main(float2 fragCoord) {
     col += half(spec * 0.2) * edge + half(sweep * 0.1);
 
     // ripples carry their own colour, already pushed apart from the background in
-    // lightness: a fine ring on lit glass, a soft wide swell on dark glass
-    half3 rippleTint = uC0;
+    // lightness: a fine ring on lit glass, a soft wide swell on dark glass - plain
+    // luminance when the palette is grey
+    half3 rippleTint = mix(uC0, half3(dot(uC0, half3(0.299, 0.587, 0.114))), mono);
     col += rippleTint * (half(ring) * 0.03 * (1.0 - dark) + half(min(glow, 1.5)) * 0.07 * dark);
 
     // vignette, then a filmic roll-off that keeps highlights under the white type

@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Fixed
+- A black-and-white cover stays black-and-white. The ripple colours carried a flat
+  saturation floor, and a grey's hue is red by convention in HSL - so the greys picked up
+  a pink tint - and the glass shader laid blue and amber dispersion fringes over
+  everything. A grey now keeps its own (zero) saturation through the palette - the floor
+  ramps in only past near-grey, so coloured covers are unchanged - and when every palette
+  colour is a grey the shader works in luminance alone: no saturation push, dispersion
+  folded onto plain luminance, ripple rings in grey. Light still bends; no colour appears
+  that the cover never had. The ±1/255 chroma noise a JPEG greyscale carries is inside
+  the same tolerance.
 - Lyrics, ripples and the highlight glint now take their shade by the light the eye sees,
   not by HSL lightness. HSL puts every pure hue at exactly 50 % lightness, so a saturated
   blue or violet cover counted as "light" and wore black lyrics on night-blue (1.9:1); a
@@ -15,10 +24,11 @@
   liquid glass shader shows it. The shader's filmic tail darkens a light cover into the
   mid tones, so a green or a pale cover showed black lyrics at 2.4:1 on the stage even
   though the artwork promised 8:1; they now clear the bar on the stage as drawn.
-- The README mockups run their backgrounds through the shader's own tone map, so what
-  they show is the lightness the app draws. `docs/screenshots/primaries.png` is the proof
-  sheet: pure red, green, blue and yellow covers - the four colours that all sit at HSL
-  lightness 0.5 - before and after.
+- The README mockups now apply the shader's saturation push as well as its tone map, and
+  its dispersion fringes (folded to grey for a grey palette), so they show the colour the
+  app draws. The proof sheet gains the black-and-white cover - light- and dark-dominant -
+  alongside pure red, green, blue and yellow, the four colours that all sit at HSL
+  lightness 0.5.
 
 ## [1.1.6] - 2026-11-06
 

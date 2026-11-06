@@ -168,6 +168,32 @@ class StageTest {
         }
     }
 
+    @Test fun paletteBlackAndWhiteCoverStaysGrey() {
+        // the reported case: a black-and-white cover (Demi Lovato's DEMI - light greys
+        // dominant, near-black portrait, one mid grey) must give a black-and-white stage.
+        // The old ripple rule added a flat saturation floor, and a grey's hue is red by
+        // convention in HSL, so every grey picked up a pink tint
+        val swatches = listOf(Swatch(0xFFF0F0F0.toInt(), 900), Swatch(0xFFA5A5A5.toInt(), 270), Swatch(0xFF141414.toInt(), 270))
+        val p = PaletteBuilder.build(swatches, 5)
+        fun pureGrey(c: Int) = Colour.red(c) == Colour.green(c) && Colour.green(c) == Colour.blue(c)
+        assertEquals(0xFFF0F0F0.toInt(), p.base)
+        p.accents.forEach { assertTrue("accent ${"%06X".format(it and 0xFFFFFF)} is a pure grey", pureGrey(it)) }
+        assertTrue("lyrics are a pure grey", pureGrey(p.text))
+        // light cover: black is added to the lyrics, and it clears the bar as drawn
+        assertTrue(Colour.toHsl(p.text)[2] <= 0.3f)
+        assertTrue(Colour.contrast(Colour.rolled(p.base), p.text) >= PaletteBuilder.TEXT_MIN_CONTRAST - 0.01)
+        // a dark-dominant monochrome cover: light grey pools under white lyrics, all grey
+        val dark = PaletteBuilder.build(listOf(Swatch(0xFF141414.toInt(), 900), Swatch(0xFFD0D0D0.toInt(), 300), Swatch(0xFFA5A5A5.toInt(), 150)), 5)
+        assertTrue(pureGrey(dark.base))
+        dark.accents.forEach { assertTrue(pureGrey(it)) }
+        assertTrue(pureGrey(dark.text))
+        assertTrue(Colour.toHsl(dark.text)[2] >= PaletteBuilder.TEXT_DARK_L - 0.11f)
+        // and a coloured cover keeps its colour: the saturation floor only ramps in past
+        // near-grey, so nothing changes for artwork that actually has hue
+        val coloured = PaletteBuilder.build(listOf(Swatch(0xFFD23C4C.toInt(), 900), Swatch(0xFF101828.toInt(), 300)), 5)
+        assertTrue(Colour.toHsl(coloured.accents[0])[1] > 0.3f)
+    }
+
     @Test fun paletteStaysWithTheCover() {
         // one blue hue: every accent stays blue-ish, none is a made-up colour
         val blue = PaletteBuilder.build(listOf(Swatch(0xFF2050D0.toInt(), 800), Swatch(0xFF101828.toInt(), 900)), 4)
