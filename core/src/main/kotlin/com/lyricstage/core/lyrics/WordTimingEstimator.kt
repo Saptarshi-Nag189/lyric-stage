@@ -19,8 +19,7 @@ object WordTimingEstimator {
     fun msPerWeight(script: Script): Double = when (script) {
         Script.JAPANESE -> 160.0
         Script.KOREAN -> 200.0
-        Script.DEVANAGARI, Script.BENGALI -> 210.0
-        else -> 320.0
+        else -> if (script.isIndic) 210.0 else 320.0
     }
 
     private const val LAST_WORD_HOLD = 1.6

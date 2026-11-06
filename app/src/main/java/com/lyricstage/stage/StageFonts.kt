@@ -37,6 +37,15 @@ object StageFonts {
         Font(res, FontWeight.Medium),
     )
 
+    /** A variable family at real weights: the stage renders heavy, so Indic lyrics get
+     *  genuinely bold cuts through the wght axis like the Latin lyric fonts, not a
+     *  default-weight instance. */
+    private fun vfam(res: Int) = FontFamily(
+        cut(res, FontWeight.Black, 800, 800),
+        cut(res, FontWeight.SemiBold, 600, 800),
+        cut(res, FontWeight.Medium, 500, 800),
+    )
+
     /** One cut of a variable font: [weight] on the wght axis (clamped to what it has), optional opsz. */
     @OptIn(ExperimentalTextApi::class)
     private fun cut(res: Int, slot: FontWeight, weight: Int, maxWeight: Int, opsz: Float? = null): Font {
@@ -95,13 +104,29 @@ object StageFonts {
     /** The lyric font in use; set from Settings before the stage is laid out. */
     @Volatile var lyricFont: LyricFont = LyricFont.UNBOUNDED
 
-    private val devanagari = family(R.font.noto_sans_devanagari)
-    private val bengali = family(R.font.noto_sans_bengali)
+    // Anek for the nine Indic scripts, one family per script, applied automatically from
+    // the lyrics text; its even proportions across scripts keep mixed-language songs coherent
+    private val devanagari = vfam(R.font.anek_devanagari)
+    private val bangla = vfam(R.font.anek_bangla)
+    private val gurmukhi = vfam(R.font.anek_gurmukhi)
+    private val gujarati = vfam(R.font.anek_gujarati)
+    private val odia = vfam(R.font.anek_odia)
+    private val tamil = vfam(R.font.anek_tamil)
+    private val telugu = vfam(R.font.anek_telugu)
+    private val kannada = vfam(R.font.anek_kannada)
+    private val malayalam = vfam(R.font.anek_malayalam)
     private val japanese = family(R.font.noto_sans_jp)
 
     fun forScript(script: Script): FontFamily = when (script) {
         Script.DEVANAGARI -> devanagari
-        Script.BENGALI -> bengali
+        Script.BENGALI -> bangla
+        Script.GURMUKHI -> gurmukhi
+        Script.GUJARATI -> gujarati
+        Script.ODIA -> odia
+        Script.TAMIL -> tamil
+        Script.TELUGU -> telugu
+        Script.KANNADA -> kannada
+        Script.MALAYALAM -> malayalam
         Script.JAPANESE -> japanese
         Script.KOREAN -> FontFamily.SansSerif
         else -> lyrics(lyricFont)

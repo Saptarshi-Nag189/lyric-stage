@@ -76,7 +76,8 @@ fun AboutScreen(vm: StageViewModel, onBack: () -> Unit) {
         UiCard(padding = 0) {
             InfoRow("Unbounded, Instrument Sans, Bricolage Grotesque", stringResource(R.string.licence_ofl), divider = false) { open(OFL) }
             InfoRow("Big Shoulders, Syne, Darker Grotesque, Familjen Grotesk, Schibsted Grotesk", stringResource(R.string.licence_ofl)) { open(OFL) }
-            InfoRow("Noto Sans Devanagari, Bengali and JP", stringResource(R.string.licence_ofl)) { open(OFL) }
+            InfoRow("Anek Devanagari, Bangla, Gurmukhi, Gujarati, Odia, Tamil, Telugu, Kannada and Malayalam", stringResource(R.string.licence_ofl)) { open(OFL) }
+            InfoRow("Noto Sans JP", stringResource(R.string.licence_ofl)) { open(OFL) }
             InfoRow("Kotlin, kotlinx", stringResource(R.string.licence_apache)) { open(APACHE) }
             InfoRow("AndroidX and Jetpack Compose", stringResource(R.string.licence_apache)) { open(APACHE) }
             InfoRow("OkHttp", stringResource(R.string.licence_apache)) { open(APACHE) }
