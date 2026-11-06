@@ -55,8 +55,15 @@ fun loadFont(name: String): Font = Font.createFont(Font.TRUETYPE_FONT, File(FONT
 
 val fBlack = mapOf(
     Script.LATIN to loadFont("bricolage_800"),
-    Script.DEVANAGARI to loadFont("noto_sans_devanagari_900"),
-    Script.BENGALI to loadFont("noto_sans_bengali_900"),
+    Script.DEVANAGARI to loadFont("anek_devanagari_800"),
+    Script.BENGALI to loadFont("anek_bangla_800"),
+    Script.GURMUKHI to loadFont("anek_gurmukhi_800"),
+    Script.GUJARATI to loadFont("anek_gujarati_800"),
+    Script.ODIA to loadFont("anek_odia_800"),
+    Script.TAMIL to loadFont("anek_tamil_800"),
+    Script.TELUGU to loadFont("anek_telugu_800"),
+    Script.KANNADA to loadFont("anek_kannada_800"),
+    Script.MALAYALAM to loadFont("anek_malayalam_800"),
     Script.JAPANESE to loadFont("noto_sans_jp_900"),
 )
 val fSemi = loadFont("bricolage_600")

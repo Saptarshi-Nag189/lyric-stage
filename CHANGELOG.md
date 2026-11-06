@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+## [1.1.5] - 2026-11-06
+
 ### Changed
 - Liquid mode colours come from the artwork's top colours. The background is the top
   colour exactly as it comes - near-black covers included, one rule for everything - the

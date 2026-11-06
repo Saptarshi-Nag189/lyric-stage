@@ -216,6 +216,7 @@ private fun ThisSongCard(
 }
 
 /** Look: layouts, background with its live preview, pools, ripples, glass and text size. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()
@@ -283,6 +284,7 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
 }
 
 /** Fonts: lyric and app typefaces with a live preview. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FontsPage(vm: StageViewModel, onBack: () -> Unit) {
     val s by vm.settings.collectAsStateWithLifecycle()

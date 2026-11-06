@@ -103,8 +103,8 @@ object PaletteBuilder {
         // half and capped; lightness on the far side of the background, whites added on
         // dark covers, blacks added on light ones
         val accentSrc = ranked.maxWithOrNull(compareBy { Colour.toHsl(it.rgb)[1] }) ?: top
-        val (ah, as, _) = Colour.toHsl(accentSrc.rgb)
-        val ts = (as * 0.5f).coerceAtMost(TEXT_SAT_MAX)
+        val (ah, srcSat, _) = Colour.toHsl(accentSrc.rgb)
+        val ts = (srcSat * 0.5f).coerceAtMost(TEXT_SAT_MAX)
         val tl = if (dark) TEXT_DARK_L else TEXT_LIGHT_L
         val text = Colour.fromHsl(ah, ts, tl)
         // the third accent, for highlighted words and the brightest pool: the lyrics' own
