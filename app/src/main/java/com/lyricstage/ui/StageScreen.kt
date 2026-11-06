@@ -117,7 +117,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     // where this song's lyrics came from and how they are timed, shown briefly as a song starts
     val readySource = (state as? LyricsState.Ready)?.source
     var sourceInfo by remember { mutableStateOf<String?>(null) }
-    LaunchedEffect(np?.trackKey, readySource, readyLyrics?.kind) {
+    LaunchedEffect(np?.trackKey, readySource, readyLyrics?.kind, settings.paragraphLyrics) {
         sourceInfo = null
         val lyrics = readyLyrics ?: return@LaunchedEffect
         val timing = when (lyrics.kind) {
@@ -127,6 +127,8 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
             LyricsKind.INSTRUMENTAL -> return@LaunchedEffect
         }
         if (lyrics.kind != LyricsKind.PLAIN && lyrics.lines.isEmpty()) return@LaunchedEffect
+        // hidden unsynced text says so with its own pill; no second notice on top of it
+        if (lyrics.kind == LyricsKind.PLAIN && !settings.paragraphLyrics) return@LaunchedEffect
         sourceInfo = context.getString(timing, sourceName(readySource))
         delay(INFO_PILL_MS)
         sourceInfo = null
@@ -184,16 +186,20 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         AmbientRipples(ambient, readyLyrics, vm.clock, if (beatsActive) beats else null, always = beatRipples) { ripples.emit(it, bgClock.seconds()) }
 
         val accent = Ui.accent(palette)
+        // every notice pill goes away by itself, its border running down as the timer, so the
+        // bottom of the stage is never occupied for the whole song
         val pill: StatePill? = when {
             current == null || !current.hasTrack -> StatePill(R.string.state_no_session)
             else -> when (val s = state) {
                 LyricsState.Idle, LyricsState.Loading -> StatePill(R.string.state_loading, glyph = Glyph.SEARCHING)
-                LyricsState.NotFound -> StatePill(R.string.state_no_lyrics, import = true)
-                LyricsState.Unavailable -> StatePill(R.string.state_unavailable, import = true)
-                LyricsState.Offline -> StatePill(R.string.state_offline, glyph = Glyph.OFFLINE)
+                LyricsState.NotFound -> StatePill(R.string.state_no_lyrics, import = true, timed = true)
+                LyricsState.Unavailable -> StatePill(R.string.state_unavailable, import = true, timed = true)
+                LyricsState.Offline -> StatePill(R.string.state_offline, glyph = Glyph.OFFLINE, timed = true)
                 is LyricsState.Ready -> when {
                     s.lyrics.kind == LyricsKind.INSTRUMENTAL -> StatePill(R.string.state_instrumental, glyph = Glyph.NOTE, timed = true)
-                    s.lyrics.kind != LyricsKind.PLAIN && s.lyrics.lines.isEmpty() -> StatePill(R.string.state_no_lyrics, import = true)
+                    // unsynced text is clutter by default; a short notice says so instead
+                    s.lyrics.kind == LyricsKind.PLAIN && !settings.paragraphLyrics -> StatePill(R.string.state_unsynced, import = true, timed = true)
+                    s.lyrics.kind != LyricsKind.PLAIN && s.lyrics.lines.isEmpty() -> StatePill(R.string.state_no_lyrics, import = true, timed = true)
                     else -> null
                 }
             }
@@ -201,7 +207,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
         val ready = state as? LyricsState.Ready
         when {
             current == null || ready == null -> Unit
-            ready.lyrics.kind == LyricsKind.PLAIN -> PlainLyricsView(ready.lyrics.plainText, vm.clock, current.durationMs)
+            ready.lyrics.kind == LyricsKind.PLAIN && settings.paragraphLyrics -> PlainLyricsView(ready.lyrics.plainText, vm.clock, current.durationMs)
             ready.lyrics.isSynced && ready.lyrics.lines.isNotEmpty() -> {
                 val s = ready
                 LyricStage(
@@ -211,7 +217,6 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         playSeed = seed,
                         lockedTemplate = settings.template,
                         fontScale = settings.fontScale,
-                        lyricFont = settings.lyricFont,
                         glass = settings.glass,
                         frost = settings.frost,
                         highlightIntensity = settings.highlightIntensity,
@@ -231,7 +236,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     )
             }
         }
-        // a timed pill (instrumental) goes away by itself, once per song
+        // a timed pill (instrumental, no lyrics, offline) goes away by itself, once per song
         val pillKey = current?.let { it.title + "|" + it.artist } to pill
         var pillGone by remember(pillKey) { mutableStateOf(false) }
         if (pill != null) {

@@ -1,11 +1,5 @@
-Copyright 2022 The Unbounded Project Authors (https://github.com/googlefonts/unbounded)
-Copyright 2022 The Instrument Sans Project Authors (https://github.com/Instrument/instrument-sans)
 Copyright 2022 The Bricolage Grotesque Project Authors (https://github.com/ateliertriay/bricolage)
-Copyright 2019 The Big Shoulders Project Authors (https://github.com/xotypeco/big_shoulders)
-Copyright 2019 The Syne Project Authors (https://gitlab.com/bonjour-monde/fonderie/syne-typeface)
-Copyright 2019 The Darker Grotesque Project Authors (https://github.com/bettergui/DarkerGrotesque)
-Copyright 2021 The Familjen Grotesk Project Authors (https://github.com/Familjen-Sthlm/Familjen-Grotesk)
-Copyright 2023 The Schibsted-Grotesk Project Authors (https://github.com/schibsted/schibsted-grotesk)
+Copyright 2021 The Anek Project Authors (https://github.com/EkType/Anek)
 
 This Font Software is licensed under the SIL Open Font License, Version 1.1.
 This license is copied below, and is also available with a FAQ at:

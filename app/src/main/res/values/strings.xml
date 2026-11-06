@@ -15,6 +15,7 @@
     <string name="state_no_session">Nothing playing</string>
     <string name="state_loading">Finding lyrics</string>
     <string name="state_no_lyrics">No lyrics found</string>
+    <string name="state_unsynced">No synced lyrics</string>
     <string name="state_unavailable">Lyrics service unreachable</string>
     <string name="state_offline">Offline · saved lyrics still work</string>
     <string name="state_instrumental">Instrumental</string>
@@ -54,10 +55,9 @@
     <string name="settings_template">Layout</string>
     <string name="settings_look">Look</string>
     <string name="settings_playback">Playback and motion</string>
-    <string name="settings_fonts">Fonts</string>
     <string name="settings_data">Lyrics and storage</string>
-    <string name="settings_lyric_font">Lyrics</string>
-    <string name="settings_app_font">App</string>
+    <string name="settings_unsynced">Unsynced lyrics</string>
+    <string name="hint_unsynced">Scroll the whole text for songs without timing</string>
     <string name="settings_pools">Pools</string>
     <string name="settings_ripple_strength">Ripple strength</string>
     <string name="settings_glass">Glass lyrics</string>

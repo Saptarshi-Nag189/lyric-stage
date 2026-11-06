@@ -11,29 +11,17 @@ import androidx.compose.ui.unit.em
 import com.lyricstage.R
 import com.lyricstage.core.text.Script
 
-/** Typefaces for Latin lyrics, picked in Settings. All bundled, SIL Open Font License. */
-enum class LyricFont(val label: String) {
-    UNBOUNDED("Unbounded"), BRICOLAGE("Bricolage"), BIG_SHOULDERS("Big Shoulders"), SYNE("Syne"), DARKER("Darker Grotesque");
-
-    companion object {
-        fun fromName(name: String?) = entries.firstOrNull { it.name == name } ?: UNBOUNDED
-    }
-}
-
-/** Typefaces for the app's own screens, picked in Settings. */
-enum class AppFont(val label: String) {
-    INSTRUMENT("Instrument Sans"), BRICOLAGE("Bricolage"), FAMILJEN("Familjen Grotesk"), SCHIBSTED("Schibsted Grotesk"), DARKER("Darker Grotesque");
-
-    companion object {
-        fun fromName(name: String?) = entries.firstOrNull { it.name == name } ?: INSTRUMENT
-    }
-}
-
-/** Bundled variable fonts. Weights and optical sizes are set through their axes. */
+/**
+ * Typefaces. One family for everything Latin and every app screen - Bricolage, a variable
+ * grotesque with ink traps, set at real weights through its axes - and one Anek family per
+ * Indic script, applied automatically from the lyrics text; its even proportions across
+ * scripts keep mixed-language songs coherent. Japanese and Korean use the system's own CJK
+ * typeface (Noto Sans CJK on most phones): full quality, every glyph, no megabyte font
+ * shipped in the APK. All bundled fonts are under the SIL Open Font License.
+ */
 object StageFonts {
     /** A variable family at real weights: the stage renders heavy, so Indic lyrics get
-     *  genuinely bold cuts through the wght axis like the Latin lyric fonts, not a
-     *  default-weight instance. */
+     *  genuinely bold cuts through the wght axis like Bricolage, not a default-weight instance. */
     private fun vfam(res: Int) = FontFamily(
         cut(res, FontWeight.Black, 800, 800),
         cut(res, FontWeight.SemiBold, 600, 800),
@@ -49,59 +37,22 @@ object StageFonts {
         return Font(res, slot, variationSettings = settings)
     }
 
-    private class Spec(val res: Int, val max: Int, val opsz: Boolean = false)
-
-    private fun spec(f: LyricFont) = when (f) {
-        LyricFont.UNBOUNDED -> Spec(R.font.unbounded, 900)
-        LyricFont.BRICOLAGE -> Spec(R.font.bricolage, 800, opsz = true)
-        LyricFont.BIG_SHOULDERS -> Spec(R.font.big_shoulders, 900)
-        LyricFont.SYNE -> Spec(R.font.syne, 800)
-        LyricFont.DARKER -> Spec(R.font.darker_grotesque, 900)
-    }
-
-    private fun spec(f: AppFont) = when (f) {
-        AppFont.INSTRUMENT -> Spec(R.font.instrument_sans, 700)
-        AppFont.BRICOLAGE -> Spec(R.font.bricolage, 800, opsz = true)
-        AppFont.FAMILJEN -> Spec(R.font.familjen_grotesk, 700)
-        AppFont.SCHIBSTED -> Spec(R.font.schibsted_grotesk, 900)
-        AppFont.DARKER -> Spec(R.font.darker_grotesque, 900)
-    }
-
-    private val lyricFamilies = HashMap<LyricFont, FontFamily>()
-    private val appFamilies = HashMap<AppFont, FontFamily>()
-
-    /** Lyrics in [f]: the heaviest cut for words, lighter ones for subtitles. */
-    @Synchronized
-    fun lyrics(f: LyricFont): FontFamily = lyricFamilies.getOrPut(f) {
-        val s = spec(f)
-        FontFamily(
-            cut(s.res, FontWeight.Black, 900, s.max, if (s.opsz) 96f else null),
-            cut(s.res, FontWeight.SemiBold, 600, s.max, if (s.opsz) 48f else null),
-            cut(s.res, FontWeight.Medium, 500, s.max, if (s.opsz) 36f else null),
-        )
-    }
-
-    /** The app's screens in [f]: every weight the theme uses, text optical sizes where offered. */
-    @Synchronized
-    fun app(f: AppFont): FontFamily = appFamilies.getOrPut(f) {
-        val s = spec(f)
-        FontFamily(
-            cut(s.res, FontWeight.Normal, 400, s.max, if (s.opsz) 14f else null),
-            cut(s.res, FontWeight.Medium, 500, s.max, if (s.opsz) 14f else null),
-            cut(s.res, FontWeight.SemiBold, 600, s.max, if (s.opsz) 18f else null),
-            cut(s.res, FontWeight.Bold, 700, s.max, if (s.opsz) 24f else null),
-            cut(s.res, FontWeight.ExtraBold, 800, s.max, if (s.opsz) 36f else null),
-            cut(s.res, FontWeight.Black, 900, s.max, if (s.opsz) 72f else null),
-        )
-    }
-
-    /** The lyric font in use; set from Settings before the stage is laid out. */
-    @Volatile var lyricFont: LyricFont = LyricFont.UNBOUNDED
+    /**
+     * Bricolage at every weight the theme and the stage use: text optical sizes for the
+     * small UI, display sizes for the words. Its wght axis runs 200-800, so the Black slots
+     * clamp to 800 - the heaviest cut it has.
+     */
+    val bricolage = FontFamily(
+        cut(R.font.bricolage, FontWeight.Normal, 400, 800, opsz = 16f),
+        cut(R.font.bricolage, FontWeight.Medium, 500, 800, opsz = 16f),
+        cut(R.font.bricolage, FontWeight.SemiBold, 600, 800, opsz = 32f),
+        cut(R.font.bricolage, FontWeight.Bold, 700, 800, opsz = 56f),
+        cut(R.font.bricolage, FontWeight.ExtraBold, 800, 800, opsz = 72f),
+        cut(R.font.bricolage, FontWeight.Black, 900, 800, opsz = 96f),
+    )
 
     // Anek for the nine Indic scripts, one family per script, applied automatically from
-    // the lyrics text; its even proportions across scripts keep mixed-language songs coherent.
-    // Japanese and Korean use the system's own CJK typeface (Noto Sans CJK on most phones):
-    // full quality, every glyph, and no 9 MB font shipped in the APK
+    // the lyrics text
     private val devanagari = vfam(R.font.anek_devanagari)
     private val bangla = vfam(R.font.anek_bangla)
     private val gurmukhi = vfam(R.font.anek_gurmukhi)
@@ -123,7 +74,7 @@ object StageFonts {
         Script.KANNADA -> kannada
         Script.MALAYALAM -> malayalam
         Script.JAPANESE, Script.KOREAN -> FontFamily.SansSerif
-        else -> lyrics(lyricFont)
+        else -> bricolage
     }
 
     /** Stage word style at an exact pixel size. */

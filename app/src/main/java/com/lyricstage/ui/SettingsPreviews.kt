@@ -4,13 +4,11 @@ import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -20,63 +18,23 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
-import com.lyricstage.R
 import com.lyricstage.background.BackgroundClock
 import com.lyricstage.background.RippleEmitter
 import com.lyricstage.background.StageBackground
 import com.lyricstage.core.palette.StagePalette
 import com.lyricstage.core.stage.Ripple
 import com.lyricstage.settings.BackgroundMode
-import com.lyricstage.stage.AppFont
-import com.lyricstage.stage.LyricFont
 import com.lyricstage.stage.StageFonts
 import com.lyricstage.stage.drawGlassText
 import com.lyricstage.ui.theme.Ui
 import kotlinx.coroutines.delay
 import kotlin.random.Random
-
-/** A lyric line in the chosen lyric font, then a slice of the app in the chosen app font. */
-@Composable
-fun FontPreview(lyricFont: LyricFont, appFont: AppFont, palette: StagePalette) {
-    val lyrics = remember(lyricFont) { StageFonts.lyrics(lyricFont) }
-    val app = remember(appFont) { StageFonts.app(appFont) }
-    val text = Color(palette.text)
-    val hl = Color(palette.accents.first())
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(20.dp)).background(Color(palette.base)).padding(18.dp),
-    ) {
-        Text(
-            buildAnnotatedString {
-                append("Never gonna ")
-                withStyle(SpanStyle(color = hl)) { append("give") }
-                withStyle(SpanStyle(color = text.copy(alpha = 0.32f))) { append(" you up") }
-            },
-            color = text,
-            style = TextStyle(fontFamily = lyrics, fontWeight = FontWeight.Black, fontSize = 34.sp, lineHeight = 36.sp),
-        )
-        Text(
-            stringResource(R.string.settings_battery_saver),
-            color = Ui.Text,
-            style = TextStyle(fontFamily = app, fontWeight = FontWeight.SemiBold, fontSize = 16.sp),
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        Text(
-            stringResource(R.string.hint_battery_saver),
-            color = Ui.Muted,
-            style = TextStyle(fontFamily = app, fontWeight = FontWeight.Normal, fontSize = 13.sp),
-        )
-    }
-}
 
 /**
  * A small live stage: the background with its own ripples, and a sung word drawn with the
@@ -91,7 +49,6 @@ fun BackgroundPreview(
     rippleStrength: Float,
     glass: Float,
     frost: Float,
-    lyricFont: LyricFont,
     reduceMotion: Boolean,
 ) {
     val clock = remember { BackgroundClock() }
@@ -106,7 +63,7 @@ fun BackgroundPreview(
         }
     }
     val measurer = rememberTextMeasurer()
-    val family = remember(lyricFont) { StageFonts.lyrics(lyricFont) }
+    val family = StageFonts.bricolage
     val text = Color(palette.text)
     val hl = lerp(text, Color(palette.accents.first()), 0.85f)
 
