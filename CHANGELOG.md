@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [1.1.8] - 2026-11-07
 
 ### Changed
 - The lyrics lookup is a chain in a fixed order instead of a race: Musixmatch is asked
