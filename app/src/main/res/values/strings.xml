@@ -64,6 +64,9 @@
 
     <!-- Settings -->
     <string name="settings_template">Layout</string>
+    <string name="hint_layout_lock">Tap a layout to lock it, or leave Auto on to vary line by line</string>
+    <string name="settings_auto_pool">Auto rotation</string>
+    <string name="hint_auto_pool">Auto picks from the layouts you leave on; the last one stays on. What Auto uses for each line is unchanged: the pace, the length, the chorus.</string>
     <string name="settings_look">Look</string>
     <string name="settings_playback">Playback and motion</string>
     <string name="settings_data">Lyrics and storage</string>
@@ -72,7 +75,10 @@
     <string name="settings_pools">Pools</string>
     <string name="settings_ripple_strength">Ripple strength</string>
     <string name="settings_glass">Glass lyrics</string>
+    <string name="settings_glass_section">Glass</string>
     <string name="settings_frost">Frost</string>
+    <string name="settings_glass_ui">Glass controls</string>
+    <string name="hint_glass_ui">The controls and the queue as liquid glass over the stage, on the liquid background</string>
     <string name="settings_motion">Motion and battery</string>
     <string name="settings_background">Background</string>
     <string name="background_liquid">Liquid</string>
@@ -83,7 +89,6 @@
     <string name="ripples_beats">Beats</string>
     <string name="hint_ripples_beats">Uses the microphone</string>
     <string name="settings_font_scale">Text size</string>
-    <string name="settings_fonts">Fonts</string>
     <string name="settings_lyric_font">Lyrics font</string>
     <string name="hint_lyric_font">The typeface of the lyrics on the stage. Hindi, Bangla and the other Indian scripts always use Anek, Japanese and Korean the phone\'s own font, whatever this is set to. The app\'s own screens use Bricolage.</string>
     <string name="hint_font_sample">The quick brown fox jumps over the lazy dog</string>

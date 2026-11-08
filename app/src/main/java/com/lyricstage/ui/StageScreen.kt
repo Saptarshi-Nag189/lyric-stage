@@ -2,6 +2,7 @@ package com.lyricstage.ui
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -22,9 +23,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.IntSize
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -32,12 +35,15 @@ import androidx.lifecycle.compose.currentStateAsState
 import androidx.core.content.ContextCompat
 import com.lyricstage.R
 import com.lyricstage.audio.AudioOnsets
+import com.lyricstage.background.GlassTextEffect
+import com.lyricstage.background.LiquidGlassField
 import com.lyricstage.background.BackgroundClock
 import com.lyricstage.background.RippleEmitter
 import com.lyricstage.background.StageBackground
+import com.lyricstage.background.StageGlassText
 import com.lyricstage.core.lyrics.LyricsKind
-import com.lyricstage.core.stage.Ripple
 import com.lyricstage.lyrics.LyricsState
+import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.settings.RippleMode
 import com.lyricstage.stage.LyricStage
 import com.lyricstage.ui.theme.Ui
@@ -173,10 +179,25 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     }
     val pickLrc = { importLauncher.launch(arrayOf("*/*")) }
 
+    // the shared liquid field: the background renders it, the glass lyrics look through it,
+    // the glass panels are cut from it. Only the liquid background has one to share, and
+    // the glass-text effect is made here with the field, behind one API check.
+    val liquidGlass = remember(settings.background, saver) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && settings.background == BackgroundMode.LIQUID && !saver) {
+            val f = LiquidGlassField()
+            f to GlassTextEffect(f) as StageGlassText
+        } else {
+            null
+        }
+    }
+    val liquidField = liquidGlass?.first
+    var stageSize by remember { mutableStateOf(IntSize.Zero) }
+
     ImmersiveStage(keepOn = keepAwake)
     Box(
         Modifier
             .fillMaxSize()
+            .onSizeChanged { stageSize = it }
             .pointerInput(Unit) {
                 // a tap only: no long-press or swipe handling, so system gestures (swipe up
                 // to go home or to recents) never change anything on the stage
@@ -195,6 +216,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
             black = saver,
             pools = settings.pools,
             rippleStrength = settings.rippleStrength,
+            field = liquidField,
         )
 
         val current = np
@@ -231,21 +253,23 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         palette = palette,
                         playSeed = seed,
                         lockedTemplate = settings.template,
+                        pool = settings.autoPool,
                         fontScale = settings.fontScale,
                         lyricFont = settings.lyricFont,
                         glass = settings.glass,
                         frost = settings.frost,
                         highlightIntensity = settings.highlightIntensity,
                         reduceMotion = reduceMotion || saver,
-                        isPlaying = current.isPlaying,
+                        isPlaying = current.isPlaying && foreground,
                         anchor = current.positionMs xor current.positionUpdateTimeMs,
                         simple = saver,
                         dimmed = controlsVisible,
+                        glassText = liquidGlass?.second,
                         showFps = settings.showFps,
                         onRipple = {
-                            // with beat ripples, sung words keep only the light sweep on a new line
+                            // sung words ripple the glass; with beat ripples the words stay
+                            // quiet and only the music is heard
                             if (!beatRipples) ripples.emit(it, bgClock.seconds())
-                            else if (it.newLine) ripples.emit(Ripple(it.x, it.y, 0f, true), bgClock.seconds())
                         },
                         onVisibleTemplate = {},
                         audio = if (audioActive) audio else null,
@@ -293,6 +317,8 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     settings = settings,
                     accent = accent,
                     queue = queue,
+                    field = if (settings.glassUi && !saver) liquidField else null,
+                    stageSize = stageSize,
                     shuffleOn = shuffleOn,
                     repeatMode = repeatMode,
                     onInteract = { interactions++ },
@@ -322,6 +348,9 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                 QueuePanel(
                     queue = q,
                     accent = accent,
+                    field = if (settings.glassUi && !saver) liquidField else null,
+                    stageSize = stageSize,
+                    frost = settings.frost,
                     onSkip = {
                         vm.skipToQueueItem(it)
                         queueOpen = false

@@ -29,10 +29,11 @@ class StagePlan(
             locked: TemplateId?,
             reduceMotion: Boolean,
             fontScale: Float = 1f,
+            pool: Collection<TemplateId> = TemplateId.entries,
         ): StagePlan {
             val lines = lyrics.lines
             val measured = lines.map { MeasuredLine.measure(it, measure) }
-            val templates = TemplateChooser.chooseAll(lines, playSeed, locked, reduceMotion)
+            val templates = TemplateChooser.chooseAll(lines, playSeed, locked, reduceMotion, pool)
             val layouts = lines.indices.map { i ->
                 val seed = playSeed xor Rng.hash(lines[i].text)
                 Templates.of(templates[i]).layout(measured[i], stage, seed, fontScale)

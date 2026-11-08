@@ -81,6 +81,9 @@ fun StageBackground(
     pools: Float = 1f,
     /** Ripple strength, 0 to 2 (Settings). */
     rippleStrength: Float = 1f,
+    /** The shared liquid field, so glass lyrics and glass panels see this background.
+     *  Null makes its own - a preview, or nothing else needs to look through it. */
+    field: LiquidGlassField? = null,
 ) {
     clock.speed = if (reduceMotion) 0.25f else 1f
     if (black) {
@@ -96,7 +99,7 @@ fun StageBackground(
         when {
             mode == BackgroundMode.SOLID -> Canvas(Modifier.fillMaxSize()) { drawRect(Color(shownBase)) }
             mode == BackgroundMode.ARTWORK && art != null -> ArtworkBlur(art, shownBase)
-            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock, animate, pools, rippleStrength)
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU -> LiquidGlass(palette, ripples, clock, animate, pools, rippleStrength, field)
             else -> GradientFallback(palette, clock, animate, pools)
         }
         // the lyrics' own shadow carries their readability on any background colour, so no
@@ -107,9 +110,19 @@ fun StageBackground(
 /** Liquid glass on API 33+, rendered at a third of the resolution and scaled up (it is soft). */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 @Composable
-private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: BackgroundClock, animate: Boolean, pools: Float, rippleStrength: Float) {
-    val shader = remember { RuntimeShader(LIQUID_GLASS_AGSL) }
-    val brush = remember(shader) { ShaderBrush(shader) }
+private fun LiquidGlass(
+    palette: StagePalette,
+    ripples: RippleEmitter,
+    clock: BackgroundClock,
+    animate: Boolean,
+    pools: Float,
+    rippleStrength: Float,
+    field: LiquidGlassField?,
+) {
+    // the field is shared with the glass lyrics and the glass panels when there is one;
+    // otherwise this background keeps its own
+    val f = field ?: remember { LiquidGlassField() }
+    val brush = remember(f) { ShaderBrush(f.shader) }
     var full by remember { mutableStateOf(IntSize.Zero) }
     val time = remember { mutableFloatStateOf(0f) }
     LaunchedEffect(animate) { animateTime(time, clock, animate) }
@@ -130,25 +143,11 @@ private fun LiquidGlass(palette: StagePalette, ripples: RippleEmitter, clock: Ba
                     scaleY = full.height / h.toFloat()
                 },
         ) {
-            shader.setFloatUniform("uRes", size.width, size.height)
-            shader.setFloatUniform("uTime", time.floatValue)
-            shader.setColorUniforms(palette)
-            shader.setFloatUniform("uRip", ripples.data)
-            shader.setFloatUniform("uLineT", ripples.lineAt)
-            shader.setFloatUniform("uPools", pools)
-            shader.setFloatUniform("uRipple", rippleStrength)
+            // the sync carries the field to the glass lyrics and the glass panels too
+            f.sync(palette, ripples.data, time.floatValue, pools, rippleStrength, size.width, size.height, full.width.toFloat(), full.height.toFloat())
             drawRect(brush)
         }
     }
-}
-
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
-private fun RuntimeShader.setColorUniforms(p: StagePalette) {
-    fun set(name: String, c: Int) = setFloatUniform(name, Colour.red(c) / 255f, Colour.green(c) / 255f, Colour.blue(c) / 255f)
-    set("uC0", p.accents[0])
-    set("uC1", p.accents.getOrElse(1) { p.accents[0] })
-    set("uC2", p.accents.getOrElse(2) { p.accents[0] })
-    set("uBase", p.base)
 }
 
 /** Below API 33: slowly drifting radial pools of the accent colours. */

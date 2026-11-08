@@ -19,6 +19,9 @@ class StageFrame {
 
     /** Audio sync correction applied to estimated word times this frame. */
     var wordShiftMs = 0L
+
+    /** Rim width for the glass-text shader, from the current line's font size. */
+    var glassEdge = 3.5f
     val aligner = com.lyricstage.audio.WordAligner()
     val onsetScratch = ArrayList<Long>(16)
 

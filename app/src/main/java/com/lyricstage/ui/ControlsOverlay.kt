@@ -46,9 +46,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyricstage.R
+import com.lyricstage.background.LiquidGlassField
 import com.lyricstage.core.clock.PlaybackClock
 import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.media.NowPlaying
@@ -59,8 +61,10 @@ import kotlinx.coroutines.delay
 
 /**
  * Tap-to-show controls. Top: artwork, title, the queue, settings and the layout pills.
- * Bottom, in one floating card above the gesture area: seek bar, times, and the transport
- * with shuffle and repeat flanking it, the way a music player lays them out. On wide
+ * Bottom, one glass card above the gesture area: seek bar, times, and the transport with
+ * shuffle and repeat flanking it, the way a music player lays them out. The card is cut
+ * from the same liquid field as the background behind it when glass controls are on, so
+ * it reads as glass lying over the stage; otherwise it is the quiet dark card. On wide
  * screens the card and the header sit in a centred column, not stretched edge to edge.
  */
 @Composable
@@ -70,6 +74,9 @@ fun ControlsOverlay(
     settings: StageSettings,
     accent: Color,
     queue: QueueState?,
+    /** The shared liquid field; null leaves the plain card. */
+    field: LiquidGlassField?,
+    stageSize: IntSize,
     shuffleOn: Boolean,
     /** 0 off, 1 repeat one, 2 repeat all. */
     repeatMode: Int,
@@ -135,17 +142,19 @@ fun ControlsOverlay(
             }
         }
 
-        Column(
-            Modifier
+        GlassPanel(
+            frost = settings.frost,
+            corner = 32.dp,
+            stageSize = stageSize,
+            field = field,
+            modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .then(column)
                 // in immersive mode the nav bar inset is 0; keep clear of the swipe-up gesture zone
                 .windowInsetsPadding(WindowInsets.mandatorySystemGestures)
-                .padding(start = 12.dp, end = 12.dp, bottom = 20.dp)
-                .clip(RoundedCornerShape(32.dp))
-                .background(Ui.Card.copy(alpha = 0.86f))
-                .padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 16.dp),
+                .padding(start = 12.dp, end = 12.dp, bottom = 20.dp),
         ) {
+            Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 16.dp)) {
             if (duration > 0) {
                 Slider(
                     value = dragging ?: (position.toFloat() / duration).coerceIn(0f, 1f),
@@ -194,6 +203,7 @@ fun ControlsOverlay(
                     stringResource(when (repeatMode) { 1 -> R.string.repeat_one; 2 -> R.string.repeat_all; else -> R.string.repeat_off }),
                     44, if (repeatMode != 0) accent else sideTint,
                 ) { onRepeat(if (repeatMode == 0) 2 else if (repeatMode == 2) 1 else 0); onInteract() }
+            }
             }
         }
     }

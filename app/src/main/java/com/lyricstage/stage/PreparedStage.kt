@@ -65,6 +65,7 @@ class PreparedStage(
             locked: TemplateId?,
             reduceMotion: Boolean,
             fontScale: Float,
+            pool: Collection<TemplateId> = TemplateId.entries,
         ): PreparedStage = coroutineScope {
             val workers = workerCount()
             val measurers = List(workers) { TextMeasurer(resolver, density, LayoutDirection.Ltr, 0) }
@@ -84,7 +85,7 @@ class PreparedStage(
                 }.awaitAll()
             }
             val plan = StagePlan.build(
-                lyrics, LookupMeasure(cache, measurers[0], density), stage, playSeed, locked, reduceMotion, fontScale,
+                lyrics, LookupMeasure(cache, measurers[0], density), stage, playSeed, locked, reduceMotion, fontScale, pool,
             )
 
             // Pass 2 — final-size layouts, a line per task from a shared counter

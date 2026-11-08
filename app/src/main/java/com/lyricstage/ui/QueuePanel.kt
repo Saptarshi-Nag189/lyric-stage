@@ -18,16 +18,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -36,6 +35,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyricstage.R
+import com.lyricstage.background.LiquidGlassField
 import com.lyricstage.media.QueueState
 import com.lyricstage.ui.theme.Ui
 
@@ -43,11 +43,16 @@ import com.lyricstage.ui.theme.Ui
  * The player's own queue, as the media session reports it: the song playing is marked,
  * tapping a song jumps the player to it. On a wide screen (tablets, landscape) the list
  * stands at the right of the stage; on a phone it rises from the bottom above the controls.
+ * Glass controls make the panel a pane of the same liquid field the stage is showing.
  */
 @Composable
 fun QueuePanel(
     queue: QueueState,
     accent: Color,
+    /** The shared liquid field; null leaves the plain card. */
+    field: LiquidGlassField?,
+    stageSize: IntSize,
+    frost: Float,
     onSkip: (Long) -> Unit,
     onClose: () -> Unit,
 ) {
@@ -60,19 +65,25 @@ fun QueuePanel(
         if (i >= 0) listState.scrollToItem((i - 2).coerceAtLeast(0))
     }
 
-    val panel = Modifier
+    val base = Modifier
         .then(
             if (wide) Modifier.fillMaxHeight().width(380.dp).padding(vertical = 12.dp, horizontal = 12.dp)
             else Modifier.fillMaxWidth().heightIn(max = 560.dp).padding(horizontal = 12.dp, vertical = 12.dp)
         )
-        .clip(RoundedCornerShape(28.dp))
-        .background(Ui.Card.copy(alpha = 0.97f))
 
-    Column(
-        panel
-            .then(if (wide) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
-            .padding(top = 18.dp, bottom = 8.dp),
+    GlassPanel(
+        frost = frost,
+        corner = 28.dp,
+        stageSize = stageSize,
+        field = field,
+        fallback = Ui.Card.copy(alpha = 0.97f),
+        modifier = base,
     ) {
+        Column(
+            Modifier
+                .then(if (wide) Modifier.statusBarsPadding().navigationBarsPadding() else Modifier)
+                .padding(top = 18.dp, bottom = 8.dp),
+        ) {
         Row(Modifier.fillMaxWidth().padding(start = 20.dp, end = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.queue), color = Ui.Text, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, maxLines = 1)
@@ -99,6 +110,7 @@ fun QueuePanel(
             }
         }
         if (!wide) Spacer(Modifier.navigationBarsPadding())
+        }
     }
 }
 

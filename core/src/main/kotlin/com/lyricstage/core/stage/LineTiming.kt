@@ -6,7 +6,7 @@ import com.lyricstage.core.lyrics.Lyrics
 
 /** Timing rules shared by every template. */
 object LineTiming {
-    /** Quick exit: the line fades and lifts away over this long before its end. */
+    /** Quick exit: the line fades away over this long before its end. */
     const val EXIT_MS = 220L
 
     fun enterAtMs(line: LyricLine): Long = (line.words.firstOrNull()?.startMs ?: line.startMs) - ENTRY_LEAD_MS
@@ -28,7 +28,7 @@ object LineTiming {
 }
 
 /** A soft ripple to emit in the background where a word was just sung. */
-class Ripple(val x: Float, val y: Float, val strength: Float, val newLine: Boolean)
+class Ripple(val x: Float, val y: Float, val strength: Float)
 
 /**
  * Detects words whose start time was crossed since the last frame. Large jumps (seeks)
@@ -56,7 +56,6 @@ class RippleTracker(private val maxStepMs: Long = 500) {
                     x = w.centreX / plan.stage.width,
                     y = w.centreY / plan.stage.height,
                     strength = if (w.index in plan.highlights[li]) 1f else 0.6f,
-                    newLine = w.index == 0,
                 )
             }
         }

@@ -52,6 +52,10 @@ data class StageSettings(
     val glass: Float = 0f,
     /** Frosting of glass lyrics: 0 clear, 1 milky. */
     val frost: Float = 0.4f,
+    /** The controls and the queue as liquid glass over the stage. */
+    val glassUi: Boolean = true,
+    /** The layouts Auto picks from, when no template is locked. Empty means all of them. */
+    val autoPool: Set<TemplateId> = TemplateId.entries.toSet(),
 )
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
@@ -81,6 +85,8 @@ class SettingsStore(private val context: Context) {
             putFloat(K_RIPPLE_STRENGTH, next.rippleStrength)
             putFloat(K_GLASS, next.glass)
             putFloat(K_FROST, next.frost)
+            putBoolean(K_GLASS_UI, next.glassUi)
+            putString(K_AUTO_POOL, next.autoPool.joinToString(",") { it.name })
         }
         _settings.value = next
     }
@@ -108,6 +114,9 @@ class SettingsStore(private val context: Context) {
         rippleStrength = prefs.getFloat(K_RIPPLE_STRENGTH, 1f),
         glass = prefs.getFloat(K_GLASS, 0f),
         frost = prefs.getFloat(K_FROST, 0.4f),
+        glassUi = prefs.getBoolean(K_GLASS_UI, true),
+        autoPool = prefs.getString(K_AUTO_POOL, null)
+            ?.split(',')?.mapNotNull(TemplateId::fromName)?.toSet().orEmpty(),
     )
 
     private companion object {
@@ -129,5 +138,7 @@ class SettingsStore(private val context: Context) {
         const val K_RIPPLE_STRENGTH = "ripple_strength"
         const val K_GLASS = "glass"
         const val K_FROST = "frost"
+        const val K_GLASS_UI = "glass_ui"
+        const val K_AUTO_POOL = "auto_pool"
     }
 }

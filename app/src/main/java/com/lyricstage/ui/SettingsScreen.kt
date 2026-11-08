@@ -75,6 +75,7 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     val lyrics by vm.lyrics.collectAsStateWithLifecycle()
     val palette by vm.palette.collectAsStateWithLifecycle()
     val offset by vm.offset.collectAsStateWithLifecycle()
+    val settings by vm.settings.collectAsStateWithLifecycle()
     val accent = Ui.accent(palette)
     val context = LocalContext.current
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -118,10 +119,24 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                 })
             }
 
+            Spacer(Modifier.height(16.dp))
+
+            // the layout lock one tap from the top of Settings, the same pills as on the
+            // stage: the app's own control, kept out in front rather than a link away
+            UiCard {
+                Text(stringResource(R.string.settings_template), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Spacer(Modifier.height(10.dp))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChoicePill(stringResource(R.string.template_auto), settings.template == null, accent, { vm.setTemplate(null) })
+                    TemplateId.entries.forEach { id -> ChoicePill(id.label, settings.template == id, accent, { vm.setTemplate(id) }) }
+                }
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.hint_layout_lock), color = Ui.Muted, fontSize = 13.sp, lineHeight = 18.sp)
+            }
+
             Spacer(Modifier.height(24.dp))
             UiCard(padding = 0) {
                 LinkRow(stringResource(R.string.settings_look), { onOpen(Screen.LOOK) }, divider = false)
-                LinkRow(stringResource(R.string.settings_fonts), { onOpen(Screen.FONTS) })
                 LinkRow(stringResource(R.string.settings_playback), { onOpen(Screen.PLAYBACK) })
                 LinkRow(stringResource(R.string.settings_data), { onOpen(Screen.DATA) })
                 LinkRow(stringResource(R.string.settings_spotify), { onOpen(Screen.SPOTIFY) })
@@ -221,7 +236,7 @@ private fun ThisSongCard(
     }
 }
 
-/** Look: layouts, background with its live preview, pools, ripples, glass and text size. */
+/** Look: the Auto rotation, the background with its live preview, glass, typeface and size. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit) {
@@ -234,14 +249,22 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
     val beatPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     SettingsPage(stringResource(R.string.settings_look), onBack) {
+        // what Auto picks from; the lock itself is on the stage and at the top of Settings
         UiCard {
-            Text(stringResource(R.string.settings_template), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(stringResource(R.string.settings_auto_pool), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                ChoicePill(stringResource(R.string.template_auto), s.template == null, accent, { vm.setTemplate(null) })
-                TemplateId.entries.forEach { id -> ChoicePill(id.label, s.template == id, accent, { vm.setTemplate(id) }) }
+                val shown = s.autoPool.ifEmpty { TemplateId.entries.toSet() }
+                TemplateId.entries.forEach { id ->
+                    ChoicePill(id.label, id in shown, accent, { vm.toggleAutoPool(id) })
+                }
             }
-            Spacer(Modifier.height(20.dp))
+            Spacer(Modifier.height(12.dp))
+            Text(stringResource(R.string.hint_auto_pool), color = Ui.Muted, fontSize = 13.sp, lineHeight = 18.sp)
+        }
+        Spacer(Modifier.height(12.dp))
+
+        UiCard {
             Text(stringResource(R.string.settings_background), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
             Segmented(
@@ -258,12 +281,6 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
             PercentSlider(stringResource(R.string.settings_pools), s.pools, 0f..2f, 0, accent) { v -> vm.updateSettings { it.copy(pools = v) } }
             Spacer(Modifier.height(12.dp))
             PercentSlider(stringResource(R.string.settings_ripple_strength), s.rippleStrength, 0f..2f, 0, accent) { v -> vm.updateSettings { it.copy(rippleStrength = v) } }
-            Spacer(Modifier.height(12.dp))
-            PercentSlider(stringResource(R.string.settings_glass), s.glass, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(glass = v) } }
-            if (s.glass > 0.01f) {
-                Spacer(Modifier.height(12.dp))
-                PercentSlider(stringResource(R.string.settings_frost), s.frost, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(frost = v) } }
-            }
             Spacer(Modifier.height(20.dp))
             Text(stringResource(R.string.settings_ripples), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
@@ -281,23 +298,26 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
             if (s.ripples == RippleMode.BEATS) {
                 Text(stringResource(R.string.hint_ripples_beats), color = Ui.Muted, fontSize = 13.sp, modifier = Modifier.padding(top = 8.dp, start = 4.dp))
             }
-            Spacer(Modifier.height(20.dp))
-            PercentSlider(stringResource(R.string.settings_font_scale), s.fontScale, 0.6f..1.4f, 7, accent) { v -> vm.updateSettings { it.copy(fontScale = v) } }
-            Spacer(Modifier.height(12.dp))
-            PercentSlider(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
         }
-    }
-}
+        Spacer(Modifier.height(12.dp))
 
-/** Fonts: the stage's lyric typeface. The app's own screens stay on Bricolage. */
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun FontsPage(vm: StageViewModel, onBack: () -> Unit) {
-    val s by vm.settings.collectAsStateWithLifecycle()
-    val palette by vm.palette.collectAsStateWithLifecycle()
-    val accent = Ui.accent(palette)
+        // glass: the lyrics, the frost they share with the controls, and the controls
+        UiCard {
+            Text(stringResource(R.string.settings_glass_section), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(10.dp))
+            PercentSlider(stringResource(R.string.settings_glass), s.glass, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(glass = v) } }
+            if (s.glass > 0.01f || s.glassUi) {
+                Spacer(Modifier.height(12.dp))
+                PercentSlider(stringResource(R.string.settings_frost), s.frost, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(frost = v) } }
+            }
+            ToggleRow(
+                stringResource(R.string.settings_glass_ui), s.glassUi, accent, { on -> vm.updateSettings { it.copy(glassUi = on) } },
+                hint = stringResource(R.string.hint_glass_ui), divider = false,
+            )
+        }
+        Spacer(Modifier.height(12.dp))
 
-    SettingsPage(stringResource(R.string.settings_fonts), onBack) {
+        // the stage's lyric typeface; the app's own screens stay on Bricolage
         UiCard {
             Text(stringResource(R.string.settings_lyric_font), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
@@ -308,12 +328,12 @@ fun FontsPage(vm: StageViewModel, onBack: () -> Unit) {
             FontPreview(s.lyricFont, palette)
         }
         Spacer(Modifier.height(12.dp))
-        Text(
-            stringResource(R.string.hint_lyric_font),
-            color = Ui.Muted,
-            fontSize = 13.sp,
-            lineHeight = 18.sp,
-        )
+
+        UiCard {
+            PercentSlider(stringResource(R.string.settings_font_scale), s.fontScale, 0.6f..1.4f, 7, accent) { v -> vm.updateSettings { it.copy(fontScale = v) } }
+            Spacer(Modifier.height(12.dp))
+            PercentSlider(stringResource(R.string.settings_highlight), s.highlightIntensity, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(highlightIntensity = v) } }
+        }
     }
 }
 

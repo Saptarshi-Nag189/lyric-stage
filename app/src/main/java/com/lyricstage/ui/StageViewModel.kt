@@ -130,6 +130,20 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
 
     fun setTemplate(id: TemplateId?) = c.settings.update { it.copy(template = id) }
 
+    /**
+     * Adds or removes a layout from the set Auto picks from. An unset set means all of
+     * them, and the last one on stays on: Auto must always have something to choose.
+     */
+    fun toggleAutoPool(id: TemplateId) = c.settings.update {
+        val current = it.autoPool.ifEmpty { TemplateId.entries.toSet() }
+        val next = when {
+            id in current && current.size > 1 -> current - id
+            id !in current -> current + id
+            else -> return@update it
+        }
+        it.copy(autoPool = next)
+    }
+
     fun updateSettings(transform: (StageSettings) -> StageSettings) = c.settings.update(transform)
 
     fun systemReducesMotion(): Boolean = c.settings.systemReducesMotion()

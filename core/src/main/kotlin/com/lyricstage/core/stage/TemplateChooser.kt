@@ -15,24 +15,43 @@ import com.lyricstage.core.stage.TemplateId.ZOOM
  * Picks a template per line from its pace (words per second), its length and whether it is
  * a chorus (its text repeats). Never the same template twice in a row. Repeated lines get
  * the same template when they can, so a chorus looks familiar. Deterministic per play seed.
+ *
+ * [pool] is the set Auto picks from — the user's own selection of layouts. Empty means all
+ * of them, and a pool of one is allowed: the no-repeat rule then steps aside rather than
+ * leaving nothing to choose.
  */
 object TemplateChooser {
-    fun chooseAll(lines: List<LyricLine>, playSeed: Int, locked: TemplateId?, reduceMotion: Boolean): List<TemplateId> {
+    fun chooseAll(
+        lines: List<LyricLine>,
+        playSeed: Int,
+        locked: TemplateId?,
+        reduceMotion: Boolean,
+        pool: Collection<TemplateId> = TemplateId.entries,
+    ): List<TemplateId> {
         if (locked != null) {
             val fixed = if (reduceMotion && locked == SCATTER) STACK else locked
             return List(lines.size) { fixed }
         }
+        // reduce motion replaces Scatter with Stack in the pool too, the way a locked Scatter is
+        val allowed = pool.ifEmpty { TemplateId.entries }
+            .let { if (reduceMotion) it.map { t -> if (t == SCATTER) STACK else t }.toSet() else it.toSet() }
         val out = ArrayList<TemplateId>(lines.size)
         var prev: TemplateId? = null
         for (line in lines) {
-            val t = choose(line, playSeed, prev, reduceMotion)
+            val t = choose(line, playSeed, prev, reduceMotion, allowed)
             out += t
             prev = t
         }
         return out
     }
 
-    fun choose(line: LyricLine, playSeed: Int, previous: TemplateId?, reduceMotion: Boolean): TemplateId {
+    fun choose(
+        line: LyricLine,
+        playSeed: Int,
+        previous: TemplateId?,
+        reduceMotion: Boolean,
+        allowed: Set<TemplateId> = TemplateId.entries.toSet(),
+    ): TemplateId {
         val n = line.words.size
         val seconds = ((line.words.lastOrNull()?.endMs ?: line.endMs) - line.startMs).coerceAtLeast(500) / 1000f
         val wps = n / seconds
@@ -57,8 +76,9 @@ object TemplateChooser {
                 SPOTLIGHT to (if (calm && n <= 9) 2.5f else if (n <= 9) 1f else 0f),
             )
         }
-        val usable = weights.filter { (id, w) -> w > 0f && id != previous && !(reduceMotion && id == SCATTER) }
-            .ifEmpty { listOf(STACK to 1f, ZOOM to 1f).filter { it.first != previous } }
+        val usable = weights.filter { (id, w) -> w > 0f && id != previous && id in allowed && !(reduceMotion && id == SCATTER) }
+            .ifEmpty { allowed.filter { it != previous }.map { it to 1f } }
+            .ifEmpty { allowed.map { it to 1f } }
         // seeded by text so repeated lines (the chorus) pick the same way
         val r = Rng(playSeed xor Rng.hash(line.text.lowercase()))
         val total = usable.sumOf { it.second.toDouble() }.toFloat()

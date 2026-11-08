@@ -36,7 +36,7 @@ fun AmbientRipples(
         if (!active) return@LaunchedEffect
         val rnd = Random(SystemClock.elapsedRealtime())
         fun ripple(strength: Float) = currentEmit(
-            Ripple(0.15f + rnd.nextFloat() * 0.7f, 0.2f + rnd.nextFloat() * 0.6f, strength, newLine = false),
+            Ripple(0.15f + rnd.nextFloat() * 0.7f, 0.2f + rnd.nextFloat() * 0.6f, strength),
         )
         var lastBeat = 0L
         var lastBeatAt = 0L

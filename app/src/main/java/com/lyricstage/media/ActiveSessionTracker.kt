@@ -18,6 +18,7 @@ import com.lyricstage.core.clock.PlaybackClock
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.util.concurrent.Executors
 
 /**
  * Follows the device's active media sessions, picks the one to show (playing, most recently
@@ -44,7 +45,13 @@ class ActiveSessionTracker(private val context: Context) {
     private val lastActiveAt = HashMap<String, Long>()
     private var active: MediaController? = null
     private var started = false
-    private var artCache: Pair<String, Bitmap?>? = null
+    // the last few covers, kept so flipping back to a song shows its art at once; entries
+    // can hold null ("looked, nothing there") so a missing cover is not hunted again
+    private val artCache = object : LinkedHashMap<String, Bitmap?>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Bitmap?>): Boolean = size > 8
+    }
+    private val decoding = HashSet<String>()
+    private val artExecutor = Executors.newSingleThreadExecutor { r -> Thread(r, "artwork") }
 
     private val sessionsListener = MediaSessionManager.OnActiveSessionsChangedListener { list ->
         onSessionsChanged(list.orEmpty())
@@ -213,39 +220,58 @@ class ActiveSessionTracker(private val context: Context) {
         )
     }
 
-    /** Artwork from the metadata bitmap, or a local content URI. Never fetched from the web. */
+    /** Artwork from the metadata bitmap, or a local content URI. Never fetched from the web.
+     *  Decoding a URI is off the main thread; the song is shown at once and its cover
+     *  arrives a moment later, when it is published again. */
     private fun artFor(key: String, meta: MediaMetadata?): Bitmap? {
-        artCache?.let { (k, bmp) -> if (k == key && bmp != null) return bmp }
-        val bmp = meta?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
+        // a cached entry stands, even a null one: "looked, nothing there" is an answer too
+        if (artCache.containsKey(key)) return artCache[key]
+        val inline = meta?.getBitmap(MediaMetadata.METADATA_KEY_ALBUM_ART)
             ?: meta?.getBitmap(MediaMetadata.METADATA_KEY_ART)
             ?: meta?.getBitmap(MediaMetadata.METADATA_KEY_DISPLAY_ICON)
-            ?: localArt(meta)
-        artCache = key to bmp
-        return bmp
+        if (inline != null) {
+            artCache[key] = inline
+            return inline
+        }
+        if (key in decoding) return null
+        val uri = firstArtUri(meta) ?: return null.also { artCache[key] = null }
+        decoding += key
+        artExecutor.execute {
+            val bmp = decodeArt(uri)
+            handler.post {
+                decoding -= key
+                artCache[key] = bmp
+                // show it if this song is still the one on stage
+                if (active != null && _nowPlaying.value?.artKey() == key) publish()
+            }
+        }
+        return null
     }
 
-    private fun localArt(meta: MediaMetadata?): Bitmap? {
-        val uri = listOf(
-            MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
-            MediaMetadata.METADATA_KEY_ART_URI,
-            MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,
-        ).firstNotNullOfOrNull { meta?.getString(it) }?.let(Uri::parse) ?: return null
-        if (uri.scheme != "content" && uri.scheme != "android.resource" && uri.scheme != "file") return null
-        return try {
-            ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
-                decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
-                val max = 512
-                val w = info.size.width
-                val h = info.size.height
-                if (w > max || h > max) {
-                    val s = max.toFloat() / maxOf(w, h)
-                    decoder.setTargetSize((w * s).toInt().coerceAtLeast(1), (h * s).toInt().coerceAtLeast(1))
-                }
+    private fun NowPlaying.artKey(): String = packageName + "|" + title + "|" + artist
+
+    private fun firstArtUri(meta: MediaMetadata?): Uri? = listOf(
+        MediaMetadata.METADATA_KEY_ALBUM_ART_URI,
+        MediaMetadata.METADATA_KEY_ART_URI,
+        MediaMetadata.METADATA_KEY_DISPLAY_ICON_URI,
+    ).firstNotNullOfOrNull { meta?.getString(it) }?.let(Uri::parse)?.takeIf {
+        it.scheme == "content" || it.scheme == "android.resource" || it.scheme == "file"
+    }
+
+    private fun decodeArt(uri: Uri): Bitmap? = try {
+        ImageDecoder.decodeBitmap(ImageDecoder.createSource(context.contentResolver, uri)) { decoder, info, _ ->
+            decoder.allocator = ImageDecoder.ALLOCATOR_SOFTWARE
+            val max = 512
+            val w = info.size.width
+            val h = info.size.height
+            if (w > max || h > max) {
+                val s = max.toFloat() / maxOf(w, h)
+                decoder.setTargetSize((w * s).toInt().coerceAtLeast(1), (h * s).toInt().coerceAtLeast(1))
             }
-        } catch (e: Exception) {
-            Log.d(TAG, "No local artwork: ${e.message}")
-            null
         }
+    } catch (e: Exception) {
+        Log.d(TAG, "No local artwork: ${e.message}")
+        null
     }
 
     companion object {

@@ -10,6 +10,7 @@ import com.lyricstage.core.stage.Rows
 import com.lyricstage.core.stage.SizeF
 import com.lyricstage.core.stage.Spring
 import com.lyricstage.core.stage.TemplateChooser
+import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.core.stage.Templates
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -40,6 +41,31 @@ class StageTest {
                 val calm = TemplateChooser.chooseAll(lines, seed, null, true)
                 assertTrue(calm.none { it.name == "SCATTER" })
             }
+        }
+    }
+
+    @Test fun chooserStaysInsideThePickedPool() {
+        val lines = LyricsBuilder.fromLrc(Samples.read("english"), 120_000).lines
+        val pool = setOf(TemplateId.STACK, TemplateId.ZOOM)
+        for (seed in 0 until 50) {
+            val picks = TemplateChooser.chooseAll(lines, seed, null, false, pool)
+            assertTrue(picks.isNotEmpty())
+            assertTrue("only the pool", picks.all { it in pool })
+            // with two to pick from it still avoids back-to-back repeats where it can
+            for (i in 1 until picks.size) assertTrue("$seed $i", picks[i] != picks[i - 1])
+            assertEquals(picks, TemplateChooser.chooseAll(lines, seed, null, false, pool))
+        }
+        // a pool of one is honoured: the no-repeat rule steps aside rather than emptying the choice
+        val solo = listOf(TemplateId.FLOW)
+        for (seed in 0 until 20) {
+            val picks = TemplateChooser.chooseAll(lines, seed, null, false, solo)
+            assertTrue(picks.all { it in solo })
+        }
+        // scatter in the pool becomes stack under reduce motion, like a locked scatter
+        val scatter = setOf(TemplateId.SCATTER)
+        for (seed in 0 until 20) {
+            val picks = TemplateChooser.chooseAll(lines, seed, null, true, scatter)
+            assertTrue(picks.all { it == TemplateId.STACK })
         }
     }
 

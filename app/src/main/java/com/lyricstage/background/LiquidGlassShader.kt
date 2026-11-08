@@ -3,8 +3,7 @@ package com.lyricstage.background
 /**
  * AGSL "liquid glass": the background is the artwork's top colour as it comes, with pools
  * of the next top colours drifting behind a slowly undulating glass slab that refracts them.
- * Sung words send ripples through the glass and each new line sweeps a soft band of light
- * across it. Ripples carry their own contrast-pushed colour, so the same ring reads on a
+ * Sung words send ripples through the glass. Ripples carry their own contrast-pushed colour, so the same ring reads on a
  * black cover exactly as it does on a purple one. Tone mapped so the brightest spots
  * stay well below the lyrics.
  *
@@ -23,13 +22,13 @@ package com.lyricstage.background
  */
 internal const val LIQUID_GLASS_AGSL = """
 uniform float2 uRes;
+uniform float2 uOrigin;
 uniform float uTime;
 uniform half3 uC0;
 uniform half3 uC1;
 uniform half3 uC2;
 uniform half3 uBase;
 uniform float4 uRip[8];
-uniform float uLineT;
 uniform float uPools;
 uniform float uRipple;
 
@@ -87,7 +86,9 @@ half3 lightField(float2 p, float t, half mono) {
 }
 
 half4 main(float2 fragCoord) {
-    float2 uv = fragCoord / uRes;
+    // uOrigin shifts the field's window: 0 for the background itself, or a panel's
+    // top-left in stage pixels, so a panel renders exactly what is behind it
+    float2 uv = (fragCoord + uOrigin) / uRes;
     float aspect = uRes.x / uRes.y;
     float2 p = float2((uv.x - 0.5) * aspect, uv.y - 0.5);
     float t = uTime;
@@ -116,14 +117,8 @@ half4 main(float2 fragCoord) {
         }
     }
 
-    // a band of light across the glass on each new line
-    float lineAge = t - uLineT;
-    float sweep = 0.0;
-    if (lineAge > 0.0 && lineAge < 2.2) {
-        float s = (p.x * 0.7 - p.y * 0.45) - (lineAge * 1.5 - 1.2);
-        sweep = exp(-s * s * 16.0) * (1.0 - lineAge / 2.2);
-        slope += float2(0.7, -0.45) * sweep * 0.02;
-    }
+    // lines hand over quietly now: no band of light sweeps the glass when one starts,
+    // so nothing flashes between lines - the glass answers the sung words alone
 
     // a black-and-white cover stays black-and-white: mono is 1 when every palette colour
     // is a grey (PaletteBuilder keeps a grey artwork grey; the spread over all twelve
@@ -150,7 +145,7 @@ half4 main(float2 fragCoord) {
     float3 n = normalize(float3(-slope * 14.0, 1.0));
     float3 L = normalize(float3(-0.45, -0.55, 0.7));
     float spec = pow(max(dot(reflect(-L, n), float3(0.0, 0.0, 1.0)), 0.0), 40.0);
-    col += half(spec * 0.2) * edge + half(sweep * 0.1);
+    col += half(spec * 0.2) * edge;
 
     // ripples carry their own colour, already pushed apart from the background in
     // lightness: the ring mixes toward it, bounded like the pools - a fine light ring on

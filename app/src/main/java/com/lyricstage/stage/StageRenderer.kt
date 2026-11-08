@@ -41,6 +41,8 @@ class StageColours(
     val glass: Float = 0f,
     /** For glass: 0 clear, 1 frosted (milky). */
     val frost: Float = 0f,
+    /** The whole line reads as glass, the unsung words too (the controls are open). */
+    val wholeLine: Boolean = false,
 ) {
     val text = Color(palette.text)
     // highlighted words glow in the palette's colours, lifted where the ripple rule put
@@ -92,10 +94,15 @@ class StageRenderer {
         wordShiftMs: Long = 0,
         /** Left-to-right fill while a word is sung; off in battery saver (words light up whole). */
         sweep: Boolean = true,
+        /** The layer is made glass by a shader that looks at it from outside: draw the words
+         *  solid and shadowless, and let the shader do the glass. */
+        plain: Boolean = false,
     ) {
         if (li < 0 || li >= prep.plan.lines.size) return
         glassAmount = if (sweep) colours.glass else 0f
         frostAmount = colours.frost
+        wholeLine = colours.wholeLine
+        plainDraw = plain
         // the line comes and goes on its own timestamp; only word timing is shifted
         val wpos = pos - wordShiftMs
         val plan = prep.plan
@@ -111,7 +118,7 @@ class StageRenderer {
         if (layer != StageLayer.MOTION) {
             if (layout.template.isSpotlight && !reduceMotion) drawSpotlight(layout, line, wpos, colours, lineAlpha)
             drawSegments(prep, li, pos, colours, lineAlpha)
-            drawSubtitle(prep, li, pos, colours, lineAlpha)
+            drawSubtitle(prep, li, pos, colours, lineAlpha, plain)
         }
 
         for ((k, p) in layout.words.withIndex()) {
@@ -139,15 +146,18 @@ class StageRenderer {
                 else -> colours.text
             }
             val alpha = pose.alpha * lineAlpha
-            val exitDy = -exit * p.height * 0.25f
+            // the line hands over with a plain fade now: it fades away where it is, without
+            // lifting or sliding, so nothing moves between one line and the next
             // the text's own shadow blends smoothly from its resting look to a soft coloured
-            // halo as a note is held, instead of switching at once
-            val rest = if (highlighted) {
-                Shadow(accent.copy(alpha = 0.55f * colours.glow), Offset.Zero, p.fontPx * 0.28f)
-            } else {
-                Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, p.fontPx * 0.035f), p.fontPx * 0.18f)
+            // halo as a note is held, instead of switching at once. Off in the shader-glass
+            // pass: glass is read by its light, and the shadow would fatten the rim the
+            // shader measures
+            val rest = when {
+                plain -> null
+                highlighted -> Shadow(accent.copy(alpha = 0.55f * colours.glow), Offset.Zero, p.fontPx * 0.28f)
+                else -> Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, p.fontPx * 0.035f), p.fontPx * 0.18f)
             }
-            val shadow = if (held > 0.01f) {
+            val shadow = if (held > 0.01f && rest != null) {
                 Shadow(
                     lerp(rest.color, colour.copy(alpha = 0.5f), held),
                     Offset(rest.offset.x * (1f - held), rest.offset.y * (1f - held)),
@@ -159,7 +169,7 @@ class StageRenderer {
             val growth = if (held > 0f) heldGrowth(word, wpos) else 0f
 
             withTransform({
-                translate(p.x + pose.dx, p.y + pose.dy + exitDy - held * growth * p.height * HELD_LIFT)
+                translate(p.x + pose.dx, p.y + pose.dy - held * growth * p.height * HELD_LIFT)
                 val pivot = Offset(p.width / 2f, p.height / 2f)
                 val rot = p.rotationDeg + pose.rotationDeg
                 if (rot != 0f) rotate(rot, pivot)
@@ -256,7 +266,7 @@ class StageRenderer {
 
     /** Dim base, then the sung part in full colour, swept left to right. */
     private fun DrawScope.drawWord(
-        tl: TextLayoutResult, p: WordPlacement, fill: Float, colour: Color, dimColour: Color, alpha: Float, shadow: Shadow,
+        tl: TextLayoutResult, p: WordPlacement, fill: Float, colour: Color, dimColour: Color, alpha: Float, shadow: Shadow?,
         clipLeft: Float = 0f,
     ) {
         val topLeft = Offset(0f, p.ascent - tl.firstBaseline)
@@ -264,7 +274,13 @@ class StageRenderer {
             drawSung(tl, p, colour, topLeft, alpha, shadow)
             return
         }
-        drawText(tl, dimColour, topLeft, alpha * DIM)
+        if (wholeLine && glassAmount > 0.01f) {
+            // the controls are open and the whole line is glass: the unsung part is etched
+            // glass at the dim opacity, not a flat word
+            drawGlassText(tl, dimColour, topLeft, alpha * DIM, shadow, glassAmount, frostAmount, p.fontPx)
+        } else {
+            drawText(tl, dimColour, topLeft, alpha * DIM)
+        }
         if (fill > 0f) {
             val right = p.width * fill - clipLeft
             if (right > 0f) clipRect(left = -p.width, top = -p.height, right = right, bottom = p.height * 2f) {
@@ -276,18 +292,27 @@ class StageRenderer {
     /**
      * A sung word: solid, or as glass. Glass lets the background show through the letters,
      * with a light catching their top and a bright rim; frost turns the body milky, like
-     * frosted glass, so it stays readable over busy colour.
+     * frosted glass, so it stays readable over busy colour. When the layer is turned into
+     * glass wholesale by a shader outside the drawing, the word is drawn solid here and the
+     * shader does the glass.
      */
-    private fun DrawScope.drawSung(tl: TextLayoutResult, p: WordPlacement, colour: Color, topLeft: Offset, alpha: Float, shadow: Shadow) =
-        drawGlassText(tl, colour, topLeft, alpha, shadow, glassAmount, frostAmount, p.fontPx)
+    private fun DrawScope.drawSung(tl: TextLayoutResult, p: WordPlacement, colour: Color, topLeft: Offset, alpha: Float, shadow: Shadow?) {
+        if (plainDraw) {
+            drawText(tl, colour, topLeft, alpha)
+        } else {
+            drawGlassText(tl, colour, topLeft, alpha, shadow, glassAmount, frostAmount, p.fontPx)
+        }
+    }
 
     /** Set from [StageColours] at the start of each line draw. */
     private var glassAmount = 0f
     private var frostAmount = 0f
+    private var wholeLine = false
+    private var plainDraw = false
 
     private fun DrawScope.drawGlyphs(
         template: LyricTemplate, p: WordPlacement, glyphs: List<TextLayoutResult>, offsetsAtRef: FloatArray,
-        since: Long, fill: Float, colour: Color, dimColour: Color, alpha: Float, shadow: Shadow,
+        since: Long, fill: Float, colour: Color, dimColour: Color, alpha: Float, shadow: Shadow?,
     ) {
         val k = p.fontPx / REF_PX
         for ((g, tl) in glyphs.withIndex()) {
@@ -324,7 +349,7 @@ class StageRenderer {
         }
     }
 
-    private fun DrawScope.drawSubtitle(prep: PreparedStage, li: Int, pos: Long, colours: StageColours, lineAlpha: Float) {
+    private fun DrawScope.drawSubtitle(prep: PreparedStage, li: Int, pos: Long, colours: StageColours, lineAlpha: Float, plain: Boolean = false) {
         val tl = prep.subtitles[li] ?: return
         val area = prep.plan.layouts[li].subtitleArea ?: return
         val fade = ((pos - LineTiming.enterAtMs(prep.plan.lines[li])) / 300f).coerceIn(0f, 1f)
@@ -333,7 +358,7 @@ class StageRenderer {
             colours.text,
             Offset(area.centreX - tl.size.width / 2f, area.top),
             alpha = 0.72f * lineAlpha * fade,
-            shadow = Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 2f), 8f),
+            shadow = if (plain) null else Shadow(Color.Black.copy(alpha = 0.5f), Offset(0f, 2f), 8f),
         )
     }
 

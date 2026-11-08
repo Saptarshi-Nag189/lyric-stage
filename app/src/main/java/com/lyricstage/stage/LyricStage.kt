@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import android.os.SystemClock
 import com.lyricstage.audio.AudioOnsets
+import com.lyricstage.background.StageGlassText
 import com.lyricstage.core.clock.PlaybackClock
 import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.core.lyrics.Lyrics
@@ -47,11 +48,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import kotlin.math.max
 
 /**
  * The kinetic lyrics stage. One frame loop reads the clock once per frame; drawing happens
  * in two Canvas passes (settled words, and fast-moving words under a blur layer on API 31+).
  * Nothing recomposes per frame.
+ *
+ * The words can be drawn as glass two ways. Without a shader to look through, each word is
+ * drawn with the classic glass treatment inside the drawing. With one (the liquid
+ * background on Android 13+, through [glassText]) the whole layer is turned into
+ * Apple-style glass by a shader outside the drawing: the rim of every glyph refracts the
+ * background and the middle is clear. While the controls are open ([dimmed]) the line is
+ * glass either way, instead of dimmed.
  */
 @Composable
 fun LyricStage(
@@ -60,6 +69,8 @@ fun LyricStage(
     palette: StagePalette,
     playSeed: Int,
     lockedTemplate: TemplateId?,
+    /** The layouts Auto picks from, when no template is locked. Empty means all of them. */
+    pool: Collection<TemplateId> = TemplateId.entries,
     fontScale: Float,
     lyricFont: LyricFont,
     glass: Float = 0f,
@@ -71,8 +82,10 @@ fun LyricStage(
     anchor: Long,
     /** Battery saver: words fade in whole, and the loop sleeps between changes. */
     simple: Boolean,
-    /** Controls are open: the lyrics step back so the overlay stays readable. */
+    /** Controls are open: the line reads as glass rather than dimming back. */
     dimmed: Boolean,
+    /** Shader-drawn glass for the line, over the liquid field; null when there is none. */
+    glassText: StageGlassText? = null,
     showFps: Boolean,
     /** Vocal onsets for audio sync, or null when it is off. */
     audio: AudioOnsets?,
@@ -99,7 +112,7 @@ fun LyricStage(
         stageSize = size
     }
 
-    val prepared by produceState<PreparedStage?>(null, lyrics, stageSize, playSeed, lockedTemplate, reduceMotion, fontScale, density, lyricFont) {
+    val prepared by produceState<PreparedStage?>(null, lyrics, stageSize, playSeed, lockedTemplate, pool, reduceMotion, fontScale, density, lyricFont) {
         val size = stageSize
         // another song's lines must never show while this one is prepared
         if (value?.plan?.lyrics !== lyrics) value = null
@@ -113,14 +126,30 @@ fun LyricStage(
             // only shared thing, and its caches are synchronized
             PreparedStage.prepare(
                 lyrics, SizeF(size.width.toFloat(), size.height.toFloat()), resolver, density,
-                playSeed, lockedTemplate, reduceMotion, fontScale,
+                playSeed, lockedTemplate, reduceMotion, fontScale, pool,
             )
         }
     }
 
     val frame = remember { StageFrame() }
     val renderer = remember { StageRenderer() }
-    val colours = remember(palette, highlightIntensity, glass, frost) { StageColours(palette, highlightIntensity, glass, frost) }
+
+    // Glass: the line is glass while the controls are open whatever the setting says, and
+    // the shader-drawn glass takes over from the drawn kind whenever there is a field to
+    // look through. The crossfade animates, so opening the controls melts the line.
+    val glassTarget = if (dimmed) 1f else glass
+    val frostNow = if (dimmed) max(frost, OVERLAY_FROST) else frost
+    val glassAnim by animateFloatAsState(glassTarget, tween(280), label = "stage-glass")
+    val colours = remember(palette, highlightIntensity, glassAnim, frostNow, dimmed) {
+        StageColours(palette, highlightIntensity, glassAnim, frostNow, wholeLine = dimmed)
+    }
+    val glassFx = glassText
+    // the field must have drawn at least once: before that it has no resolution, and a
+    // look through it would divide by zero
+    val fieldTick = glassFx?.tick
+    val shaderGlass = glassFx != null && (fieldTick?.longValue ?: 0L) > 0L
+    val plain = shaderGlass && glassAnim > 0.01f
+
     val ripple by rememberUpdatedState(onRipple)
     val visibleTemplate by rememberUpdatedState(onVisibleTemplate)
     val calm by rememberUpdatedState(reduceMotion)
@@ -143,6 +172,11 @@ fun LyricStage(
                     frame.line = li
                     frame.wordShiftMs = alignWords(frame, onsets, prep, li, pos)
                     frame.blur.floatValue = renderer.motionBlur(prep, li, pos - frame.wordShiftMs, calm)
+                    if (li >= 0) {
+                        prep.plan.layouts[li].words.firstOrNull()?.let {
+                            frame.glassEdge = (it.fontPx * 0.04f).coerceIn(2.5f, 5f)
+                        }
+                    }
                     frame.ripples.clear()
                     if (!calm) frame.tracker.update(prep.plan, pos, frame.ripples)
                     for (r in frame.ripples) ripple(r)
@@ -169,9 +203,10 @@ fun LyricStage(
         }
     }
 
-    // the stage dims while paused (holding the current line) and while the controls are open
+    // while paused (without the controls) the stage dims back, holding the current line;
+    // with the controls open the glass itself is the dimming
     val target = when {
-        dimmed -> 0.3f
+        dimmed -> 1f
         !isPlaying -> 0.55f
         else -> 1f
     }
@@ -183,12 +218,20 @@ fun LyricStage(
             .onSizeChanged { size = it }
             .graphicsLayer { alpha = dim },
     ) {
-        Canvas(Modifier.fillMaxSize()) {
+        Canvas(
+            Modifier
+                .fillMaxSize()
+                .graphicsLayer {
+                    renderEffect = if (shaderGlass && glassAnim > 0.01f) glassFx?.effect else null
+                },
+        ) {
             frame.tick.longValue
+            fieldTick?.longValue
             val p = prep ?: return@Canvas
+            if (plain) glassFx?.uniforms(glassAnim, frostNow, frame.glassEdge)
             with(renderer) {
                 if (frame.line < 0) drawGapDots(p, frame.positionMs, colours, reduceMotion)
-                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs, sweep = !simple)
+                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs, sweep = !simple, plain = plain)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -197,12 +240,23 @@ fun LyricStage(
                     .fillMaxSize()
                     .graphicsLayer {
                         val b = frame.blur.floatValue
-                        renderEffect = if (b > 0.5f) BlurEffect(b, b, TileMode.Decal) else null
+                        val fx = if (shaderGlass && glassAnim > 0.01f) glassFx else null
+                        renderEffect = when {
+                            b > 0.5f && fx != null ->
+                                // the words blur as they fly, and the glass is drawn over
+                                // the blurred layer from outside it
+                                fx.chainedUnderBlur(b)
+                            b > 0.5f -> BlurEffect(b, b, TileMode.Decal)
+                            fx != null -> fx.effect
+                            else -> null
+                        }
                     },
             ) {
                 frame.tick.longValue
+                fieldTick?.longValue
                 val p = prep ?: return@Canvas
-                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs, sweep = !simple) }
+                if (plain) glassFx?.uniforms(glassAnim, frostNow, frame.glassEdge)
+                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs, sweep = !simple, plain = plain) }
             }
         }
         if (showFps) {
@@ -243,3 +297,5 @@ private const val PAUSED_TAIL_NS = 700_000_000L
 private const val SIZE_SETTLE_MS = 350L
 private const val IDLE_MIN_MS = 40L
 private const val IDLE_MAX_MS = 1_000L
+/** The least frost on the overlay glass, so the line stays readable over busy colour. */
+private const val OVERLAY_FROST = 0.35f

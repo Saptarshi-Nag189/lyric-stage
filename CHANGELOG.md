@@ -1,5 +1,44 @@
 # Changelog
 
+## [2.5.0] - 2026-11-09
+
+### Added
+- Glass lyrics drawn the way Apple draws a liquid glass material. On the liquid background
+  (Android 13 and later) a shader now looks at the whole lyric layer from outside: the rim
+  of every letter is a bevel that bends the field behind it - refraction with a whisper of
+  dispersion, blue bent more than red - while the middle is clear, a light from above
+  catches the top of the rim and the underside sits in shade, and frost blurs and milks the
+  body. Because the field is the background's own shader, evaluated live, the glass shows
+  exactly what is behind each letter, ripples included. The drawing-based glass stays where
+  there is no shader to look through (older Android, artwork and solid backgrounds).
+- The line turns to glass while the controls are open, instead of fading back. The text
+  seen behind the overlay is the glass font now - the unsung words too, etched at their dim
+  opacity - and it melts in and out over a quarter second as the controls come and go.
+- Glass controls, a toggle in Look, with Frost as a shared slider. The transport card and
+  the queue become panes of the liquid field: the same moving colours, sampled at the
+  panel's own rectangle so a ripple crossing the glass continues into the background,
+  frosted by the slider, the rim bending what is behind it and lit from above. Off, on
+  battery saver, or without the liquid background, they are the quiet dark card as before.
+- Auto rotation, in Look: pick the layouts Auto chooses from. The chooser keeps its
+  judgement of pace, length and chorus within whatever is left on; the last one stays on.
+
+### Changed
+- One line hands over to the next quietly: the band of light that used to sweep the glass
+  when a line began is gone, and a leaving line fades away where it is instead of lifting
+  and sliding out. Nothing slides and nothing flashes between lines; the per-word
+  entrances are untouched.
+- Settings, rethought. The layout lock sits at the top of Settings itself, the same pills
+  as on the stage; Fonts is folded into Look as its Typeface section; and Look is grouped
+  into Auto rotation, Background, Glass, Typeface and Size, in that order.
+- The session tracker keeps following the player while the app is in the background or the
+  screen is locked, so a song switched to away from LyricStage is already on the stage at
+  return - its lyrics, palette and cover looked up while away. Nothing renders with the
+  window gone: the stage's frame loop now stops unless the app is in front, and starts
+  again the moment it is.
+- Album art: the last eight covers are kept (was one), and covers that arrive as a file
+  rather than a bitmap are decoded on their own thread, so a local player's metadata no
+  longer stalls the main thread.
+
 ## [2.0.0] - 2026-11-09
 
 ### Reverted

@@ -22,7 +22,7 @@ import com.lyricstage.ui.debug.LyricsListScreen
 import com.lyricstage.ui.debug.NowPlayingDebugScreen
 import com.lyricstage.ui.theme.LyricStageTheme
 
-enum class Screen { STAGE, SETTINGS, ABOUT, LOOK, FONTS, PLAYBACK, DATA, SPOTIFY, DEVELOPER, DEBUG_NOW_PLAYING, DEBUG_LYRICS }
+enum class Screen { STAGE, SETTINGS, ABOUT, LOOK, PLAYBACK, DATA, SPOTIFY, DEVELOPER, DEBUG_NOW_PLAYING, DEBUG_LYRICS }
 
 class MainActivity : ComponentActivity() {
     private val container get() = (application as LyricStageApp).container
@@ -72,7 +72,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onStop() {
         super.onStop()
-        container.sessions.stop()
+        // the session tracker keeps listening: callbacks only fire as songs change, and
+        // because the view model's flows stay eager the lyrics, palette and layouts for a
+        // song switched to while away are already waiting when the app comes back. Nothing
+        // renders with the window gone; Compose stops asking for frames.
     }
 
     private fun refreshAccess() {
@@ -101,7 +104,6 @@ private fun App(vm: StageViewModel, accessGranted: Boolean, systemReduceMotion: 
         Screen.STAGE -> StageScreen(vm, systemReduceMotion, onOpenSettings = { screen = Screen.SETTINGS })
         Screen.SETTINGS -> SettingsScreen(vm, systemReduceMotion, onBack = { screen = Screen.STAGE }, onOpen = { screen = it })
         Screen.LOOK -> LookPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
-        Screen.FONTS -> FontsPage(vm, onBack = { screen = Screen.SETTINGS })
         Screen.PLAYBACK -> PlaybackPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
         Screen.DATA -> DataPage(vm, onBack = { screen = Screen.SETTINGS })
         Screen.SPOTIFY -> SpotifyPage(vm, onBack = { screen = Screen.SETTINGS })
