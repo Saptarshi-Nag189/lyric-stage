@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -48,8 +50,11 @@ fun OnboardingScreen() {
             drawCircle(Brush.radialGradient(listOf(accent.copy(alpha = 0.32f), Color.Transparent), c, r), r, c)
         }
         Column(
+            // on tablets the text sits in a centred column, not stretched edge to edge
             Modifier
-                .fillMaxSize()
+                .align(Alignment.Center)
+                .fillMaxHeight()
+                .widthIn(max = 640.dp)
                 .safeDrawingPadding()
                 .padding(horizontal = 24.dp, vertical = 24.dp),
         ) {

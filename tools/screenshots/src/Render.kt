@@ -205,21 +205,26 @@ fun midBuild(swatches: List<Swatch>): StagePalette {
     return StagePalette(top.rgb, listOf(Colour.fromHsl(r1[0], r1[1], r1[2]), Colour.fromHsl(r2[0], r2[1], r2[2]), glint), text)
 }
 
-/** The shader's filmic tail (Colour.rolled) applied to a whole image, so mockups show the
- *  lightness the app draws: the brightest background stays well under the white type. */
+/** The shader's filmic tail (Colour.rolled) plus its saturation push, applied to a whole
+ *  image, so mockups show the lightness and colour the app draws: colours are pushed off
+ *  their luma as lightField does, greys (r == g == b) are untouched by it. */
 fun toneMap(img: BufferedImage): BufferedImage {
     val w = img.width
     val h = img.height
     val px = img.getRGB(0, 0, w, h, null, 0, w)
     for (i in px.indices) {
-        px[i] = Colour.rolled(px[i])
+        val r = ((px[i] shr 16) and 255) / 255f
+        val g = ((px[i] shr 8) and 255) / 255f
+        val b = (px[i] and 255) / 255f
+        val l = 0.299f * r + 0.587f * g + 0.114f * b
+        fun push(c: Float): Int = ((c + 0.45f * (c - l)).coerceAtLeast(0f) * 255f).toInt().coerceIn(0, 255)
+        px[i] = Colour.rolled((255 shl 24) or (push(r) shl 16) or (push(g) shl 8) or push(b))
     }
     img.setRGB(0, 0, w, h, px, 0, w)
     return img
 }
 
-/** Approximation of the AGSL liquid glass: a soft colour wash in the artwork's own colours,
- *  ripple rings in their colour, vignette, grain, then the shader's filmic tail. */
+/** Approximation of the AGSL liquid glass: soft pools of accent light, a glass sheen, vignette, grain. */
 fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): BufferedImage {
     val img = BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB)
     val g = img.createGraphics()
@@ -227,30 +232,33 @@ fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): Buf
     g.color = hex(pal.base)
     g.fillRect(0, 0, w, h)
     val r = Random(seed)
-    // the wash: two wide fields of the ripple colours, as soft as a blur, with no edge
-    // visible anywhere - the same colours the rings carry, so the wash and the waves agree
-    for (c in listOf(pal.accents[0], pal.accents[1])) {
-        val cx = w * (0.3f + r.nextFloat() * 0.4f)
-        val cy = h * (0.15f + r.nextFloat() * 0.7f)
-        val rad = max(w, h) * (0.6f + r.nextFloat() * 0.2f)
+    val pools = listOf(0, 1, 2, 0, 1)
+    for ((i, ai) in pools.withIndex()) {
+        val cx = w * (0.15f + r.nextFloat() * 0.7f)
+        val cy = h * (0.1f + i * 0.2f + r.nextFloat() * 0.1f)
+        val rad = max(w, h) * (0.35f + r.nextFloat() * 0.2f)
+        val c = pal.accents[ai]
         g.paint = RadialGradientPaint(
-            Point2D.Float(cx, cy), rad, floatArrayOf(0f, 0.6f, 1f),
-            arrayOf(hex(c, 0.30f), hex(c, 0.10f), hex(c, 0f)),
+            Point2D.Float(cx, cy), rad, floatArrayOf(0f, 0.55f, 1f),
+            arrayOf(hex(c, 0.55f), hex(c, 0.18f), hex(c, 0f)),
         )
         g.fillRect(0, 0, w, h)
     }
+    // glass sheen: a soft diagonal band of light
+    g.paint = GradientPaint(0f, h * 0.25f, Color(255, 255, 255, 0), w * 0.6f, h * 0.55f, Color(255, 255, 255, 22), true)
+    g.fillRect(0, 0, w, h)
     if (ripple != null) {
         // the ring carries the ripple colour, as the shader mixes toward it: light rings on
         // dark glass, dark rings on light glass
         for (k in 0 until 3) {
             val rr = w * (0.08f + k * 0.07f)
             g.stroke = BasicStroke(w * 0.006f)
-            g.color = hex(pal.accents[0], (40 - k * 11).toFloat().coerceAtLeast(10f))
+            g.color = hex(pal.accents[0], (44 - k * 12).toFloat().coerceAtLeast(12f))
             g.draw(Ellipse2D.Float(ripple.x - rr, ripple.y - rr, rr * 2, rr * 2))
         }
     }
     g.dispose()
-    val soft = blur(img, (w * 0.012f).toInt())
+    val soft = blur(img, (w * 0.01f).toInt())
     val g2 = soft.createGraphics()
     g2.hq()
     // vignette as the shader does, then its filmic tail, so the mockup shows the
@@ -261,6 +269,28 @@ fun background(w: Int, h: Int, pal: Pal, seed: Int, ripple: Point2D.Float?): Buf
         MultipleGradientPaint.CycleMethod.NO_CYCLE,
     )
     g2.fillRect(0, 0, w, h)
+    // the dispersion the bent glass adds, as the shader does after the light field:
+    // colour at the edges of the light, folded to plain luminance when every palette
+    // colour is grey - a black-and-white cover stays black-and-white
+    val baseL = (0.299f * Colour.red(pal.base) + 0.587f * Colour.green(pal.base) + 0.114f * Colour.blue(pal.base)) / 255f
+    val edge = 0.2f + 0.8f * ((baseL - 0.04f) / 0.26f).coerceIn(0f, 1f)
+    fun chroma(c: Int) = (maxOf(Colour.red(c), Colour.green(c), Colour.blue(c)) - minOf(Colour.red(c), Colour.green(c), Colour.blue(c))) / 255f
+    val mono = chroma(pal.base) < 0.004f && pal.accents.all { chroma(it) < 0.004f }
+    val amp = (13f * edge).toInt()
+    if (amp > 0) for (k in 0 until 2) {
+        val y0 = h * (0.32f + k * 0.44f)
+        val tint = when {
+            mono && k == 0 -> Color(255, 255, 255, amp)
+            mono -> Color(0, 0, 0, amp)
+            k == 0 -> Color(255, 190, 170, amp)
+            else -> Color(170, 205, 255, amp)
+        }
+        g2.paint = GradientPaint(
+            w * 0.1f, y0 - h * 0.15f, Color(tint.red, tint.green, tint.blue, 0),
+            w * 0.38f, y0 + h * 0.15f, tint, true,
+        )
+        g2.fillRect(0, 0, w, h)
+    }
     g2.dispose()
     toneMap(soft)
     val rnd = Random(seed + 7)

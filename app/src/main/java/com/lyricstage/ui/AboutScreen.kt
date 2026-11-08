@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
@@ -50,8 +51,10 @@ fun AboutScreen(vm: StageViewModel, onBack: () -> Unit) {
             .background(Ui.Ground)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        Column(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(horizontal = 16.dp)) {
         Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
             CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
             Text(
@@ -98,6 +101,7 @@ fun AboutScreen(vm: StageViewModel, onBack: () -> Unit) {
         SectionHeader(stringResource(R.string.about_privacy))
         UiCard {
             Text(stringResource(R.string.privacy_note), color = Ui.Text, fontSize = 15.sp, lineHeight = 22.sp)
+        }
         }
         Spacer(Modifier.height(24.dp))
     }

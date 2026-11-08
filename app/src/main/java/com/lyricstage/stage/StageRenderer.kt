@@ -10,7 +10,6 @@ import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.clipRect
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
@@ -424,10 +423,11 @@ class StageRenderer {
 }
 
 /**
- * Text drawn solid, or as glass when [glass] is above zero: the background shows through the
- * letters, light catches their top and a fine rim outlines them. [frost] turns the body milky,
- * like frosted glass, so it stays readable over busy colour. Shared by the stage and the
- * Settings preview.
+ * Text drawn solid, or as glass when [glass] is above zero. Real glass is read by its light,
+ * not by an outline: a bright edge along the top of the letters where the light catches them,
+ * a dark edge underneath, a translucent body the background shows through, and a soft sheen
+ * over the upper face. [frost] turns the body milky, like frosted glass, so it stays readable
+ * over busy colour. Shared by the stage and the Settings preview.
  */
 fun DrawScope.drawGlassText(
     tl: TextLayoutResult,
@@ -444,20 +444,27 @@ fun DrawScope.drawGlassText(
         drawText(tl, colour, topLeft, alpha, shadow)
         return
     }
+    // how far the lit edges sit off the glyph: thick letters get a deeper bevel
+    val lift = (fontPx * 0.018f).coerceIn(1.5f, 4f)
+    val bodyShadow = shadow?.let { Shadow(it.color.copy(alpha = it.color.alpha * (1f - 0.6f * g)), it.offset, it.blurRadius) }
+    // the underside of the glass, in shade
+    drawText(tl, Color.Black.copy(alpha = 0.30f * g), topLeft + Offset(0f, lift), alpha)
+    // the light catching the top of the letters
+    drawText(tl, Color.White.copy(alpha = 0.45f * g), topLeft - Offset(0f, lift), alpha)
+    // the body: translucent, milky with frost, the background showing through it
     val body = lerp(colour, Color.White, 0.55f * frost)
     val bodyAlpha = (1f - 0.75f * g + 0.45f * g * frost).coerceIn(0.15f, 1f)
-    val bodyShadow = shadow?.let { Shadow(it.color.copy(alpha = it.color.alpha * (1f - 0.6f * g)), it.offset, it.blurRadius) }
     drawText(tl, body, topLeft, alpha * bodyAlpha, bodyShadow)
+    // a soft sheen on the upper face of the letters
     drawText(
         tl,
         Brush.verticalGradient(
-            0f to Color.White.copy(alpha = 0.55f * g),
-            0.45f to Color.White.copy(alpha = 0.08f * g),
+            0f to Color.White.copy(alpha = 0.38f * g),
+            0.5f to Color.White.copy(alpha = 0.05f * g),
             1f to Color.Transparent,
             startY = topLeft.y, endY = topLeft.y + tl.size.height,
         ),
         topLeft,
         alpha = alpha,
     )
-    drawText(tl, Color.White.copy(alpha = 0.5f * g), topLeft, alpha, drawStyle = Stroke(width = (fontPx * 0.022f).coerceAtLeast(1f)))
 }

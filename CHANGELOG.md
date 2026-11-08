@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.0.0] - 2026-11-09
+
+### Reverted
+- The background is the liquid glass of 1.1.7 again. The 1.1.8 rewrite traded it for a
+  flat colour wash, and with it everything that made it read as glass and water: the
+  undulating slab, the refraction, the rings that bent the glass as they travelled -
+  ripples became nearly invisible - and the light band that swept with a new line became a
+  dull flash. All of it is back exactly as it was, mockups included.
+
+### Changed
+- Glass lyrics look like glass now, not like a white border. A uniform bright outline was
+  drawn around every letter; what glass actually shows is light with a direction: a bright
+  edge along the top of the letters, a dark edge underneath, a translucent body the
+  background shows through, and a soft sheen on the upper face. No outline anywhere.
+
+### Fixed
+- The Look preview follows the Glass lyrics slider both ways now. Going from solid to
+  glass and back left the preview stuck on the last look, because the drawing did not
+  refresh on every change of the slider; the preview now reads the settings as state that
+  always redraws it.
+
+### Added
+- A queue, like a music player. The controls now have shuffle and repeat buttons flanking
+  the transport, and a queue button next to Settings that opens the player's own queue:
+  the song playing is marked, and tapping a song jumps the player to it. Reordering or
+  removing songs stays in the player's own app - the media session does not offer it. The
+  queue button appears only when the player publishes a queue (Spotify, YouTube Music and
+  most local players do); shuffle and repeat work wherever the player honours them, and
+  the buttons keep their own state, as most sessions do not report it back.
+- Tablet layouts. On wide screens the controls and their card sit in a centred column
+  instead of stretching edge to edge, the queue opens as a panel standing at the right of
+  the stage rather than a sheet from the bottom, and Settings, About and onboarding keep
+  their text in a readable column, not stretched across the screen. The stage itself has
+  always laid out to the screen it is given.
+
 ## [1.1.8] - 2026-11-07
 
 ### Changed

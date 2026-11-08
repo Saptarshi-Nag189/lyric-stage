@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -140,14 +141,28 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
 
     var controlsVisible by remember { mutableStateOf(false) }
     var interactions by remember { mutableIntStateOf(0) }
+    var queueOpen by remember { mutableStateOf(false) }
+    // the queue follows what the player reports; shuffle and repeat are asked for, not
+    // read back (most sessions do not report them), so the buttons keep their own state
+    var shuffleOn by remember { mutableStateOf(false) }
+    var repeatMode by remember { mutableStateOf(0) }
+    val queue by vm.queue.collectAsStateWithLifecycle()
+
     // controls poll the position while open; close them when the app goes to the background
-    LaunchedEffect(foreground) { if (!foreground) controlsVisible = false }
-    LaunchedEffect(controlsVisible, interactions) {
-        if (controlsVisible) {
+    LaunchedEffect(foreground) {
+        if (!foreground) {
+            controlsVisible = false
+            queueOpen = false
+        }
+    }
+    // while the queue is open the controls stay, so it can be browsed at leisure
+    LaunchedEffect(controlsVisible, interactions, queueOpen) {
+        if (controlsVisible && !queueOpen) {
             delay(CONTROLS_MS)
             controlsVisible = false
         }
     }
+    LaunchedEffect(controlsVisible) { if (!controlsVisible) queueOpen = false }
 
     val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
@@ -277,6 +292,9 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     clock = vm.clock,
                     settings = settings,
                     accent = accent,
+                    queue = queue,
+                    shuffleOn = shuffleOn,
+                    repeatMode = repeatMode,
                     onInteract = { interactions++ },
                     onPlayPause = { if (current.isPlaying) vm.sessions.pause() else vm.sessions.play() },
                     onPrevious = { vm.sessions.previous() },
@@ -284,6 +302,31 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     onSeek = { vm.sessions.seekTo(it) },
                     onTemplate = { vm.setTemplate(it) },
                     onSettings = onOpenSettings,
+                    onQueue = { queueOpen = !queueOpen },
+                    onShuffle = { on -> shuffleOn = on; vm.setShuffle(on) },
+                    onRepeat = { mode -> repeatMode = mode; vm.setRepeat(mode) },
+                )
+            }
+        }
+
+        // the player's own queue, above the controls; wide screens get a side panel,
+        // phones a sheet that rises from the bottom
+        val queueWide = LocalConfiguration.current.screenWidthDp >= 600
+        AnimatedVisibility(
+            controlsVisible && queueOpen && queue != null,
+            modifier = Modifier.align(if (queueWide) Alignment.CenterEnd else Alignment.BottomCenter),
+            enter = fadeIn(), exit = fadeOut(),
+        ) {
+            val q = queue
+            if (q != null) {
+                QueuePanel(
+                    queue = q,
+                    accent = accent,
+                    onSkip = {
+                        vm.skipToQueueItem(it)
+                        queueOpen = false
+                    },
+                    onClose = { queueOpen = false },
                 )
             }
         }

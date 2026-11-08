@@ -14,6 +14,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
@@ -102,6 +103,10 @@ fun BackgroundPreview(
     val family = remember(lyricFont) { StageFonts.lyrics(lyricFont) }
     val text = Color(palette.text)
     val hl = lerp(text, Color(palette.accents.first()), 0.85f)
+    // read as state inside the draw block, so every change of the sliders redraws the
+    // preview for sure, including the trip back to solid (glass 0)
+    val glassNow = rememberUpdatedState(glass)
+    val frostNow = rememberUpdatedState(frost)
 
     Box(Modifier.fillMaxWidth().height(190.dp).clip(RoundedCornerShape(24.dp))) {
         StageBackground(
@@ -125,8 +130,8 @@ fun BackgroundPreview(
             val shadow = Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 2f), 12f)
             val y = (size.height - sung.size.height) / 2f
             val x = (size.width - (sung.size.width + gap + word.size.width)) / 2f
-            drawGlassText(sung, text, Offset(x, y), 1f, shadow, glass, frost, px)
-            drawGlassText(word, hl, Offset(x + sung.size.width + gap, y), 1f, shadow, glass, frost, px)
+            drawGlassText(sung, text, Offset(x, y), 1f, shadow, glassNow.value, frostNow.value, px)
+            drawGlassText(word, hl, Offset(x + sung.size.width + gap, y), 1f, shadow, glassNow.value, frostNow.value, px)
         }
     }
 }

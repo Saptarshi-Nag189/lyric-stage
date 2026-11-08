@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -40,6 +41,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -50,13 +52,16 @@ import com.lyricstage.R
 import com.lyricstage.core.clock.PlaybackClock
 import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.media.NowPlaying
+import com.lyricstage.media.QueueState
 import com.lyricstage.settings.StageSettings
 import com.lyricstage.ui.theme.Ui
 import kotlinx.coroutines.delay
 
 /**
- * Tap-to-show controls. Top: artwork, title, settings and the layout pills. Bottom, in one
- * floating card above the gesture area: seek bar, times and transport.
+ * Tap-to-show controls. Top: artwork, title, the queue, settings and the layout pills.
+ * Bottom, in one floating card above the gesture area: seek bar, times, and the transport
+ * with shuffle and repeat flanking it, the way a music player lays them out. On wide
+ * screens the card and the header sit in a centred column, not stretched edge to edge.
  */
 @Composable
 fun ControlsOverlay(
@@ -64,6 +69,10 @@ fun ControlsOverlay(
     clock: PlaybackClock,
     settings: StageSettings,
     accent: Color,
+    queue: QueueState?,
+    shuffleOn: Boolean,
+    /** 0 off, 1 repeat one, 2 repeat all. */
+    repeatMode: Int,
     onInteract: () -> Unit,
     onPlayPause: () -> Unit,
     onPrevious: () -> Unit,
@@ -71,6 +80,9 @@ fun ControlsOverlay(
     onSeek: (Long) -> Unit,
     onTemplate: (TemplateId?) -> Unit,
     onSettings: () -> Unit,
+    onQueue: () -> Unit,
+    onShuffle: (Boolean) -> Unit,
+    onRepeat: (Int) -> Unit,
 ) {
     val position by produceState(clock.smoothedPositionMs()) {
         while (true) {
@@ -81,6 +93,8 @@ fun ControlsOverlay(
     var dragging by remember { mutableStateOf<Float?>(null) }
     val duration = nowPlaying.durationMs ?: 0L
     val art = remember(nowPlaying.art) { nowPlaying.art?.asImageBitmap() }
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val column = if (wide) Modifier.fillMaxWidth().widthIn(max = 620.dp) else Modifier.fillMaxWidth()
 
     Box(
         Modifier
@@ -90,7 +104,7 @@ fun ControlsOverlay(
         Column(
             Modifier
                 .align(Alignment.TopCenter)
-                .fillMaxWidth()
+                .then(column)
                 .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
@@ -103,6 +117,10 @@ fun ControlsOverlay(
                 Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
                     Text(nowPlaying.title, color = Ui.Text, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(nowPlaying.artist, color = Ui.Text.copy(alpha = 0.72f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                if (queue != null) {
+                    CircleIconButton(Glyph.QUEUE, stringResource(R.string.queue), { onQueue(); onInteract() }, background = Color.Black.copy(alpha = 0.35f))
+                    Spacer(Modifier.width(8.dp))
                 }
                 CircleIconButton(Glyph.MORE, stringResource(R.string.settings), onSettings, background = Color.Black.copy(alpha = 0.35f))
             }
@@ -120,7 +138,7 @@ fun ControlsOverlay(
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
+                .then(column)
                 // in immersive mode the nav bar inset is 0; keep clear of the swipe-up gesture zone
                 .windowInsetsPadding(WindowInsets.mandatorySystemGestures)
                 .padding(start = 12.dp, end = 12.dp, bottom = 20.dp)
@@ -155,18 +173,27 @@ fun ControlsOverlay(
 
             Row(
                 Modifier.fillMaxWidth().padding(top = 6.dp),
-                horizontalArrangement = Arrangement.Center,
+                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                TransportButton(Transport.PREVIOUS, stringResource(R.string.previous), 56, Color.Transparent, Ui.Text) { onPrevious(); onInteract() }
-                Spacer(Modifier.width(28.dp))
+                val sideTint = Ui.Text.copy(alpha = 0.8f)
+                GlyphButton(
+                    Glyph.SHUFFLE,
+                    stringResource(if (shuffleOn) R.string.shuffle_on else R.string.shuffle_off),
+                    44, if (shuffleOn) accent else sideTint,
+                ) { onShuffle(!shuffleOn); onInteract() }
+                TransportButton(Transport.PREVIOUS, stringResource(R.string.previous), 52, Color.Transparent, Ui.Text) { onPrevious(); onInteract() }
                 TransportButton(
                     if (nowPlaying.isPlaying) Transport.PAUSE else Transport.PLAY,
                     stringResource(if (nowPlaying.isPlaying) R.string.pause else R.string.play),
-                    76, accent, Ui.OnAccent,
+                    72, accent, Ui.OnAccent,
                 ) { onPlayPause(); onInteract() }
-                Spacer(Modifier.width(28.dp))
-                TransportButton(Transport.NEXT, stringResource(R.string.next), 56, Color.Transparent, Ui.Text) { onNext(); onInteract() }
+                TransportButton(Transport.NEXT, stringResource(R.string.next), 52, Color.Transparent, Ui.Text) { onNext(); onInteract() }
+                GlyphButton(
+                    if (repeatMode == 1) Glyph.REPEAT_ONE else Glyph.REPEAT,
+                    stringResource(when (repeatMode) { 1 -> R.string.repeat_one; 2 -> R.string.repeat_all; else -> R.string.repeat_off }),
+                    44, if (repeatMode != 0) accent else sideTint,
+                ) { onRepeat(if (repeatMode == 0) 2 else if (repeatMode == 2) 1 else 0); onInteract() }
             }
         }
     }
@@ -179,6 +206,17 @@ private fun TransportButton(kind: Transport, description: String, sizeDp: Int, b
         contentAlignment = Alignment.Center,
     ) {
         TransportIcon(kind, description, tint, if (sizeDp > 60) 32 else 28)
+    }
+}
+
+/** A round button showing one of the line glyphs: shuffle, repeat and their kin. */
+@Composable
+private fun GlyphButton(glyph: Glyph, description: String, sizeDp: Int, tint: Color, onClick: () -> Unit) {
+    Box(
+        Modifier.size(sizeDp.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        DrawnIcon(glyph, description, tint, if (sizeDp > 60) 24 else 20)
     }
 }
 

@@ -9,6 +9,7 @@ import android.media.session.MediaController
 import android.media.session.MediaSessionManager
 import android.media.session.PlaybackState
 import android.net.Uri
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -32,6 +33,9 @@ class ActiveSessionTracker(private val context: Context) {
 
     private val _nowPlaying = MutableStateFlow<NowPlaying?>(null)
     val nowPlaying: StateFlow<NowPlaying?> = _nowPlaying.asStateFlow()
+
+    private val _queue = MutableStateFlow<QueueState?>(null)
+    val queue: StateFlow<QueueState?> = _queue.asStateFlow()
 
     private val _accessDenied = MutableStateFlow(false)
     val accessDenied: StateFlow<Boolean> = _accessDenied.asStateFlow()
@@ -82,6 +86,29 @@ class ActiveSessionTracker(private val context: Context) {
     fun previous() = active?.transportControls?.skipToPrevious()
     fun seekTo(ms: Long) = active?.transportControls?.seekTo(ms)
 
+    /** Jump the player to a song in its own queue. */
+    fun skipToQueueItem(id: Long) = active?.transportControls?.skipToQueueItem(id)
+
+    /**
+     * Shuffle and repeat, sent the way MediaSessionCompat and media3 sessions expect: as
+     * the compatibility custom actions they translate into onSetShuffleMode / onSetRepeatMode.
+     * Players built straight on the framework session ignore them.
+     */
+    fun setShuffle(on: Boolean) = sendSessionAction(ACTION_SET_SHUFFLE_MODE, ARGUMENT_SHUFFLE_MODE, if (on) 1 else 0)
+
+    /** 0 off, 1 repeat one, 2 repeat all. */
+    fun setRepeat(mode: Int) = sendSessionAction(ACTION_SET_REPEAT_MODE, ARGUMENT_REPEAT_MODE, mode)
+
+    private fun sendSessionAction(action: String, argument: String, value: Int) {
+        val extras = Bundle()
+        extras.putInt(argument, value)
+        try {
+            active?.transportControls?.sendCustomAction(action, extras)
+        } catch (e: RuntimeException) {
+            Log.d(TAG, "Session refused $action: ${e.message}")
+        }
+    }
+
     private fun onSessionsChanged(list: List<MediaController>) {
         val tokens = list.map { it.sessionToken }.toSet()
         val gone = callbacks.keys.filter { it.sessionToken !in tokens }
@@ -95,6 +122,9 @@ class ActiveSessionTracker(private val context: Context) {
                 }
                 override fun onMetadataChanged(metadata: MediaMetadata?) {
                     if (c.sessionToken == active?.sessionToken) publish()
+                }
+                override fun onQueueChanged(queue: MutableList<android.media.session.MediaSession.QueueItem>?) {
+                    if (c.sessionToken == active?.sessionToken) publishQueue()
                 }
                 override fun onSessionDestroyed() {
                     callbacks.remove(c)?.let(c::unregisterCallback)
@@ -158,6 +188,29 @@ class ActiveSessionTracker(private val context: Context) {
         // re-anchor on every state or metadata change
         clock.anchor(position, updateTime, speed, isPlaying, forceSnap = trackChanged)
         _nowPlaying.value = np
+        publishQueue()
+    }
+
+    /** Reads the player's own queue, and which of its items is playing, from the session. */
+    private fun publishQueue() {
+        val c = active
+        if (c == null) {
+            _queue.value = null
+            return
+        }
+        val state = c.playbackState
+        val items = c.queue.orEmpty().mapNotNull { item ->
+            val d = item.description ?: return@mapNotNull null
+            val title = d.title?.toString().orEmpty()
+            if (title.isBlank()) null
+            else QueueItem(item.queueId, title, d.subtitle?.toString())
+        }
+        _queue.value = if (items.isEmpty()) null
+        else QueueState(
+            items = items,
+            activeId = state?.activeQueueItemId ?: -1L,
+            canSkipToQueue = (state?.actions ?: 0L) and PlaybackState.ACTION_SKIP_TO_QUEUE_ITEM != 0L,
+        )
     }
 
     /** Artwork from the metadata bitmap, or a local content URI. Never fetched from the web. */
@@ -197,5 +250,12 @@ class ActiveSessionTracker(private val context: Context) {
 
     companion object {
         private const val TAG = "SessionTracker"
+
+        // the compatibility custom actions MediaSessionCompat and media3 sessions translate
+        // into onSetShuffleMode / onSetRepeatMode (PlaybackStateCompat constants: none/all/one)
+        private const val ACTION_SET_SHUFFLE_MODE = "android.support.v4.media.session.action.SET_SHUFFLE_MODE"
+        private const val ACTION_SET_REPEAT_MODE = "android.support.v4.media.session.action.SET_REPEAT_MODE"
+        private const val ARGUMENT_SHUFFLE_MODE = "android.support.v4.media.session.action.ARGUMENT_SHUFFLE_MODE"
+        private const val ARGUMENT_REPEAT_MODE = "android.support.v4.media.session.action.ARGUMENT_REPEAT_MODE"
     }
 }

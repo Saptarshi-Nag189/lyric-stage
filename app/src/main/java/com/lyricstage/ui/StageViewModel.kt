@@ -10,6 +10,7 @@ import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.lyrics.TrackQuery
 import com.lyricstage.media.NowPlaying
+import com.lyricstage.media.QueueState
 import com.lyricstage.palette.ArtworkPalette
 import com.lyricstage.settings.StageSettings
 import kotlinx.coroutines.Dispatchers
@@ -36,7 +37,14 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     val sessions = c.sessions
     val clock = c.sessions.clock
     val nowPlaying: StateFlow<NowPlaying?> = c.sessions.nowPlaying
+    val queue: StateFlow<QueueState?> = c.sessions.queue
     val settings: StateFlow<StageSettings> = c.settings.settings
+
+    fun skipToQueueItem(id: Long) = c.sessions.skipToQueueItem(id)
+    fun setShuffle(on: Boolean) = c.sessions.setShuffle(on)
+
+    /** 0 off, 1 repeat one, 2 repeat all. */
+    fun setRepeat(mode: Int) = c.sessions.setRepeat(mode)
 
     private val isPlaying: StateFlow<Boolean> = nowPlaying.map { it?.isPlaying == true }
         .stateIn(viewModelScope, SharingStarted.Eagerly, false)

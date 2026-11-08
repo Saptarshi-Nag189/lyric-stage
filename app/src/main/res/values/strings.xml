@@ -36,6 +36,17 @@
     <string name="previous">Previous</string>
     <string name="next">Next</string>
     <string name="settings">Settings</string>
+    <string name="queue">Queue</string>
+    <string name="close_queue">Close the queue</string>
+    <plurals name="queue_count">
+        <item quantity="one">%d song</item>
+        <item quantity="other">%d songs</item>
+    </plurals>
+    <string name="shuffle_on">Shuffle is on</string>
+    <string name="shuffle_off">Shuffle is off</string>
+    <string name="repeat_off">Repeat is off</string>
+    <string name="repeat_all">Repeat all</string>
+    <string name="repeat_one">Repeat this song</string>
     <string name="template_auto">Auto</string>
     <string name="sync_earlier">Earlier</string>
     <string name="sync_later">Later</string>

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -84,47 +85,50 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
         }
     }
 
+    // on tablets the page sits in a centred column, not stretched edge to edge
     Column(
         Modifier
             .fillMaxSize()
             .background(Ui.Ground)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
-            Column(Modifier.padding(start = 16.dp)) {
-                Text(
-                    stringResource(R.string.settings),
-                    color = Ui.Text,
-                    fontSize = 30.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = (-0.5).sp,
-                )
-                Text(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), color = Ui.Muted, fontSize = 13.sp)
+        Column(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(horizontal = 16.dp)) {
+            Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
+                Column(Modifier.padding(start = 16.dp)) {
+                    Text(
+                        stringResource(R.string.settings),
+                        color = Ui.Text,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        letterSpacing = (-0.5).sp,
+                    )
+                    Text(stringResource(R.string.settings_version, BuildConfig.VERSION_NAME), color = Ui.Muted, fontSize = 13.sp)
+                }
+            }
+            Spacer(Modifier.height(16.dp))
+
+            val current = track
+            if (current != null) {
+                ThisSongCard(current, np?.art, lyrics as? LyricsState.Ready, offset, accent, { vm.nudge(250) }, { vm.resetOffset() }, { vm.nudge(-250) }, {
+                    importLauncher.launch(arrayOf("*/*"))
+                })
+            }
+
+            Spacer(Modifier.height(24.dp))
+            UiCard(padding = 0) {
+                LinkRow(stringResource(R.string.settings_look), { onOpen(Screen.LOOK) }, divider = false)
+                LinkRow(stringResource(R.string.settings_fonts), { onOpen(Screen.FONTS) })
+                LinkRow(stringResource(R.string.settings_playback), { onOpen(Screen.PLAYBACK) })
+                LinkRow(stringResource(R.string.settings_data), { onOpen(Screen.DATA) })
+                LinkRow(stringResource(R.string.settings_spotify), { onOpen(Screen.SPOTIFY) })
+                LinkRow(stringResource(R.string.about), { onOpen(Screen.ABOUT) })
+                LinkRow(stringResource(R.string.settings_debug), { onOpen(Screen.DEVELOPER) })
             }
         }
-        Spacer(Modifier.height(16.dp))
-
-        val current = track
-        if (current != null) {
-            ThisSongCard(current, np?.art, lyrics as? LyricsState.Ready, offset, accent, { vm.nudge(250) }, { vm.resetOffset() }, { vm.nudge(-250) }, {
-                importLauncher.launch(arrayOf("*/*"))
-            })
-        }
-
-        Spacer(Modifier.height(24.dp))
-        UiCard(padding = 0) {
-            LinkRow(stringResource(R.string.settings_look), { onOpen(Screen.LOOK) }, divider = false)
-            LinkRow(stringResource(R.string.settings_fonts), { onOpen(Screen.FONTS) })
-            LinkRow(stringResource(R.string.settings_playback), { onOpen(Screen.PLAYBACK) })
-            LinkRow(stringResource(R.string.settings_data), { onOpen(Screen.DATA) })
-            LinkRow(stringResource(R.string.settings_spotify), { onOpen(Screen.SPOTIFY) })
-            LinkRow(stringResource(R.string.about), { onOpen(Screen.ABOUT) })
-            LinkRow(stringResource(R.string.settings_debug), { onOpen(Screen.DEVELOPER) })
-        }
-
         Spacer(Modifier.height(24.dp))
     }
 }
@@ -138,21 +142,24 @@ private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable
             .background(Ui.Ground)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
-            CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
-            Text(
-                title,
-                Modifier.padding(start = 16.dp),
-                color = Ui.Text,
-                fontSize = 30.sp,
-                fontWeight = FontWeight.ExtraBold,
-                letterSpacing = (-0.5).sp,
-            )
+        Column(Modifier.fillMaxWidth().widthIn(max = 640.dp).padding(horizontal = 16.dp)) {
+            Row(Modifier.heightIn(min = 56.dp), verticalAlignment = Alignment.CenterVertically) {
+                CircleIconButton(Glyph.BACK, stringResource(R.string.back), onBack)
+                Text(
+                    title,
+                    Modifier.padding(start = 16.dp),
+                    color = Ui.Text,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    letterSpacing = (-0.5).sp,
+                )
+            }
+            Spacer(Modifier.height(16.dp))
+            content()
         }
-        Spacer(Modifier.height(16.dp))
-        content()
         Spacer(Modifier.height(24.dp))
     }
 }

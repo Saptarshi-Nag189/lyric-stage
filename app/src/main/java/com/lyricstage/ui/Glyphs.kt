@@ -14,7 +14,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 
 /** Line icons drawn on a 24-unit grid, so no icon font or library is needed. */
-enum class Glyph { BACK, CHEVRON, MORE, OFFLINE, NOTE, MIC_OFF, SEARCHING }
+enum class Glyph { BACK, CHEVRON, MORE, OFFLINE, NOTE, MIC_OFF, SEARCHING, QUEUE, SHUFFLE, REPEAT, REPEAT_ONE, CLOSE }
 
 @Composable
 fun DrawnIcon(glyph: Glyph, description: String?, tint: Color, sizeDp: Int = 18) {
@@ -49,6 +49,42 @@ fun DrawnIcon(glyph: Glyph, description: String?, tint: Color, sizeDp: Int = 18)
             }
             Glyph.SEARCHING -> for ((i, x) in listOf(6f, 12f, 18f).withIndex()) {
                 drawCircle(tint.copy(alpha = 1f - i * 0.3f), 2.4f * u, p(x, 12f))
+            }
+            Glyph.QUEUE -> {
+                line(4f, 6f, 20f, 6f)
+                line(4f, 12f, 20f, 12f)
+                line(4f, 18f, 14f, 18f)
+            }
+            Glyph.CLOSE -> {
+                line(6f, 6f, 18f, 18f)
+                line(18f, 6f, 6f, 18f)
+            }
+            Glyph.SHUFFLE -> {
+                line(3f, 7f, 8f, 7f)
+                line(8f, 7f, 15f, 16f)
+                line(16f, 16f, 21f, 16f)
+                line(3f, 16f, 8f, 16f)
+                line(8f, 16f, 13.5f, 9.7f)
+                line(16.5f, 7f, 21f, 7f)
+                // arrowheads
+                line(18f, 4.4f, 21f, 7f); line(18f, 9.6f, 21f, 7f)
+                line(18f, 13.4f, 21f, 16f); line(18f, 18.6f, 21f, 16f)
+            }
+            Glyph.REPEAT -> {
+                arc(12f, 12f, 7.5f, 200f, 260f)
+                line(12f, 4.5f, 12f, 8f)
+                line(9.6f, 5.6f, 12f, 3.2f); line(14.4f, 5.6f, 12f, 3.2f)
+                line(12f, 16f, 12f, 19.5f)
+                line(9.6f, 18.4f, 12f, 20.8f); line(14.4f, 18.4f, 12f, 20.8f)
+            }
+            Glyph.REPEAT_ONE -> {
+                arc(12f, 12f, 7.5f, 200f, 260f)
+                line(12f, 4.5f, 12f, 8f)
+                line(9.6f, 5.6f, 12f, 3.2f); line(14.4f, 5.6f, 12f, 3.2f)
+                line(12f, 16f, 12f, 19.5f)
+                line(9.6f, 18.4f, 12f, 20.8f); line(14.4f, 18.4f, 12f, 20.8f)
+                // the "1"
+                line(11f, 9.5f, 12f, 8.8f); line(12f, 8.8f, 12f, 14.5f)
             }
         }
     }
