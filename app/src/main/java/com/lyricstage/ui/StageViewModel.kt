@@ -10,6 +10,7 @@ import com.lyricstage.core.stage.TemplateId
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.lyrics.TrackQuery
 import com.lyricstage.media.NowPlaying
+import com.lyricstage.media.QueueItem
 import com.lyricstage.media.QueueState
 import com.lyricstage.palette.ArtworkPalette
 import com.lyricstage.settings.StageSettings
@@ -40,7 +41,11 @@ class StageViewModel(private val c: AppContainer) : ViewModel() {
     val queue: StateFlow<QueueState?> = c.sessions.queue
     val settings: StateFlow<StageSettings> = c.settings.settings
 
-    fun skipToQueueItem(id: Long) = c.sessions.skipToQueueItem(id)
+    fun playQueueItem(item: QueueItem) = c.sessions.playQueueItem(item)
+
+    /** The player's own name each time a queue jump is refused; collected for a toast. */
+    val queueRefused = c.sessions.queueRefused
+
     fun setShuffle(on: Boolean) = c.sessions.setShuffle(on)
 
     /** 0 off, 1 repeat one, 2 repeat all. */

@@ -130,8 +130,6 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
                     ChoicePill(stringResource(R.string.template_auto), settings.template == null, accent, { vm.setTemplate(null) })
                     TemplateId.entries.forEach { id -> ChoicePill(id.label, settings.template == id, accent, { vm.setTemplate(id) }) }
                 }
-                Spacer(Modifier.height(12.dp))
-                Text(stringResource(R.string.hint_layout_lock), color = Ui.Muted, fontSize = 13.sp, lineHeight = 18.sp)
             }
 
             Spacer(Modifier.height(24.dp))
@@ -259,8 +257,6 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
                     ChoicePill(id.label, id in shown, accent, { vm.toggleAutoPool(id) })
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.hint_auto_pool), color = Ui.Muted, fontSize = 13.sp, lineHeight = 18.sp)
         }
         Spacer(Modifier.height(12.dp))
 
@@ -312,7 +308,7 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
             }
             ToggleRow(
                 stringResource(R.string.settings_glass_ui), s.glassUi, accent, { on -> vm.updateSettings { it.copy(glassUi = on) } },
-                hint = stringResource(R.string.hint_glass_ui), divider = false,
+                divider = false,
             )
         }
         Spacer(Modifier.height(12.dp))
@@ -394,8 +390,7 @@ fun DataPage(vm: StageViewModel, onBack: () -> Unit) {
                 hint = stringResource(R.string.hint_prefetch), divider = false)
             ToggleRow(stringResource(R.string.settings_lookahead_wifi), s.lookAheadWifiOnly, accent, { on -> vm.updateSettings { it.copy(lookAheadWifiOnly = on) } },
                 hint = stringResource(R.string.hint_lookahead), enabled = s.backgroundPrefetch)
-            ToggleRow(stringResource(R.string.settings_unsynced), s.paragraphLyrics, accent, { on -> vm.updateSettings { it.copy(paragraphLyrics = on) } },
-                hint = stringResource(R.string.hint_unsynced))
+            ToggleRow(stringResource(R.string.settings_unsynced), s.paragraphLyrics, accent, { on -> vm.updateSettings { it.copy(paragraphLyrics = on) } })
         }
         Spacer(Modifier.height(16.dp))
         UiCard {

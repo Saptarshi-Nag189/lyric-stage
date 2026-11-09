@@ -58,16 +58,21 @@ half4 main(float2 fragCoord) {
         back = half3(mix(back.r, bNear.r, half(0.5)), back.g, mix(back.b, bFar.b, half(0.5)));
     }
 
-    // frost: a blurred, whitened take on the backdrop for the body of the glass
+    // frost: a blurred, whitened take on the backdrop for the body of the glass, sampled
+    // six around one so the blur has no grid to it, keeping a little of the field's colour
+    // as it milks over
     float frost = clamp(uFrost, 0.0, 1.0);
     if (frost > 0.02) {
-        float fr = uEdge * (0.8 + frost * 1.8);
-        half3 f = half3(0.0);
-        f += uBackdrop.eval(fragCoord + float2( fr,  fr)).rgb;
-        f += uBackdrop.eval(fragCoord + float2(-fr,  fr)).rgb;
-        f += uBackdrop.eval(fragCoord + float2( fr, -fr)).rgb;
-        f += uBackdrop.eval(fragCoord + float2(-fr, -fr)).rgb;
-        back = mix(back, f * 0.25, half(frost));
+        float fr = uEdge * (1.0 + 2.6 * frost);
+        half3 f = uBackdrop.eval(fragCoord).rgb;
+        for (int j = 0; j < 6; j++) {
+            float a = 1.0471976 * float(j);
+            f += uBackdrop.eval(fragCoord + float2(cos(a), sin(a)) * fr).rgb;
+        }
+        f *= 0.14285715;
+        half fl = dot(f, half3(0.299, 0.587, 0.114));
+        f = mix(half3(fl), f, half(1.2));
+        back = mix(back, f, half(frost));
         back = mix(back, half3(1.0), half(0.10 * frost));
     }
 
@@ -124,15 +129,22 @@ half4 main(float2 fragCoord) {
     half3 col = uContent.eval(fragCoord + n * (rim * uBend)).rgb;
 
     float frost = clamp(uFrost, 0.0, 1.0);
-    // legibility under what sits on the panel, milkier as frost rises
+    // legibility under what sits on the panel, milkier as frost rises; the field's colour
+    // survives both the darkening and the milk
     col *= half(1.0 - 0.16 - 0.26 * frost);
+    half pl = dot(col, half3(0.299, 0.587, 0.114));
+    col = mix(half3(pl), col, half(1.12));
     col = mix(col, half3(1.0), half(0.05 + 0.08 * frost));
 
-    // the bevel, lit from above
-    float up = clamp(-n.y, 0.0, 1.0);
-    float down = clamp(n.y, 0.0, 1.0);
-    col += half3(rim * up * 0.38 + rim * rim * up * 0.22);
-    col -= half3(rim * down * 0.20);
+    // the bevel is lit from the top left and shaded opposite, the way the reference
+    // material is, and a bright hairline sits exactly at the edge, as a glass border reads
+    half lit = half(clamp(dot(n, float2(-0.7071, -0.7071)), 0.0, 1.0));
+    half shade = half(clamp(dot(n, float2(0.7071, 0.7071)), 0.0, 1.0));
+    col += half3(rim * lit * 0.36 + rim * rim * lit * 0.20);
+    col -= half3(rim * shade * 0.16);
+    float hair = 1.0 - smoothstep(0.0, 2.0, inside);
+    col += half3(hair * (0.08 + 0.26 * lit));
+    col -= half3(hair * 0.07 * shade);
     // a soft sheen across the top of the panel
     col += half3(0.05 * (1.0 - smoothstep(0.0, uRes.y * 0.55, fragCoord.y)));
 

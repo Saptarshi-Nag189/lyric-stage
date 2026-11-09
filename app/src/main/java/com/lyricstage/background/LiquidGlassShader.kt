@@ -98,22 +98,27 @@ half4 main(float2 fragCoord) {
         sin(p.y * 2.3 + t * 0.21) + 0.6 * sin(p.x * 1.7 - p.y * 1.3 + t * 0.17),
         cos(p.x * 2.1 - t * 0.19) + 0.6 * cos(p.y * 1.9 + p.x * 0.8 - t * 0.23)) * 0.012;
 
-    // ripples: a damped ring travelling outwards from each sung word
+    // ripples travel outwards from each sung word; a beat lands as a pulse of the same
+    // glass, broader and quicker, bending the field less and tinting it more
     float ring = 0.0;
     float glow = 0.0;
     for (int i = 0; i < 8; i++) {
         float4 rp = uRip[i];
+        bool beat = rp.w < 0.0;
+        float amp = abs(rp.w);
+        float speed = beat ? 0.46 : 0.32;
+        float life = beat ? 2.4 : 3.5;
         float age = t - rp.z;
-        if (rp.w > 0.0 && age >= 0.0 && age < 3.5) {
+        if (amp > 0.0 && age >= 0.0 && age < life) {
             float2 c = float2((rp.x - 0.5) * aspect, rp.y - 0.5);
             float2 d = p - c;
             float dist = length(d);
-            float x = dist - age * 0.32;
-            float env = exp(-x * x * 90.0) * exp(-age * 1.25) * rp.w;
-            slope += (d / max(dist, 0.001)) * sin(x * 55.0) * env * 0.035 * uRipple;
-            ring += env * uRipple;
+            float x = dist - age * speed;
+            float env = exp(-x * x * (beat ? 60.0 : 90.0)) * exp(-age * (beat ? 1.7 : 1.25)) * amp;
+            slope += (d / max(dist, 0.001)) * sin(x * (beat ? 30.0 : 55.0)) * env * (beat ? 0.016 : 0.035) * uRipple;
+            ring += env * (beat ? 1.3 : 1.0) * uRipple;
             // a wide, soft version of the same ring, for dark glass
-            glow += exp(-x * x * 14.0) * exp(-age * 1.4) * rp.w * uRipple;
+            glow += exp(-x * x * 14.0) * exp(-age * 1.4) * amp * (beat ? 0.8 : 1.0) * uRipple;
         }
     }
 

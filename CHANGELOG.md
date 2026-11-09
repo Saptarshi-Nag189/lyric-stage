@@ -1,5 +1,40 @@
 # Changelog
 
+## [2.6.1] - 2026-11-09
+
+### Fixed
+- The queue plays in Spotify and YouTube Music, not only in Apple Music. A row used to be
+  switched off unless the player advertised queue jumping - Apple Music does, the others
+  don't - so the songs sat there and could not be tapped. A tap now sends the jump
+  whatever the player says about itself, waits to see whether the player answered, and
+  one that didn't is asked again by the song's own media id before the app gives up and
+  says so, naming the player.
+
+### Changed
+- Beat ripples, redone. The listener no longer averages itself out of hearing a steady
+  drum: the threshold is the median of the last few seconds plus its spread, so a beat
+  that repeats keeps clearing it, and a flat drone is refused instead of triggering it.
+  Onsets carry their loudness, so a heavy beat lands harder than a light one and every
+  fourth beat is accented. They rise from alternating sides of the lower stage, in time
+  with the music rather than from random spots, and when the beats hold a tempo one the
+  microphone missed still lands softly on the grid. In the glass a beat now reads as one
+  broad pulse - quicker to spread and fade, bending the field less and tinting it more -
+  where a sung word keeps its tighter, busier ring.
+- The queue list is plain: no numbers in front of the songs. The one playing keeps its
+  note marker.
+- The liquid glass is closer to the material it imitates, within the same budget. The
+  panels are lit from the top left rather than straight above, carry a bright hairline
+  at their edge, and keep more of the field's colour under their darkening and milk.
+  Frosted lyric letters sample the field six around one instead of four on the diagonal,
+  and reach further, so frost reads as blur rather than a pale wash. The rim refraction,
+  the dispersion and the single shared field are kept as they were: the reference
+  implementation pays for its look with three full displacement passes per frame, which
+  a phone GPU filling the whole stage is not being asked to do.
+- Settings says less. The explanations under the layout lock, Auto rotation, glass
+  controls and the unsynced switch are gone; what stays is a handful of words where they
+  carry something worth knowing, and the unsynced switch is called "Show unsynced
+  lyrics" now, so it can drop its sentence.
+
 ## [2.5.0] - 2026-11-09
 
 ### Added

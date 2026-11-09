@@ -27,8 +27,8 @@ object LineTiming {
     }
 }
 
-/** A soft ripple to emit in the background where a word was just sung. */
-class Ripple(val x: Float, val y: Float, val strength: Float)
+/** A soft ripple to emit in the background: where a word was just sung, or a heard beat. */
+class Ripple(val x: Float, val y: Float, val strength: Float, val beat: Boolean = false)
 
 /**
  * Detects words whose start time was crossed since the last frame. Large jumps (seeks)

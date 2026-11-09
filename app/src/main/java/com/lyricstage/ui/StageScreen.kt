@@ -82,6 +82,13 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
 
     // keep the screen on while playing, and for two minutes after a pause
     var keepAwake by remember { mutableStateOf(true) }
+
+    // a queue jump the player refused is said out loud once, naming the player
+    LaunchedEffect(Unit) {
+        vm.queueRefused.collect { player ->
+            Toast.makeText(context, context.getString(R.string.queue_jump_refused, player), Toast.LENGTH_SHORT).show()
+        }
+    }
     LaunchedEffect(playing) {
         if (playing) {
             keepAwake = true
@@ -352,7 +359,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     stageSize = stageSize,
                     frost = settings.frost,
                     onSkip = {
-                        vm.skipToQueueItem(it)
+                        vm.playQueueItem(it)
                         queueOpen = false
                     },
                     onClose = { queueOpen = false },

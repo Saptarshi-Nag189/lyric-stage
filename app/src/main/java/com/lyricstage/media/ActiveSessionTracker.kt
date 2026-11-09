@@ -15,8 +15,11 @@ import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
 import com.lyricstage.core.clock.PlaybackClock
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.util.concurrent.Executors
 
@@ -41,10 +44,23 @@ class ActiveSessionTracker(private val context: Context) {
     private val _accessDenied = MutableStateFlow(false)
     val accessDenied: StateFlow<Boolean> = _accessDenied.asStateFlow()
 
+    /** One shot per queue jump the player refused; the value is the player's own name. */
+    private val _queueRefused = MutableSharedFlow<String>(extraBufferCapacity = 4)
+    val queueRefused: SharedFlow<String> = _queueRefused.asSharedFlow()
+
     private val callbacks = HashMap<MediaController, MediaController.Callback>()
     private val lastActiveAt = HashMap<String, Long>()
     private var active: MediaController? = null
     private var started = false
+
+    // the queue jump in flight, and what it is waiting for
+    private data class PendingJump(
+        val item: QueueItem,
+        val stage: Int,
+        val beforeKey: String,
+    )
+
+    private var jump: PendingJump? = null
     // the last few covers, kept so flipping back to a song shows its art at once; entries
     // can hold null ("looked, nothing there") so a missing cover is not hunted again
     private val artCache = object : LinkedHashMap<String, Bitmap?>(16, 0.75f, true) {
@@ -93,8 +109,84 @@ class ActiveSessionTracker(private val context: Context) {
     fun previous() = active?.transportControls?.skipToPrevious()
     fun seekTo(ms: Long) = active?.transportControls?.seekTo(ms)
 
-    /** Jump the player to a song in its own queue. */
-    fun skipToQueueItem(id: Long) = active?.transportControls?.skipToQueueItem(id)
+    /**
+     * Jump the player to a song in its own queue. The queue is sent straight away, then
+     * checked for effect: many players - Spotify, YouTube Music - never advertise queue
+     * jumping and some ignore the command, so a jump that nothing answers falls back to
+     * the song's own media id before the app gives up and says so.
+     */
+    fun playQueueItem(item: QueueItem) {
+        val c = active ?: return
+        handler.removeCallbacks(jumpCheck)
+        jump = PendingJump(item, JUMP_STAGE_QUEUE, trackKey(c))
+        sendJump(c)
+    }
+
+    private fun sendJump(c: MediaController) {
+        val j = jump ?: return
+        try {
+            when (j.stage) {
+                JUMP_STAGE_QUEUE -> c.transportControls.skipToQueueItem(j.item.id)
+                JUMP_STAGE_MEDIA -> {
+                    val id = j.item.mediaId ?: run { giveUp(); return }
+                    c.transportControls.playFromMediaId(id, Bundle.EMPTY)
+                }
+                else -> giveUp()
+            }
+        } catch (e: RuntimeException) {
+            Log.d(TAG, "Session refused the jump: ${e.message}")
+            giveUp()
+            return
+        }
+        handler.postDelayed(jumpCheck, JUMP_WAIT_MS)
+    }
+
+    /** True the moment the jump has taken hold: the song is playing, or its queue item is. */
+    private fun jumpLanded(): Boolean {
+        val j = jump ?: return false
+        val c = active ?: return false
+        return c.playbackState?.activeQueueItemId == j.item.id || trackKey(c) != j.beforeKey
+    }
+
+    private fun advanceJump() {
+        val j = jump ?: return
+        if (j.stage >= JUMP_STAGE_MEDIA) {
+            giveUp()
+        } else {
+            jump = j.copy(stage = j.stage + 1)
+            sendJump(active ?: return giveUp())
+        }
+    }
+
+    private fun giveUp() {
+        handler.removeCallbacks(jumpCheck)
+        val pkg = active?.packageName
+        jump = null
+        if (pkg != null) _queueRefused.tryEmit(playerLabel(pkg))
+    }
+
+    private val jumpCheck = object : Runnable {
+        override fun run() {
+            if (jump == null) return
+            if (jumpLanded()) {
+                jump = null
+            } else {
+                advanceJump()
+            }
+        }
+    }
+
+    private fun trackKey(c: MediaController): String {
+        val m = c.metadata ?: return ""
+        return (m.getString(MediaMetadata.METADATA_KEY_TITLE).orEmpty()) + "|" +
+            (m.getString(MediaMetadata.METADATA_KEY_ARTIST).orEmpty())
+    }
+
+    private fun playerLabel(pkg: String): String = try {
+        context.packageManager.getApplicationLabel(context.packageManager.getApplicationInfo(pkg, 0)).toString()
+    } catch (e: Exception) {
+        pkg
+    }
 
     /**
      * Shuffle and repeat, sent the way MediaSessionCompat and media3 sessions expect: as
@@ -210,14 +302,20 @@ class ActiveSessionTracker(private val context: Context) {
             val d = item.description ?: return@mapNotNull null
             val title = d.title?.toString().orEmpty()
             if (title.isBlank()) null
-            else QueueItem(item.queueId, title, d.subtitle?.toString())
+            else QueueItem(
+                id = item.queueId,
+                title = title,
+                artist = d.subtitle?.toString(),
+                mediaId = d.mediaId ?: d.mediaUri?.toString(),
+            )
         }
         _queue.value = if (items.isEmpty()) null
-        else QueueState(
-            items = items,
-            activeId = state?.activeQueueItemId ?: -1L,
-            canSkipToQueue = (state?.actions ?: 0L) and PlaybackState.ACTION_SKIP_TO_QUEUE_ITEM != 0L,
-        )
+        else QueueState(items = items, activeId = state?.activeQueueItemId ?: -1L)
+        // a pending jump is settled the moment the player answers it
+        if (jump != null && jumpLanded()) {
+            handler.removeCallbacks(jumpCheck)
+            jump = null
+        }
     }
 
     /** Artwork from the metadata bitmap, or a local content URI. Never fetched from the web.
@@ -276,6 +374,11 @@ class ActiveSessionTracker(private val context: Context) {
 
     companion object {
         private const val TAG = "SessionTracker"
+
+        // the two ways to ask a player to play a queue song, in order
+        private const val JUMP_STAGE_QUEUE = 0
+        private const val JUMP_STAGE_MEDIA = 1
+        private const val JUMP_WAIT_MS = 1_500L
 
         // the compatibility custom actions MediaSessionCompat and media3 sessions translate
         // into onSetShuffleMode / onSetRepeatMode (PlaybackStateCompat constants: none/all/one)

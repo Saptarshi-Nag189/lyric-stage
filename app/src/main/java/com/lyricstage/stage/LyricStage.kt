@@ -284,8 +284,8 @@ private fun alignWords(frame: StageFrame, audio: AudioOnsets?, prep: PreparedSta
     val now = SystemClock.elapsedRealtime()
     frame.onsetScratch.clear()
     while (true) {
-        val t = audio.onsets.poll() ?: break
-        frame.onsetScratch += pos - (now - t)
+        val o = audio.onsets.poll() ?: break
+        frame.onsetScratch += pos - (now - o.at)
     }
     frame.aligner.update(li, prep.plan.lines[li], frame.onsetScratch)
     return frame.aligner.shiftMs

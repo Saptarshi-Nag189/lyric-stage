@@ -62,7 +62,7 @@ Releases are currently signed with a temporary key, so uninstall the previous ve
 - Lock a layout under Look in Settings. There are no long-press or swipe gestures on the stage.
 - If the words run early or late, open Settings and use the sync buttons under "This song". Each tap moves the lyrics by 250 ms and is saved for that song. Reset puts it back to 0.
 - If no source has lyrics for a song, use "Import" on the stage or under "This song" in Settings to pick an .lrc file from the phone. It is saved for that song.
-- Songs with lyrics but no timings show a short "No synced lyrics" notice by default; turn on "Unsynced lyrics" in Settings to scroll the whole text with the song instead.
+- Songs with lyrics but no timings show a short "No synced lyrics" notice by default; turn on "Show unsynced lyrics" in Settings to scroll the whole text with the song instead.
 - The About screen (from Settings) lists the version, licences, credits and links.
 - Settings also has the layout lock right at the top (the same pills as on the stage), the Auto rotation picker for which layouts Auto chooses from, background style, wash, ripple strength, glass lyrics, glass controls and frost, the lyric typeface (Bricolage by default, with Unbounded, Big Shoulders, Syne and Darker Grotesque to pick instead; Indic scripts always use Anek and CJK the phone's own font), a Bluetooth delay, ripples on sung words or on the beat, unsynced lyrics, text size, highlight strength, battery saver, reduce motion, background fetching, Wi-Fi-only look-ahead, audio sync, and the lyrics cache size with a Delete cache button. Debug screens there show the player's raw and smoothed position and the fetched lyrics. The app's own screens always use Bricolage.
 

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyricstage.R
 import com.lyricstage.background.LiquidGlassField
+import com.lyricstage.media.QueueItem
 import com.lyricstage.media.QueueState
 import com.lyricstage.ui.theme.Ui
 
@@ -53,7 +54,7 @@ fun QueuePanel(
     field: LiquidGlassField?,
     stageSize: IntSize,
     frost: Float,
-    onSkip: (Long) -> Unit,
+    onSkip: (QueueItem) -> Unit,
     onClose: () -> Unit,
 ) {
     val wide = LocalConfiguration.current.screenWidthDp >= 600
@@ -96,16 +97,15 @@ fun QueuePanel(
         }
         Spacer(Modifier.height(6.dp))
         LazyColumn(state = listState, modifier = Modifier.weight(1f, fill = false)) {
-            itemsIndexed(queue.items, key = { _, it -> it.id }) { i, item ->
+            itemsIndexed(queue.items, key = { _, it -> it.id }) { _, item ->
                 val active = item.id == queue.activeId
                 QueueRow(
-                    index = i + 1,
                     title = item.title,
                     artist = item.artist,
                     active = active,
                     accent = accent,
-                    enabled = queue.canSkipToQueue && !active,
-                    onClick = { onSkip(item.id) },
+                    enabled = !active,
+                    onClick = { onSkip(item) },
                 )
             }
         }
@@ -117,7 +117,6 @@ fun QueuePanel(
 /** One song of the queue; the one playing is marked and not tappable. */
 @Composable
 private fun QueueRow(
-    index: Int,
     title: String,
     artist: String?,
     active: Boolean,
@@ -134,14 +133,12 @@ private fun QueueRow(
             .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val number = if (active) null else index.toString()
-        Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
-            when {
-                active -> DrawnIcon(Glyph.NOTE, null, accent, 16)
-                number != null -> Text(number, color = Ui.Muted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+        if (active) {
+            Box(Modifier.width(28.dp), contentAlignment = Alignment.Center) {
+                DrawnIcon(Glyph.NOTE, null, accent, 16)
             }
         }
-        Column(Modifier.weight(1f).padding(start = 10.dp)) {
+        Column(Modifier.weight(1f).padding(start = if (active) 10.dp else 0.dp)) {
             Text(
                 title,
                 color = if (active) accent else Ui.Text,
