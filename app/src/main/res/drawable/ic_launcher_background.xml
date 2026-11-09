@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The liquid field the stage draws on: the deep base, with two of the palette's colour
+     pools glowing through it, the way the background pools and drifts behind the lyrics. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- the base the app draws on -->
+    <path android:fillColor="#FF0B0B12" android:pathData="M0,0 H108 V108 H0 Z" />
+    <!-- a warm pool, upper left -->
+    <path android:pathData="M36,34 m-52,0 a52,52 0 1 1 104,0 a52,52 0 1 1 -104,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:startColor="#59FF375F"
+                android:endColor="#00FF375F"
+                android:centerX="0.333"
+                android:centerY="0.315"
+                android:gradientRadius="52" />
+        </aapt:attr>
+    </path>
+    <!-- a cool pool, lower right -->
+    <path android:pathData="M74,84 m-56,0 a56,56 0 1 1 112,0 a56,56 0 1 1 -112,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:startColor="#4264D2FF"
+                android:endColor="#0064D2FF"
+                android:centerX="0.685"
+                android:centerY="0.778"
+                android:gradientRadius="56" />
+        </aapt:attr>
+    </path>
+    <!-- a violet pool, lower left, quieter than the other two -->
+    <path android:pathData="M16,90 m-46,0 a46,46 0 1 1 92,0 a46,46 0 1 1 -92,0 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="radial"
+                android:startColor="#265E5CE6"
+                android:endColor="#005E5CE6"
+                android:centerX="0.148"
+                android:centerY="0.833"
+                android:gradientRadius="46" />
+        </aapt:attr>
+    </path>
+</vector>

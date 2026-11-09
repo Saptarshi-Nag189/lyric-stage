@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The same line and ripple in one colour, for themed icons: the sung word strongest,
+     the unsung words dimmer, the ripple behind them, breaking where the words sit. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#4DFFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M32,45.5 A26,16 0 0 1 76,45.5" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#4DFFFFFF"
+        android:strokeWidth="1.8"
+        android:pathData="M32,62.5 A26,16 0 0 0 76,62.5" />
+    <path android:fillColor="#6BFFFFFF" android:pathData="M29,47 L34,47 A7,7 0 0 1 41,54 A7,7 0 0 1 34,61 L29,61 A7,7 0 0 1 22,54 A7,7 0 0 1 29,47 Z" />
+    <path android:fillColor="#99FFFFFF" android:pathData="M26.5,48.5 L36.5,48.5 A2.5,2.5 0 0 1 39,51 A2.5,2.5 0 0 1 36.5,53.5 L26.5,53.5 A2.5,2.5 0 0 1 24,51 A2.5,2.5 0 0 1 26.5,48.5 Z" />
+    <path android:fillColor="#6BFFFFFF" android:pathData="M74,47 L79,47 A7,7 0 0 1 86,54 A7,7 0 0 1 79,61 L74,61 A7,7 0 0 1 67,54 A7,7 0 0 1 74,47 Z" />
+    <path android:fillColor="#99FFFFFF" android:pathData="M71.5,48.5 L81.5,48.5 A2.5,2.5 0 0 1 84,51 A2.5,2.5 0 0 1 81.5,53.5 L71.5,53.5 A2.5,2.5 0 0 1 69,51 A2.5,2.5 0 0 1 71.5,48.5 Z" />
+    <path android:fillColor="#E0FFFFFF" android:pathData="M52,47 L56,47 A7,7 0 0 1 63,54 A7,7 0 0 1 56,61 L52,61 A7,7 0 0 1 45,54 A7,7 0 0 1 52,47 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M49.5,48.5 L58.5,48.5 A2.5,2.5 0 0 1 61,51 A2.5,2.5 0 0 1 58.5,53.5 L49.5,53.5 A2.5,2.5 0 0 1 47,51 A2.5,2.5 0 0 1 49.5,48.5 Z" />
+</vector>

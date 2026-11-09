@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.5] - 2026-11-09
+
+### Changed
+- The app icon is new, drawn from the concepts the app is built on. The old one was three
+  flat bars standing for lines of text - generic, and nothing in it came from the stage.
+  The new one is the stage itself in miniature: one line of lyrics - the stage shows a
+  line at a time, not a wall - over the liquid field, the deep base the app draws on with
+  two of the palette's colour pools glowing through it. The word being sung is a pane of
+  glass: lit along its top, translucent behind, warm with the field behind it, a shade
+  underneath. The words around it are etched dimmer, the way unsung words read on the
+  stage. And a ripple runs through the field behind the line, breaking where the words
+  sit, the way the stage ripples when a word lands. The themed-icon layer carries the
+  same line and ripple in a single colour.
+
 ## [2.6.4] - 2026-11-09
 
 ### Fixed
