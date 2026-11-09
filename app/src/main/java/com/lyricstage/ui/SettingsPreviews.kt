@@ -80,10 +80,10 @@ fun FontPreview(lyricFont: LyricFont, palette: StagePalette) {
 
 /**
  * A small live stage: the background with its own ripples, and a sung word drawn with the
- * current glass and frost, so the sliders show their effect straight away. On the liquid
- * background the word is glass the same way the stage is: by the shader that looks at the
- * line from outside and bends the field behind it at the rim. Elsewhere it is the drawn
- * kind of glass.
+ * current glass and frost, so the switch and the slider show their effect straight away.
+ * On the liquid background the word is glass the same way the stage is: by the shader
+ * that looks at the line from outside and bends the field behind it at the rim.
+ * Elsewhere it is the drawn kind of glass.
  */
 @Composable
 fun BackgroundPreview(
@@ -120,8 +120,8 @@ fun BackgroundPreview(
     val family = remember(lyricFont) { StageFonts.lyrics(lyricFont) }
     val text = Color(palette.text)
     val hl = lerp(text, Color(palette.accents.first()), 0.85f)
-    // read as state inside the draw block, so every change of the sliders redraws the
-    // preview for sure, including the trip back to solid (glass 0)
+    // read as state inside the draw block, so every change of the switch and the slider
+    // redraws the preview for sure, including the trip back to solid (the glass off)
     val glassNow = rememberUpdatedState(glass)
     val frostNow = rememberUpdatedState(frost)
 

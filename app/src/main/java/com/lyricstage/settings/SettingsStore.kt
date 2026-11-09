@@ -48,15 +48,19 @@ data class StageSettings(
     val pools: Float = 1f,
     /** Strength of the ripples, 0 to 2. */
     val rippleStrength: Float = 1f,
-    /** How much the lyrics look like glass: 0 solid, 1 clear glass. */
-    val glass: Float = 0f,
-    /** Frosting of glass lyrics: 0 clear, 1 milky. */
+    /** The one glass switch: the lyrics and the UI are glass together. */
+    val glassOn: Boolean = true,
+    /** Frosting of the glass, the lyrics and the panels alike: 0 clear, 1 milky. */
     val frost: Float = 0.4f,
-    /** The controls and the queue as liquid glass over the stage. */
-    val glassUi: Boolean = true,
     /** The layouts Auto picks from, when no template is locked. Empty means all of them. */
     val autoPool: Set<TemplateId> = TemplateId.entries.toSet(),
-)
+) {
+    /** How much glass the lyrics are drawn with: all of it when the switch is on, none
+     *  when it is off. The stage still turns the line to glass while the controls are
+     *  open whatever the switch says - there the glass is the dimming. */
+    val glassAmount: Float
+        get() = if (glassOn) 1f else 0f
+}
 
 /** Small settings store on SharedPreferences, exposed as a StateFlow. */
 class SettingsStore(private val context: Context) {
@@ -83,9 +87,8 @@ class SettingsStore(private val context: Context) {
             putBoolean(K_PARAGRAPH, next.paragraphLyrics)
             putFloat(K_POOLS, next.pools)
             putFloat(K_RIPPLE_STRENGTH, next.rippleStrength)
-            putFloat(K_GLASS, next.glass)
+            putBoolean(K_GLASS_ON, next.glassOn)
             putFloat(K_FROST, next.frost)
-            putBoolean(K_GLASS_UI, next.glassUi)
             putString(K_AUTO_POOL, next.autoPool.joinToString(",") { it.name })
         }
         _settings.value = next
@@ -112,9 +115,11 @@ class SettingsStore(private val context: Context) {
         paragraphLyrics = prefs.getBoolean(K_PARAGRAPH, false),
         pools = prefs.getFloat(K_POOLS, 1f),
         rippleStrength = prefs.getFloat(K_RIPPLE_STRENGTH, 1f),
-        glass = prefs.getFloat(K_GLASS, 0f),
+        // the glass-strength slider and the glass-controls switch it replaces are read
+        // one last time, so the switch is on when either of them had the glass showing
+        glassOn = if (prefs.contains(K_GLASS_ON)) prefs.getBoolean(K_GLASS_ON, true)
+            else prefs.getFloat(K_GLASS, 0f) > 0.01f || prefs.getBoolean(K_GLASS_UI, true),
         frost = prefs.getFloat(K_FROST, 0.4f),
-        glassUi = prefs.getBoolean(K_GLASS_UI, true),
         autoPool = prefs.getString(K_AUTO_POOL, null)
             ?.split(',')?.mapNotNull(TemplateId::fromName)?.toSet().orEmpty(),
     )
@@ -136,8 +141,10 @@ class SettingsStore(private val context: Context) {
         const val K_PARAGRAPH = "paragraph_lyrics"
         const val K_POOLS = "pools"
         const val K_RIPPLE_STRENGTH = "ripple_strength"
-        const val K_GLASS = "glass"
+        const val K_GLASS_ON = "glass_on"
         const val K_FROST = "frost"
+        /** The two controls the one switch replaced; read once more to carry the choice over. */
+        const val K_GLASS = "glass"
         const val K_GLASS_UI = "glass_ui"
         const val K_AUTO_POOL = "auto_pool"
     }

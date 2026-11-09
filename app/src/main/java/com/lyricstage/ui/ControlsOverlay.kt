@@ -63,7 +63,7 @@ import kotlinx.coroutines.delay
  * Tap-to-show controls. Top: artwork, title, the queue, settings and the layout pills.
  * Bottom, one glass card above the gesture area: seek bar, times, and the transport with
  * shuffle and repeat flanking it, the way a music player lays them out. The card is cut
- * from the same liquid field as the background behind it when glass controls are on, so
+ * from the same liquid field as the background behind it when the glass switch is on, so
  * it reads as glass lying over the stage; otherwise it is the quiet dark card. On wide
  * screens the card and the header sit in a centred column, not stretched edge to edge.
  */

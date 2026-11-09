@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.6.2] - 2026-11-09
+
+### Fixed
+- The glass settings had two sliders where there should have been one switch and one
+  slider. The strength slider and the glass-controls switch are gone: a single switch
+  turns the lyrics and the UI to glass together, and a single frost slider runs it from
+  clear to frosted, and it is shown only while the switch is on. An upgrade keeps the
+  choice - the switch comes on when either of the old controls had the glass showing.
+
 ## [2.6.1] - 2026-11-09
 
 ### Fixed

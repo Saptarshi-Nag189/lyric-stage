@@ -272,7 +272,7 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
                 s.background,
             ) { mode -> vm.updateSettings { it.copy(background = mode) } }
             Spacer(Modifier.height(14.dp))
-            BackgroundPreview(s.background, palette, np?.art, s.pools, s.rippleStrength, s.glass, s.frost, s.lyricFont, s.reduceMotion || systemReduceMotion)
+            BackgroundPreview(s.background, palette, np?.art, s.pools, s.rippleStrength, s.glassAmount, s.frost, s.lyricFont, s.reduceMotion || systemReduceMotion)
             Spacer(Modifier.height(14.dp))
             PercentSlider(stringResource(R.string.settings_pools), s.pools, 0f..2f, 0, accent) { v -> vm.updateSettings { it.copy(pools = v) } }
             Spacer(Modifier.height(12.dp))
@@ -297,19 +297,20 @@ fun LookPage(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -> Unit
         }
         Spacer(Modifier.height(12.dp))
 
-        // glass: the lyrics, the frost they share with the controls, and the controls
+        // glass: one switch for the lyrics and the UI together; when it is on, a single
+        // slider runs the glass from clear to frosted
         UiCard {
             Text(stringResource(R.string.settings_glass_section), color = Ui.Text, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(10.dp))
-            PercentSlider(stringResource(R.string.settings_glass), s.glass, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(glass = v) } }
-            if (s.glass > 0.01f || s.glassUi) {
+            ToggleRow(
+                stringResource(R.string.settings_liquid_glass), s.glassOn, accent, { on -> vm.updateSettings { it.copy(glassOn = on) } },
+                hint = stringResource(R.string.hint_liquid_glass),
+                divider = false,
+            )
+            if (s.glassOn) {
                 Spacer(Modifier.height(12.dp))
                 PercentSlider(stringResource(R.string.settings_frost), s.frost, 0f..1f, 0, accent) { v -> vm.updateSettings { it.copy(frost = v) } }
             }
-            ToggleRow(
-                stringResource(R.string.settings_glass_ui), s.glassUi, accent, { on -> vm.updateSettings { it.copy(glassUi = on) } },
-                divider = false,
-            )
         }
         Spacer(Modifier.height(12.dp))
 

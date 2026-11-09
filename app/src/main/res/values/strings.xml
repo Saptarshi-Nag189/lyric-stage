@@ -72,10 +72,10 @@
     <string name="settings_unsynced">Show unsynced lyrics</string>
     <string name="settings_pools">Pools</string>
     <string name="settings_ripple_strength">Ripple strength</string>
-    <string name="settings_glass">Glass lyrics</string>
     <string name="settings_glass_section">Glass</string>
+    <string name="settings_liquid_glass">Liquid glass</string>
+    <string name="hint_liquid_glass">The lyrics, the controls and the queue as glass</string>
     <string name="settings_frost">Frost</string>
-    <string name="settings_glass_ui">Glass controls</string>
     <string name="settings_motion">Motion and battery</string>
     <string name="settings_background">Background</string>
     <string name="background_liquid">Liquid</string>

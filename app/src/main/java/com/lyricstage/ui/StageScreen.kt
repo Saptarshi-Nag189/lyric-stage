@@ -263,7 +263,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         pool = settings.autoPool,
                         fontScale = settings.fontScale,
                         lyricFont = settings.lyricFont,
-                        glass = settings.glass,
+                        glass = settings.glassAmount,
                         frost = settings.frost,
                         highlightIntensity = settings.highlightIntensity,
                         reduceMotion = reduceMotion || saver,
@@ -324,7 +324,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                     settings = settings,
                     accent = accent,
                     queue = queue,
-                    field = if (settings.glassUi && !saver) liquidField else null,
+                    field = if (settings.glassOn && !saver) liquidField else null,
                     stageSize = stageSize,
                     shuffleOn = shuffleOn,
                     repeatMode = repeatMode,
@@ -355,7 +355,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                 QueuePanel(
                     queue = q,
                     accent = accent,
-                    field = if (settings.glassUi && !saver) liquidField else null,
+                    field = if (settings.glassOn && !saver) liquidField else null,
                     stageSize = stageSize,
                     frost = settings.frost,
                     onSkip = {

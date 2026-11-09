@@ -36,7 +36,7 @@ import com.lyricstage.ui.theme.Ui
  * liquid field exactly as it is behind it (the same field, sampled at the panel's own
  * rectangle), frosted by [frost], its rim bending what is behind it and lit from above,
  * the way Apple's glass material reads. Without a field to look through - no liquid
- * background, battery saver, glass controls off - it falls back to the quiet dark card.
+ * background, battery saver, the glass switch off - it falls back to the quiet dark card.
  *
  * [stageSize] is the stage the panel floats over, so the field inside lines up with the
  * one behind; the panel finds its own place in it.
