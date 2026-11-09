@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.6.3] - 2026-11-09
+
+### Fixed
+- Glass lyrics read as glass now, not as white letters. The drawn kind had been painting
+  the body of every letter near-white and laying a white sheen over most of it; the body
+  is now a thin veil, clear to milky with the frost slider, so at low frost the background
+  shows straight through the letters and the glass is read by the light on their rim - the
+  lit top edge, the shaded underside - the way the material it imitates is read. The words
+  not yet sung are etched glass too, wherever the glass is on, not flat white; before, they
+  only turned to glass while the controls were open. In the shader-drawn kind a fixed
+  splash of white was being mixed into the body whatever the frost: it is now let in by how
+  much colour the word itself carries, so a clear pane shows the field as it is and a
+  highlighted word still tints toward its own colour.
+
 ## [2.6.2] - 2026-11-09
 
 ### Fixed

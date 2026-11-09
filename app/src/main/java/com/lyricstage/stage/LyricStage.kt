@@ -140,8 +140,8 @@ fun LyricStage(
     val glassTarget = if (dimmed) 1f else glass
     val frostNow = if (dimmed) max(frost, OVERLAY_FROST) else frost
     val glassAnim by animateFloatAsState(glassTarget, tween(280), label = "stage-glass")
-    val colours = remember(palette, highlightIntensity, glassAnim, frostNow, dimmed) {
-        StageColours(palette, highlightIntensity, glassAnim, frostNow, wholeLine = dimmed)
+    val colours = remember(palette, highlightIntensity, glassAnim, frostNow) {
+        StageColours(palette, highlightIntensity, glassAnim, frostNow)
     }
     val glassFx = glassText
     // the field must have drawn at least once: before that it has no resolution, and a

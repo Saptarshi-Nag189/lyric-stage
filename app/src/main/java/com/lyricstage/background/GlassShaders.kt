@@ -83,8 +83,11 @@ half4 main(float2 fragCoord) {
     lit += half3(edge * up * 0.55 + edge * edge * up * 0.35);
     lit -= half3(edge * down * 0.30);
 
-    // a hint of the word's own colour, so highlights and held notes still read through
-    lit = mix(lit, max(lit, half3(c.rgb)), half(0.18));
+    // a hint of the word's own colour, so highlights and held notes still read through.
+    // A word drawn white carries no colour of its own: at full weight it would milk the
+    // clear glass back to white, so it is let in by how much colour the word has
+    half ownSat = max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b);
+    lit = mix(lit, max(lit, half3(c.rgb)), half(0.06 + 0.30 * ownSat));
 
     float g = clamp(uGlass, 0.0, 1.0);
     // the input coverage is premultiplied and so is what AGSL expects back: the glass

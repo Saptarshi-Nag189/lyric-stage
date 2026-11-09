@@ -15,6 +15,7 @@ import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
+import androidx.compose.ui.util.lerp
 import com.lyricstage.core.lyrics.LyricLine
 import com.lyricstage.core.palette.StagePalette
 import com.lyricstage.core.stage.ENTRY_LEAD_MS
@@ -41,8 +42,6 @@ class StageColours(
     val glass: Float = 0f,
     /** For glass: 0 clear, 1 frosted (milky). */
     val frost: Float = 0f,
-    /** The whole line reads as glass, the unsung words too (the controls are open). */
-    val wholeLine: Boolean = false,
 ) {
     val text = Color(palette.text)
     // highlighted words glow in the palette's colours, lifted where the ripple rule put
@@ -101,7 +100,6 @@ class StageRenderer {
         if (li < 0 || li >= prep.plan.lines.size) return
         glassAmount = if (sweep) colours.glass else 0f
         frostAmount = colours.frost
-        wholeLine = colours.wholeLine
         plainDraw = plain
         // the line comes and goes on its own timestamp; only word timing is shifted
         val wpos = pos - wordShiftMs
@@ -274,9 +272,10 @@ class StageRenderer {
             drawSung(tl, p, colour, topLeft, alpha, shadow)
             return
         }
-        if (wholeLine && glassAmount > 0.01f) {
-            // the controls are open and the whole line is glass: the unsung part is etched
-            // glass at the dim opacity, not a flat word
+        if (!plainDraw && glassAmount > 0.01f) {
+            // glass on: the unsung part is etched glass at the dim opacity, not a flat
+            // word. In the shader pass it stays a flat word - the shader glasses the
+            // whole layer from outside, and the drawn bevel would fatten its rim
             drawGlassText(tl, dimColour, topLeft, alpha * DIM, shadow, glassAmount, frostAmount, p.fontPx)
         } else {
             drawText(tl, dimColour, topLeft, alpha * DIM)
@@ -307,7 +306,6 @@ class StageRenderer {
     /** Set from [StageColours] at the start of each line draw. */
     private var glassAmount = 0f
     private var frostAmount = 0f
-    private var wholeLine = false
     private var plainDraw = false
 
     private fun DrawScope.drawGlyphs(
@@ -450,9 +448,10 @@ class StageRenderer {
 /**
  * Text drawn solid, or as glass when [glass] is above zero. Real glass is read by its light,
  * not by an outline: a bright edge along the top of the letters where the light catches them,
- * a dark edge underneath, a translucent body the background shows through, and a soft sheen
- * over the upper face. [frost] turns the body milky, like frosted glass, so it stays readable
- * over busy colour. Shared by the stage and the Settings preview.
+ * a dark edge underneath, and a body the background shows straight through - the body is a
+ * thin veil, not a fill, so at low frost the background reads through the letters and only
+ * the light on their rim says where they are. [frost] milks the veil into frosted glass, so
+ * the line stays readable over busy colour. Shared by the stage and the Settings preview.
  */
 fun DrawScope.drawGlassText(
     tl: TextLayoutResult,
@@ -472,20 +471,21 @@ fun DrawScope.drawGlassText(
     // how far the lit edges sit off the glyph: thick letters get a deeper bevel
     val lift = (fontPx * 0.018f).coerceIn(1.5f, 4f)
     val bodyShadow = shadow?.let { Shadow(it.color.copy(alpha = it.color.alpha * (1f - 0.6f * g)), it.offset, it.blurRadius) }
-    // the underside of the glass, in shade
-    drawText(tl, Color.Black.copy(alpha = 0.30f * g), topLeft + Offset(0f, lift), alpha)
+    // the underside of the glass, in shade: light on a clear pane, deeper as it milks
+    drawText(tl, Color.Black.copy(alpha = (0.10f + 0.20f * frost) * g), topLeft + Offset(0f, lift), alpha)
     // the light catching the top of the letters
     drawText(tl, Color.White.copy(alpha = 0.45f * g), topLeft - Offset(0f, lift), alpha)
-    // the body: translucent, milky with frost, the background showing through it
-    val body = lerp(colour, Color.White, 0.55f * frost)
-    val bodyAlpha = (1f - 0.75f * g + 0.45f * g * frost).coerceIn(0.15f, 1f)
+    // the body: a veil, clear to milky. At low frost it is thin enough that the
+    // background shows through the letters; frost thickens it into milk for readability
+    val body = lerp(colour, Color.White, frost)
+    val bodyAlpha = lerp(1f, 0.12f + 0.50f * frost, g)
     drawText(tl, body, topLeft, alpha * bodyAlpha, bodyShadow)
     // a soft sheen on the upper face of the letters
     drawText(
         tl,
         Brush.verticalGradient(
-            0f to Color.White.copy(alpha = 0.38f * g),
-            0.5f to Color.White.copy(alpha = 0.05f * g),
+            0f to Color.White.copy(alpha = 0.20f * g),
+            0.5f to Color.White.copy(alpha = 0.04f * g),
             1f to Color.Transparent,
             startY = topLeft.y, endY = topLeft.y + tl.size.height,
         ),
