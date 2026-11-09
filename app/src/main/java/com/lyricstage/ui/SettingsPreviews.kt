@@ -21,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -36,9 +35,9 @@ import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.lyricstage.R
 import com.lyricstage.background.BackgroundClock
-import com.lyricstage.background.GlassTextEffect
+import com.lyricstage.background.LiquidGlassBody
 import com.lyricstage.background.LiquidGlassField
-import com.lyricstage.background.StageGlassText
+import com.lyricstage.background.StageGlassField
 import com.lyricstage.background.RippleEmitter
 import com.lyricstage.background.StageBackground
 import com.lyricstage.core.palette.StagePalette
@@ -46,6 +45,7 @@ import com.lyricstage.core.stage.Ripple
 import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.stage.LyricFont
 import com.lyricstage.stage.StageFonts
+import com.lyricstage.stage.drawFieldGlassPass
 import com.lyricstage.stage.drawGlassText
 import com.lyricstage.ui.theme.Ui
 import kotlinx.coroutines.delay
@@ -81,9 +81,9 @@ fun FontPreview(lyricFont: LyricFont, palette: StagePalette) {
 /**
  * A small live stage: the background with its own ripples, and a sung word drawn with the
  * current glass and frost, so the switch and the slider show their effect straight away.
- * On the liquid background the word is glass the same way the stage is: by the shader
- * that looks at the line from outside and bends the field behind it at the rim.
- * Elsewhere it is the drawn kind of glass.
+ * On the liquid background the word is glass the same way the stage is: cut from the
+ * field, its letters painted with the background that is behind it. Elsewhere it is the
+ * drawn kind of glass.
  */
 @Composable
 fun BackgroundPreview(
@@ -102,7 +102,7 @@ fun BackgroundPreview(
     val stage = remember(mode) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && mode == BackgroundMode.LIQUID) {
             val f = LiquidGlassField()
-            f to (GlassTextEffect(f) as StageGlassText)
+            f to (LiquidGlassBody(f) as StageGlassField)
         } else {
             null
         }
@@ -132,14 +132,7 @@ fun BackgroundPreview(
             pools = pools, rippleStrength = rippleStrength,
             field = stage?.first,
         )
-        Canvas(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    val fx = stage?.second
-                    renderEffect = if (fx != null && fx.tick.longValue > 0L && glassNow.value > 0.01f) fx.effect else null
-                },
-        ) {
+        Canvas(Modifier.fillMaxSize()) {
             fun style(sp: Float) = TextStyle(fontFamily = family, fontWeight = FontWeight.Black, fontSize = sp.sp, letterSpacing = (-0.01).em)
             var sp = 46f
             var sung = measurer.measure("Never gonna", style(sp))
@@ -155,12 +148,11 @@ fun BackgroundPreview(
             val shadow = Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 2f), 12f)
             val y = (size.height - sung.size.height) / 2f
             val x = (size.width - (sung.size.width + gap + word.size.width)) / 2f
-            val fx = stage?.second
-            if (fx != null && fx.tick.longValue > 0L && glassNow.value > 0.01f) {
-                // the shader does the glass: the words are drawn solid and looked at from outside
-                fx.uniforms(glassNow.value, frostNow.value, (px * 0.04f).coerceIn(2.5f, 5f))
-                drawText(sung, text, Offset(x, y), 1f)
-                drawText(word, hl, Offset(x + sung.size.width + gap, y), 1f)
+            val body = stage?.second?.brush
+            if (body != null && glassNow.value > 0.01f) {
+                // glass cut from the field: the letters are the field itself
+                drawFieldGlassPass(sung, Offset(x, y), a = glassNow.value, rim = text, frost = frostNow.value, body = body, fontPx = px)
+                drawFieldGlassPass(word, Offset(x + sung.size.width + gap, y), a = glassNow.value, rim = hl, frost = frostNow.value, body = body, fontPx = px)
             } else {
                 drawGlassText(sung, text, Offset(x, y), 1f, shadow, glassNow.value, frostNow.value, px)
                 drawGlassText(word, hl, Offset(x + sung.size.width + gap, y), 1f, shadow, glassNow.value, frostNow.value, px)

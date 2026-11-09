@@ -35,12 +35,12 @@ import androidx.lifecycle.compose.currentStateAsState
 import androidx.core.content.ContextCompat
 import com.lyricstage.R
 import com.lyricstage.audio.AudioOnsets
-import com.lyricstage.background.GlassTextEffect
+import com.lyricstage.background.LiquidGlassBody
 import com.lyricstage.background.LiquidGlassField
 import com.lyricstage.background.BackgroundClock
 import com.lyricstage.background.RippleEmitter
 import com.lyricstage.background.StageBackground
-import com.lyricstage.background.StageGlassText
+import com.lyricstage.background.StageGlassField
 import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.lyrics.LyricsState
 import com.lyricstage.settings.BackgroundMode
@@ -192,7 +192,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     val liquidGlass = remember(settings.background, saver) {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && settings.background == BackgroundMode.LIQUID && !saver) {
             val f = LiquidGlassField()
-            f to GlassTextEffect(f) as StageGlassText
+            f to LiquidGlassBody(f) as StageGlassField
         } else {
             null
         }
@@ -271,7 +271,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                         anchor = current.positionMs xor current.positionUpdateTimeMs,
                         simple = saver,
                         dimmed = controlsVisible,
-                        glassText = liquidGlass?.second,
+                        glassField = liquidGlass?.second,
                         showFps = settings.showFps,
                         onRipple = {
                             // sung words ripple the glass; with beat ripples the words stay

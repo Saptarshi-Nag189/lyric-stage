@@ -35,7 +35,7 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.currentStateAsState
 import android.os.SystemClock
 import com.lyricstage.audio.AudioOnsets
-import com.lyricstage.background.StageGlassText
+import com.lyricstage.background.StageGlassField
 import com.lyricstage.core.clock.PlaybackClock
 import com.lyricstage.core.lyrics.LyricsKind
 import com.lyricstage.core.lyrics.Lyrics
@@ -55,12 +55,14 @@ import kotlin.math.max
  * in two Canvas passes (settled words, and fast-moving words under a blur layer on API 31+).
  * Nothing recomposes per frame.
  *
- * The words can be drawn as glass two ways. Without a shader to look through, each word is
- * drawn with the classic glass treatment inside the drawing. With one (the liquid
- * background on Android 13+, through [glassText]) the whole layer is turned into
- * Apple-style glass by a shader outside the drawing: the rim of every glyph refracts the
- * background and the middle is clear. While the controls are open ([dimmed]) the line is
- * glass either way, instead of dimmed.
+ * The words can be drawn as glass two ways. Where there is no field to cut them from -
+ * no liquid background, battery saver, an older device - each word is drawn with the
+ * classic glass treatment inside the drawing: a thin milky veil the background shows
+ * through, lit at its top edge. With the liquid field (Android 13+) the words are cut
+ * from the field itself, the way the glass panels are cut from it: the letters are
+ * painted with the field behind them, so the background is genuinely visible through
+ * the glass, clear to milky with the frost slider. While the controls are open
+ * ([dimmed]) the line is glass either way, instead of dimming back.
  */
 @Composable
 fun LyricStage(
@@ -84,8 +86,8 @@ fun LyricStage(
     simple: Boolean,
     /** Controls are open: the line reads as glass rather than dimming back. */
     dimmed: Boolean,
-    /** Shader-drawn glass for the line, over the liquid field; null when there is none. */
-    glassText: StageGlassText? = null,
+    /** The field the glass words are cut from; null when there is none. */
+    glassField: StageGlassField? = null,
     showFps: Boolean,
     /** Vocal onsets for audio sync, or null when it is off. */
     audio: AudioOnsets?,
@@ -135,20 +137,14 @@ fun LyricStage(
     val renderer = remember { StageRenderer() }
 
     // Glass: the line is glass while the controls are open whatever the setting says, and
-    // the shader-drawn glass takes over from the drawn kind whenever there is a field to
-    // look through. The crossfade animates, so opening the controls melts the line.
+    // the words cut from the field take over from the drawn kind whenever there is a
+    // field. The crossfade animates, so opening the controls melts the line.
     val glassTarget = if (dimmed) 1f else glass
     val frostNow = if (dimmed) max(frost, OVERLAY_FROST) else frost
     val glassAnim by animateFloatAsState(glassTarget, tween(280), label = "stage-glass")
     val colours = remember(palette, highlightIntensity, glassAnim, frostNow) {
         StageColours(palette, highlightIntensity, glassAnim, frostNow)
     }
-    val glassFx = glassText
-    // the field must have drawn at least once: before that it has no resolution, and a
-    // look through it would divide by zero
-    val fieldTick = glassFx?.tick
-    val shaderGlass = glassFx != null && (fieldTick?.longValue ?: 0L) > 0L
-    val plain = shaderGlass && glassAnim > 0.01f
 
     val ripple by rememberUpdatedState(onRipple)
     val visibleTemplate by rememberUpdatedState(onVisibleTemplate)
@@ -172,11 +168,6 @@ fun LyricStage(
                     frame.line = li
                     frame.wordShiftMs = alignWords(frame, onsets, prep, li, pos)
                     frame.blur.floatValue = renderer.motionBlur(prep, li, pos - frame.wordShiftMs, calm)
-                    if (li >= 0) {
-                        prep.plan.layouts[li].words.firstOrNull()?.let {
-                            frame.glassEdge = (it.fontPx * 0.04f).coerceIn(2.5f, 5f)
-                        }
-                    }
                     frame.ripples.clear()
                     if (!calm) frame.tracker.update(prep.plan, pos, frame.ripples)
                     for (r in frame.ripples) ripple(r)
@@ -218,20 +209,12 @@ fun LyricStage(
             .onSizeChanged { size = it }
             .graphicsLayer { alpha = dim },
     ) {
-        Canvas(
-            Modifier
-                .fillMaxSize()
-                .graphicsLayer {
-                    renderEffect = if (shaderGlass && glassAnim > 0.01f) glassFx?.effect else null
-                },
-        ) {
+        Canvas(Modifier.fillMaxSize()) {
             frame.tick.longValue
-            fieldTick?.longValue
             val p = prep ?: return@Canvas
-            if (plain) glassFx?.uniforms(glassAnim, frostNow, frame.glassEdge)
             with(renderer) {
                 if (frame.line < 0) drawGapDots(p, frame.positionMs, colours, reduceMotion)
-                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs, sweep = !simple, plain = plain)
+                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs, sweep = !simple, body = glassField?.brush)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -239,24 +222,12 @@ fun LyricStage(
                 Modifier
                     .fillMaxSize()
                     .graphicsLayer {
-                        val b = frame.blur.floatValue
-                        val fx = if (shaderGlass && glassAnim > 0.01f) glassFx else null
-                        renderEffect = when {
-                            b > 0.5f && fx != null ->
-                                // the words blur as they fly, and the glass is drawn over
-                                // the blurred layer from outside it
-                                fx.chainedUnderBlur(b)
-                            b > 0.5f -> BlurEffect(b, b, TileMode.Decal)
-                            fx != null -> fx.effect
-                            else -> null
-                        }
+                        renderEffect = if (frame.blur.floatValue > 0.5f) BlurEffect(frame.blur.floatValue, frame.blur.floatValue, TileMode.Decal) else null
                     },
             ) {
                 frame.tick.longValue
-                fieldTick?.longValue
                 val p = prep ?: return@Canvas
-                if (plain) glassFx?.uniforms(glassAnim, frostNow, frame.glassEdge)
-                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs, sweep = !simple, plain = plain) }
+                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs, sweep = !simple, body = glassField?.brush) }
             }
         }
         if (showFps) {

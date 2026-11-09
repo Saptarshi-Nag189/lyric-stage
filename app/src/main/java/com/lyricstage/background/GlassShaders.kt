@@ -1,100 +1,27 @@
 package com.lyricstage.background
 
-import android.graphics.RenderEffect
 import android.os.Build
 import androidx.annotation.RequiresApi
-import androidx.compose.ui.graphics.asComposeRenderEffect
+import androidx.compose.ui.graphics.ShaderBrush
 import com.lyricstage.core.palette.StagePalette
 
 /**
- * Glass text, the way Apple draws a liquid glass material: a glyph's rim is a bevel that
- * bends the light behind it, and its middle is clear, so the letter is read by its edges.
- * The layer's own drawing is the mask: where it has coverage there is glass, and the
- * coverage's neighbourhood says where the rim is. A light from above catches the top of
- * the rim, the underside sits in shade, and near the rim the backdrop is sampled a little
- * displaced and with the channels apart - refraction and dispersion - while the middle
- * looks straight through. Frost milks the body.
- *
- * The backdrop is the liquid background's own shader, evaluated live through [LiquidGlassField],
- * so the glass shows exactly the field that is behind it on screen, ripples and all.
+ * The field the glass lyrics are cut from. The lyrics ask for [brush] each frame and paint
+ * their letters with it, the way the glass panels are cut from the same field.
  */
-internal const val GLASS_TEXT_AGSL = """
-uniform shader uContent;
-uniform shader uBackdrop;
-uniform float uGlass;
-uniform float uFrost;
-uniform float uEdge;
-uniform float uBend;
-
-half4 main(float2 fragCoord) {
-    half4 c = uContent.eval(fragCoord);
-    float a = c.a;
-    if (a < 0.004) return half4(0.0);
-
-    // the rim: a ring of coverage samples gives a soft edge field, and the direction that
-    // points outward - where the bevel bends what is behind it
-    float blurA = 0.0;
-    float2 grad = float2(0.0);
-    for (int i = 0; i < 8; i++) {
-        float2 d = float2(cos(0.78539816 * float(i)), sin(0.78539816 * float(i)));
-        float s = uContent.eval(fragCoord + d * uEdge).a;
-        blurA += s;
-        grad += d * (a - s);
-    }
-    blurA *= 0.125;
-    grad *= 0.125;
-    // zero in the middle of a stroke, one on its rim: clear middle, active edges
-    float edge = clamp((a - blurA) * 2.2, 0.0, 1.0);
-    float gl = length(grad);
-    float2 n = gl > 0.0001 ? grad / gl : float2(0.0, -1.0);
-
-    // refraction: the rim samples the backdrop from a little beyond itself, blue bent
-    // more than red, so a bright edge fringes the way real glass does
-    float2 off = n * (edge * uBend);
-    half3 back = uBackdrop.eval(fragCoord + off).rgb;
-    if (edge > 0.03) {
-        half3 bFar = uBackdrop.eval(fragCoord + off * 1.35).rgb;
-        half3 bNear = uBackdrop.eval(fragCoord + off * 0.65).rgb;
-        back = half3(mix(back.r, bNear.r, half(0.5)), back.g, mix(back.b, bFar.b, half(0.5)));
-    }
-
-    // frost: a blurred, whitened take on the backdrop for the body of the glass, sampled
-    // six around one so the blur has no grid to it, keeping a little of the field's colour
-    // as it milks over
-    float frost = clamp(uFrost, 0.0, 1.0);
-    if (frost > 0.02) {
-        float fr = uEdge * (1.0 + 2.6 * frost);
-        half3 f = uBackdrop.eval(fragCoord).rgb;
-        for (int j = 0; j < 6; j++) {
-            float a = 1.0471976 * float(j);
-            f += uBackdrop.eval(fragCoord + float2(cos(a), sin(a)) * fr).rgb;
-        }
-        f *= 0.14285715;
-        half fl = dot(f, half3(0.299, 0.587, 0.114));
-        f = mix(half3(fl), f, half(1.2));
-        back = mix(back, f, half(frost));
-        back = mix(back, half3(1.0), half(0.10 * frost));
-    }
-
-    // the bevel: light from above on the top of the rim, shade underneath
-    float up = clamp(-n.y, 0.0, 1.0);
-    float down = clamp(n.y, 0.0, 1.0);
-    half3 lit = back;
-    lit += half3(edge * up * 0.55 + edge * edge * up * 0.35);
-    lit -= half3(edge * down * 0.30);
-
-    // a hint of the word's own colour, so highlights and held notes still read through.
-    // A word drawn white carries no colour of its own: at full weight it would milk the
-    // clear glass back to white, so it is let in by how much colour the word has
-    half ownSat = max(max(c.r, c.g), c.b) - min(min(c.r, c.g), c.b);
-    lit = mix(lit, max(lit, half3(c.rgb)), half(0.06 + 0.30 * ownSat));
-
-    float g = clamp(uGlass, 0.0, 1.0);
-    // the input coverage is premultiplied and so is what AGSL expects back: the glass
-    // colour is scaled by the letter's alpha, the solid colour passes through untouched
-    return half4(mix(half3(c.rgb), lit * half(a), half(g)), a);
+interface StageGlassField {
+    /** Paints the liquid field at full resolution; null until the field has drawn once,
+     *  and nothing is cut from it before that. */
+    val brush: ShaderBrush?
 }
-"""
+
+/** [StageGlassField] over the shared [LiquidGlassField], for the glass lyrics. */
+@RequiresApi(Build.VERSION_CODES.TIRAMISU)
+class LiquidGlassBody(field: LiquidGlassField) : StageGlassField {
+    private val f = field
+    private val b = ShaderBrush(f.backdrop)
+    override val brush get() = if (f.ready) b else null
+}
 
 /**
  * A glass panel - the controls card, the queue - over the liquid field. The layer's own
@@ -157,17 +84,18 @@ half4 main(float2 fragCoord) {
 
 /**
  * The liquid field, shared by everything that needs to see it: the background canvas's own
- * shader (rendered small and scaled up), the glass lyrics' backdrop (full resolution), and
- * any number of panel-sized copies for the glass UI, each showing exactly the rectangle of
- * the field that is behind it. [sync] is called on the background's draw each frame; the
- * values are kept so the lyrics and the panels can sync their own copies on their draws.
+ * shader (rendered small and scaled up), the brush the glass lyrics are painted with (full
+ * resolution), and any number of panel-sized copies for the glass UI, each showing exactly
+ * the rectangle of the field that is behind it. [sync] is called on the background's draw
+ * each frame; the values are kept so the lyrics and the panels can sync their own copies on
+ * their draws.
  */
 @RequiresApi(Build.VERSION_CODES.TIRAMISU)
 class LiquidGlassField {
     /** The background's own shader, rendered at a third of the resolution. */
     val shader = android.graphics.RuntimeShader(LIQUID_GLASS_AGSL)
 
-    /** The same field at full resolution, for the glass lyrics to look through. */
+    /** The same field at full resolution, painted through as the glass lyrics' body. */
     val backdrop = android.graphics.RuntimeShader(LIQUID_GLASS_AGSL)
 
     /** Bumped on every sync, so panels redraw while the field moves and hold while it rests. */
@@ -250,52 +178,5 @@ class LiquidGlassField {
     private fun setBoth(name: String, v: FloatArray) {
         shader.setFloatUniform(name, v)
         backdrop.setFloatUniform(name, v)
-    }
-}
-
-/**
- * Glass lyrics made by a shader: the lyric layer's own drawing is the coverage mask, and
- * the liquid field behind it is evaluated live. Made on Android 13+; callers hold it as
- * a [StageGlassText], which asks for no API level of its own.
- */
-interface StageGlassText {
-    /** The effect for the lyric layer. */
-    val effect: androidx.compose.ui.graphics.RenderEffect
-
-    /** Sets the current glass, frost and rim width (the rim scales with the font). */
-    fun uniforms(glass: Float, frost: Float, edgePx: Float)
-
-    /** Bumped whenever the field behind draws; 0 until it ever has, and nothing may look
-     *  through the glass before that. */
-    val tick: androidx.compose.runtime.LongState
-
-    /** This glass under a motion blur of [blurPx], for the fast-word layer (API 31+). */
-    fun chainedUnderBlur(blurPx: Float): androidx.compose.ui.graphics.RenderEffect
-}
-
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
-class GlassTextEffect(liquidField: LiquidGlassField) : StageGlassText {
-    private val liquid = liquidField
-    private val shader = android.graphics.RuntimeShader(GLASS_TEXT_AGSL).also {
-        it.setInputShader("uBackdrop", liquid.backdrop)
-    }
-
-    /** The raw effect, for chaining under a motion blur on the fast-word layer. */
-    val androidEffect = RenderEffect.createRuntimeShaderEffect(shader, "uContent")
-
-    override val effect = androidEffect.asComposeRenderEffect()
-
-    override val tick: androidx.compose.runtime.LongState get() = liquid.frameTick
-
-    override fun chainedUnderBlur(blurPx: Float) = RenderEffect.createChainEffect(
-        androidEffect,
-        RenderEffect.createBlurEffect(blurPx, blurPx, android.graphics.Shader.TileMode.DECAL),
-    ).asComposeRenderEffect()
-
-    override fun uniforms(glass: Float, frost: Float, edgePx: Float) {
-        shader.setFloatUniform("uGlass", glass)
-        shader.setFloatUniform("uFrost", frost)
-        shader.setFloatUniform("uEdge", edgePx)
-        shader.setFloatUniform("uBend", edgePx * 1.2f)
     }
 }

@@ -93,14 +93,13 @@ class StageRenderer {
         wordShiftMs: Long = 0,
         /** Left-to-right fill while a word is sung; off in battery saver (words light up whole). */
         sweep: Boolean = true,
-        /** The layer is made glass by a shader that looks at it from outside: draw the words
-         *  solid and shadowless, and let the shader do the glass. */
-        plain: Boolean = false,
+        /** The field the glass words are cut from, when there is one to cut from. */
+        body: Brush? = null,
     ) {
         if (li < 0 || li >= prep.plan.lines.size) return
         glassAmount = if (sweep) colours.glass else 0f
         frostAmount = colours.frost
-        plainDraw = plain
+        fieldBody = body
         // the line comes and goes on its own timestamp; only word timing is shifted
         val wpos = pos - wordShiftMs
         val plan = prep.plan
@@ -116,7 +115,7 @@ class StageRenderer {
         if (layer != StageLayer.MOTION) {
             if (layout.template.isSpotlight && !reduceMotion) drawSpotlight(layout, line, wpos, colours, lineAlpha)
             drawSegments(prep, li, pos, colours, lineAlpha)
-            drawSubtitle(prep, li, pos, colours, lineAlpha, plain)
+            drawSubtitle(prep, li, pos, colours, lineAlpha, fieldBody != null)
         }
 
         for ((k, p) in layout.words.withIndex()) {
@@ -147,11 +146,11 @@ class StageRenderer {
             // the line hands over with a plain fade now: it fades away where it is, without
             // lifting or sliding, so nothing moves between one line and the next
             // the text's own shadow blends smoothly from its resting look to a soft coloured
-            // halo as a note is held, instead of switching at once. Off in the shader-glass
-            // pass: glass is read by its light, and the shadow would fatten the rim the
-            // shader measures
+            // halo as a note is held, instead of switching at once. Off for the words cut
+            // from the field: glass is read by its light, and the shadow would sit under
+            // the pane the field already shows
             val rest = when {
-                plain -> null
+                fieldBody != null -> null
                 highlighted -> Shadow(accent.copy(alpha = 0.55f * colours.glow), Offset.Zero, p.fontPx * 0.28f)
                 else -> Shadow(Color.Black.copy(alpha = 0.45f), Offset(0f, p.fontPx * 0.035f), p.fontPx * 0.18f)
             }
@@ -165,28 +164,53 @@ class StageRenderer {
                 rest
             }
             val growth = if (held > 0f) heldGrowth(word, wpos) else 0f
+            val ax = p.x + pose.dx
+            val ay = p.y + pose.dy - held * growth * p.height * HELD_LIFT
 
-            withTransform({
-                translate(p.x + pose.dx, p.y + pose.dy - held * growth * p.height * HELD_LIFT)
-                val pivot = Offset(p.width / 2f, p.height / 2f)
-                val rot = p.rotationDeg + pose.rotationDeg
-                if (rot != 0f) rotate(rot, pivot)
-                val grow = 1f + held * growth * HELD_GROW
-                if (pose.scaleX != 1f || pose.scaleY != 1f || grow != 1f) scale(pose.scaleX * grow, pose.scaleY * grow, pivot)
-                if (pose.skewX != 0f) {
-                    skew.reset()
-                    skew.values[Matrix.SkewX] = pose.skewX
-                    translate(pivot.x, pivot.y)
-                    transform(skew)
-                    translate(-pivot.x, -pivot.y)
-                }
-            }) {
-                if (held > 0.01f) drawBloom(p, fill, if (highlighted) accent else colour, alpha * held * (0.65f + 0.35f * colours.glow))
-                val glyphs = prep.glyphs[li]?.get(k)
-                if (glyphs != null && !reduceMotion) {
-                    drawGlyphs(template, p, glyphs, prep.plan.measured[li].words[p.index].glyphOffsets, since, fill, colour, colours.text, alpha, shadow)
-                } else {
-                    drawWord(prep.words[li][k], p, fill, colour, colours.text, alpha, shadow)
+            // the bloom behind a held word, behind the glass and the solid alike
+            if (held > 0.01f) withTransform({ translate(ax, ay) }) {
+                drawBloom(p, fill, if (highlighted) accent else colour, alpha * held * (0.65f + 0.35f * colours.glow))
+            }
+
+            // the word cut from the field: its letters are painted with the field behind
+            // them, the way the glass panels are cut from it. The brush samples the stage
+            // where the word is, so the glass is drawn flat at its own place, without the
+            // word's canvas transform - it glides and fades with the word, and does not
+            // rotate or grow with its flight
+            val g = glassAmount
+            val glassWord = fieldBody != null && g > 0.01f
+            if (glassWord) {
+                drawFieldGlassWord(
+                    prep.words[li][k], p, fill,
+                    if (highlighted) accent else colours.text,
+                    ax, ay, alpha * g, clipLeft = 0f,
+                )
+            }
+            if (!glassWord || g < 0.99f) {
+                val solid = if (glassWord) alpha * (1f - g) else alpha
+                withTransform({
+                    translate(ax, ay)
+                    val pivot = Offset(p.width / 2f, p.height / 2f)
+                    val rot = p.rotationDeg + pose.rotationDeg
+                    if (rot != 0f) rotate(rot, pivot)
+                    val grow = 1f + held * growth * HELD_GROW
+                    if (pose.scaleX != 1f || pose.scaleY != 1f || grow != 1f) scale(pose.scaleX * grow, pose.scaleY * grow, pivot)
+                    if (pose.skewX != 0f) {
+                        skew.reset()
+                        skew.values[Matrix.SkewX] = pose.skewX
+                        translate(pivot.x, pivot.y)
+                        transform(skew)
+                        translate(-pivot.x, -pivot.y)
+                    }
+                }) {
+                    // the glass word is drawn whole and flat; the split glyphs belong to
+                    // the solid word's flight
+                    val glyphs = if (glassWord) null else prep.glyphs[li]?.get(k)
+                    if (glyphs != null && !reduceMotion) {
+                        drawGlyphs(template, p, glyphs, prep.plan.measured[li].words[p.index].glyphOffsets, since, fill, colour, colours.text, solid, shadow)
+                    } else {
+                        drawWord(prep.words[li][k], p, fill, colour, colours.text, solid, shadow)
+                    }
                 }
             }
         }
@@ -272,10 +296,9 @@ class StageRenderer {
             drawSung(tl, p, colour, topLeft, alpha, shadow)
             return
         }
-        if (!plainDraw && glassAmount > 0.01f) {
+        if (glassAmount > 0.01f) {
             // glass on: the unsung part is etched glass at the dim opacity, not a flat
-            // word. In the shader pass it stays a flat word - the shader glasses the
-            // whole layer from outside, and the drawn bevel would fatten its rim
+            // word. On the field path the unsung part comes from the glass word instead
             drawGlassText(tl, dimColour, topLeft, alpha * DIM, shadow, glassAmount, frostAmount, p.fontPx)
         } else {
             drawText(tl, dimColour, topLeft, alpha * DIM)
@@ -289,24 +312,52 @@ class StageRenderer {
     }
 
     /**
-     * A sung word: solid, or as glass. Glass lets the background show through the letters,
-     * with a light catching their top and a bright rim; frost turns the body milky, like
-     * frosted glass, so it stays readable over busy colour. When the layer is turned into
-     * glass wholesale by a shader outside the drawing, the word is drawn solid here and the
-     * shader does the glass.
+     * A sung word of the solid kind: solid colour, or the drawn glass when glass is on.
+     * The words cut from the field are drawn by [drawFieldGlassWord] instead.
      */
     private fun DrawScope.drawSung(tl: TextLayoutResult, p: WordPlacement, colour: Color, topLeft: Offset, alpha: Float, shadow: Shadow?) {
-        if (plainDraw) {
-            drawText(tl, colour, topLeft, alpha)
-        } else {
-            drawGlassText(tl, colour, topLeft, alpha, shadow, glassAmount, frostAmount, p.fontPx)
-        }
+        drawGlassText(tl, colour, topLeft, alpha, shadow, glassAmount, frostAmount, p.fontPx)
     }
 
     /** Set from [StageColours] at the start of each line draw. */
     private var glassAmount = 0f
     private var frostAmount = 0f
-    private var plainDraw = false
+    private var fieldBody: Brush? = null
+
+    /**
+     * A word of glass cut from the field, drawn flat at its place on the stage. The
+     * letters are painted with the field behind them - clear glass, the background
+     * genuinely visible through them - with a lit edge along their top, shade
+     * underneath, a sheen over the face and a milky veil that rises with the frost.
+     */
+    private fun DrawScope.drawFieldGlassWord(
+        tl: TextLayoutResult,
+        p: WordPlacement,
+        fill: Float,
+        rim: Color,
+        ax: Float,
+        ay: Float,
+        alpha: Float,
+        clipLeft: Float,
+    ) {
+        val body = fieldBody ?: return
+        val topLeft = Offset(ax, ay + p.ascent - tl.firstBaseline)
+        if (fill >= 1f) {
+            drawFieldGlassPass(tl, topLeft, alpha, rim, frostAmount, body, p.fontPx)
+            return
+        }
+        // the unsung part: etched glass. The body is clear, so the word is read by its
+        // rim alone; it sits above the old dim, which was tuned for solid white
+        drawFieldGlassPass(tl, topLeft, alpha * ETCH, rim, frostAmount, body, p.fontPx)
+        if (fill > 0f) {
+            val right = ax + p.width * fill - clipLeft
+            if (right > ax - p.width) {
+                clipRect(left = ax - p.width, top = ay - p.height, right = right, bottom = ay + p.height * 2f) {
+                    drawFieldGlassPass(tl, topLeft, alpha, rim, frostAmount, body, p.fontPx)
+                }
+            }
+        }
+    }
 
     private fun DrawScope.drawGlyphs(
         template: LyricTemplate, p: WordPlacement, glyphs: List<TextLayoutResult>, offsetsAtRef: FloatArray,
@@ -442,16 +493,61 @@ class StageRenderer {
 
         /** Opacity of words not yet sung. */
         const val DIM = 0.32f
+
+        /** Opacity of an unsung word of etched glass: its body is clear, so the word is
+         *  read by its rim alone, above the dim tuned for solid white. */
+        const val ETCH = 0.45f
     }
+}
+
+/**
+ * One pass of glass text cut from the field: the letters are painted with the field
+ * behind them - clear glass, the background visible through them - over a soft shadow
+ * that carries their readability, with a lit edge along their top, shade underneath, a
+ * sheen over the face, and a milky veil that rises with the frost. Shared by the stage
+ * and the Settings preview; the brush must be sampled at the stage's own coordinates,
+ * so it is drawn flat, without a canvas transform.
+ */
+internal fun DrawScope.drawFieldGlassPass(
+    tl: TextLayoutResult,
+    topLeft: Offset,
+    a: Float,
+    rim: Color,
+    frost: Float,
+    body: Brush,
+    fontPx: Float,
+) {
+    if (a <= 0.01f) return
+    // how far the lit edges sit off the glyph: thick letters get a deeper bevel
+    val lift = (fontPx * 0.018f).coerceIn(1.5f, 4f)
+    // the shadow that carries the word over busy colour, and the underside of the
+    // glass in shade, sticking out below the letters
+    drawText(tl, Color.Black.copy(alpha = 0.28f * a), topLeft + Offset(0f, 2f), a, shadow = Shadow(Color.Black.copy(alpha = 0.22f * a), Offset(0f, 2f), 8f))
+    drawText(tl, Color.Black.copy(alpha = 0.22f * a), topLeft + Offset(0f, lift))
+    // the light catching the top of the letters
+    drawText(tl, rim.copy(alpha = 0.50f * a), topLeft - Offset(0f, lift))
+    // the body: the field itself, visible through the letters
+    drawText(tl, body, topLeft, a)
+    // a soft sheen over the upper face
+    drawText(
+        tl,
+        Brush.verticalGradient(
+            0f to Color.White.copy(alpha = 0.12f * a),
+            0.55f to Color.Transparent,
+            startY = topLeft.y, endY = topLeft.y + tl.size.height,
+        ),
+        topLeft,
+    )
+    // frost: the milky veil over the pane, rising with the slider
+    if (frost > 0.02f) drawText(tl, Color.White.copy(alpha = (0.10f + 0.45f * frost) * a), topLeft)
 }
 
 /**
  * Text drawn solid, or as glass when [glass] is above zero. Real glass is read by its light,
  * not by an outline: a bright edge along the top of the letters where the light catches them,
- * a dark edge underneath, and a body the background shows straight through - the body is a
- * thin veil, not a fill, so at low frost the background reads through the letters and only
- * the light on their rim says where they are. [frost] milks the veil into frosted glass, so
- * the line stays readable over busy colour. Shared by the stage and the Settings preview.
+ * a dark edge underneath, a translucent body the background shows through, and a soft sheen
+ * over the upper face. [frost] turns the body milky, like frosted glass, so it stays readable
+ * over busy colour. Shared by the stage and the Settings preview.
  */
 fun DrawScope.drawGlassText(
     tl: TextLayoutResult,
@@ -471,21 +567,20 @@ fun DrawScope.drawGlassText(
     // how far the lit edges sit off the glyph: thick letters get a deeper bevel
     val lift = (fontPx * 0.018f).coerceIn(1.5f, 4f)
     val bodyShadow = shadow?.let { Shadow(it.color.copy(alpha = it.color.alpha * (1f - 0.6f * g)), it.offset, it.blurRadius) }
-    // the underside of the glass, in shade: light on a clear pane, deeper as it milks
-    drawText(tl, Color.Black.copy(alpha = (0.10f + 0.20f * frost) * g), topLeft + Offset(0f, lift), alpha)
+    // the underside of the glass, in shade
+    drawText(tl, Color.Black.copy(alpha = 0.30f * g), topLeft + Offset(0f, lift), alpha)
     // the light catching the top of the letters
     drawText(tl, Color.White.copy(alpha = 0.45f * g), topLeft - Offset(0f, lift), alpha)
-    // the body: a veil, clear to milky. At low frost it is thin enough that the
-    // background shows through the letters; frost thickens it into milk for readability
-    val body = lerp(colour, Color.White, frost)
-    val bodyAlpha = lerp(1f, 0.12f + 0.50f * frost, g)
+    // the body: translucent, milky with frost, the background showing through it
+    val body = lerp(colour, Color.White, 0.55f * frost)
+    val bodyAlpha = (1f - 0.75f * g + 0.45f * g * frost).coerceIn(0.15f, 1f)
     drawText(tl, body, topLeft, alpha * bodyAlpha, bodyShadow)
     // a soft sheen on the upper face of the letters
     drawText(
         tl,
         Brush.verticalGradient(
-            0f to Color.White.copy(alpha = 0.20f * g),
-            0.5f to Color.White.copy(alpha = 0.04f * g),
+            0f to Color.White.copy(alpha = 0.38f * g),
+            0.5f to Color.White.copy(alpha = 0.05f * g),
             1f to Color.Transparent,
             startY = topLeft.y, endY = topLeft.y + tl.size.height,
         ),

@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.6.4] - 2026-11-09
+
+### Fixed
+- The glass lyrics are cut from the field itself now. They had been made by a shader pass
+  over the whole text layer, and where a device does not run that pass the words were left
+  as the plain white drawing underneath - glass in name only. The letters are now painted
+  with the liquid field directly, the same way the glass panels are cut from it, so the
+  background is genuinely visible through them on every device that shows the background:
+  clear at low frost, milky as the slider rises, a lit edge along the top, shade
+  underneath, a sheen over the face and a soft shadow that carries the word over busy
+  colour. The rim keeps the highlight colour on a highlighted word.
+- The words not yet sung are etched glass too, wherever the glass is on - not only while
+  the controls were open, and not flat white. Their body is clear, so they are read by
+  their rim alone; they sit above the old dim, which was tuned for solid white.
+- The glass word is drawn flat at its place on the stage: the field must be sampled where
+  the word is, so the glass glides and fades with the word, and does not rotate or grow
+  with its flight. Where there is no field to cut from - artwork, solid, battery saver, an
+  older device - the word keeps the drawn glass and its full flight.
+
 ## [2.6.3] - 2026-11-09
 
 ### Fixed
