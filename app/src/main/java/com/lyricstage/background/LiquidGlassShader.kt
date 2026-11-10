@@ -147,10 +147,10 @@ half4 main(float2 fragCoord) {
     half3 dispersion = half3(slope.x, 0.3 * (slope.y - slope.x), -slope.y) * 1.6 * edge;
     col += mix(dispersion, half3(dot(dispersion, half3(0.299, 0.587, 0.114))), mono);
 
-    float3 n = normalize(float3(-slope * 14.0, 1.0));
-    float3 L = normalize(float3(-0.45, -0.55, 0.7));
-    float spec = pow(max(dot(reflect(-L, n), float3(0.0, 0.0, 1.0)), 0.0), 40.0);
-    col += half(spec * 0.2) * edge;
+    // no specular glints: a fixed lamp throwing highlights around the undulating slab
+    // reads as random light patches wandering the glass, fake next to the rings the
+    // words and beats actually raise. The glass bends and fringes light; it does not
+    // sparkle on its own. What moves on the field is only what the song puts there.
 
     // ripples carry their own colour, already pushed apart from the background in
     // lightness: the ring mixes toward it, bounded like the pools - a fine light ring on

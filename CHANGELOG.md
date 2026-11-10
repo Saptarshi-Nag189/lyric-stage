@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.6.6] - 2026-11-10
+
+### Changed
+- The glass panels are clear glass at zero frost, truly. A fixed dim, a fixed milk and a
+  fixed saturation push sat on the transport card and the queue whatever the frost slider
+  said - a little blur too - so the panel read as a tinted card, a colour selected and
+  kept, rather than glass you can see through. All of that is gone: at zero frost the
+  panel shows the field behind it exactly as the background draws it - the moving pools,
+  the ripples, everything - with only the bent, lit rim saying "glass"; dim, milk, blur
+  and colour push rise from nothing with the frost slider alone, for the controls that
+  sit on top of it.
+- The fake sparkle is out of the liquid background. A fixed lamp was throwing specular
+  glints around the undulating glass, which read as random light patches wandering up
+  the field - shines with nothing behind them, next to rings the words and beats
+  actually raise. The glass now only bends and fringes the light that is already there;
+  the only things that move on the field are the pools and what the song puts there.
+
 ## [2.6.5] - 2026-11-09
 
 ### Changed

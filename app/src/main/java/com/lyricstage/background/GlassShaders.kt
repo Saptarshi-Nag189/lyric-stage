@@ -28,7 +28,9 @@ class LiquidGlassBody(field: LiquidGlassField) : StageGlassField {
  * drawing is the field as it is behind the panel (aligned by [LiquidGlassField.syncPanel]);
  * this bends it at the panel's rim, the way a thick glass edge lenses what crosses it, and
  * lights the bevel: bright along the top, shade along the bottom, a soft sheen from above.
- * The darkening and the milk rise with frost, so the controls on top stay readable.
+ * At zero frost the panel is clear glass - the field exactly as the background draws it,
+ * no dim, no milk, no pushed colour of its own; both rise only with frost, so what sits
+ * on top stays readable as it frosts.
  */
 internal const val PANEL_GLASS_AGSL = """
 uniform shader uContent;
@@ -59,12 +61,14 @@ half4 main(float2 fragCoord) {
     half3 col = uContent.eval(fragCoord + n * (rim * uBend)).rgb;
 
     float frost = clamp(uFrost, 0.0, 1.0);
-    // legibility under what sits on the panel, milkier as frost rises; the field's colour
-    // survives both the darkening and the milk
-    col *= half(1.0 - 0.16 - 0.26 * frost);
+    // frost alone stands between the eye and the field. At zero the panel is clear glass -
+    // the field as it is, no fixed dim, no milk, no saturation push toward some colour of
+    // its own - and the darkening and the milk rise only as frost does, for what sits on
+    // top of it
+    col *= half(1.0 - 0.42 * frost);
     half pl = dot(col, half3(0.299, 0.587, 0.114));
-    col = mix(half3(pl), col, half(1.12));
-    col = mix(col, half3(1.0), half(0.05 + 0.08 * frost));
+    col = mix(half3(pl), col, half(1.0 + 0.12 * frost));
+    col = mix(col, half3(1.0), half(0.13 * frost));
 
     // the bevel is lit from the top left and shaded opposite, the way the reference
     // material is, and a bright hairline sits exactly at the edge, as a glass border reads

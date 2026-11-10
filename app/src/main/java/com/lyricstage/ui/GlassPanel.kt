@@ -89,11 +89,13 @@ private fun GlassFieldPanel(
                 pos = Offset(p.x, p.y)
             },
     ) {
-        // frost: the glass blurs what it shows, a little even when clear
+        // frost is the only blur: at zero the panel is clear glass, showing the field
+        // behind it as it is - no fixed blur washing it into a tint of the background
+        val frostBlur = if (frost > 0.02f) Modifier.blur(25.dp * frost.coerceIn(0f, 1f)) else Modifier
         Box(
             Modifier
                 .matchParentSize()
-                .blur(3.dp + 22.dp * frost.coerceIn(0f, 1f)),
+                .then(frostBlur),
         ) {
             Canvas(
                 Modifier
