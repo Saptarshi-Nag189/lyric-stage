@@ -1,36 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The stage in one mark: one line of lyrics - the stage shows a line at a time, not a
-     wall - with the word being sung as a pane of glass: lit along its top, translucent
-     behind, picking up a little of the field's warmth, a shade underneath it. The words
-     around it are etched dimmer, the way unsung words read on the stage, and the ripple
-     runs through the field behind the line, breaking where the words sit, the way the
-     stage ripples when a word lands. -->
+<!-- Three bars of rising lyric lines, the middle one in an accent colour. The mark the
+     app wore to 2.5.0, brought back: it reads as lyrics at a glance, which is the app. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- the ripple, in the field behind the line: two arcs, knocking out where the words sit -->
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#26FFFFFF"
-        android:strokeWidth="1.8"
-        android:pathData="M32,45.5 A26,16 0 0 1 76,45.5" />
-    <path
-        android:fillColor="#00000000"
-        android:strokeColor="#26FFFFFF"
-        android:strokeWidth="1.8"
-        android:pathData="M32,62.5 A26,16 0 0 0 76,62.5" />
-    <!-- the sung word's shade, under its pane -->
-    <path
-        android:fillColor="#1F000000"
-        android:pathData="M52,50.5 L56,50.5 A7,7 0 0 1 63,57.5 A7,7 0 0 1 56,64.5 L52,64.5 A7,7 0 0 1 45,57.5 A7,7 0 0 1 52,50.5 Z" />
-    <!-- the unsung words: etched glass, dim -->
-    <path android:fillColor="#42FFFFFF" android:pathData="M29,47 L34,47 A7,7 0 0 1 41,54 A7,7 0 0 1 34,61 L29,61 A7,7 0 0 1 22,54 A7,7 0 0 1 29,47 Z" />
-    <path android:fillColor="#6BFFFFFF" android:pathData="M26.5,48.5 L36.5,48.5 A2.5,2.5 0 0 1 39,51 A2.5,2.5 0 0 1 36.5,53.5 L26.5,53.5 A2.5,2.5 0 0 1 24,51 A2.5,2.5 0 0 1 26.5,48.5 Z" />
-    <path android:fillColor="#42FFFFFF" android:pathData="M74,47 L79,47 A7,7 0 0 1 86,54 A7,7 0 0 1 79,61 L74,61 A7,7 0 0 1 67,54 A7,7 0 0 1 74,47 Z" />
-    <path android:fillColor="#6BFFFFFF" android:pathData="M71.5,48.5 L81.5,48.5 A2.5,2.5 0 0 1 84,51 A2.5,2.5 0 0 1 81.5,53.5 L71.5,53.5 A2.5,2.5 0 0 1 69,51 A2.5,2.5 0 0 1 71.5,48.5 Z" />
-    <!-- the sung word: clear glass, read by its light, warm with the field behind it -->
-    <path android:fillColor="#7AFFF0D8" android:pathData="M52,47 L56,47 A7,7 0 0 1 63,54 A7,7 0 0 1 56,61 L52,61 A7,7 0 0 1 45,54 A7,7 0 0 1 52,47 Z" />
-    <path android:fillColor="#CCFFD9E6" android:pathData="M49.5,48.5 L58.5,48.5 A2.5,2.5 0 0 1 61,51 A2.5,2.5 0 0 1 58.5,53.5 L49.5,53.5 A2.5,2.5 0 0 1 47,51 A2.5,2.5 0 0 1 49.5,48.5 Z" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M30,38h34a4,4 0,0 1,0 8h-34a4,4 0,0 1,0 -8z" />
+    <path android:fillColor="#FFFF375F" android:pathData="M36,52h42a4,4 0,0 1,0 8h-42a4,4 0,0 1,0 -8z" />
+    <path android:fillColor="#99FFFFFF" android:pathData="M30,66h26a4,4 0,0 1,0 8h-26a4,4 0,0 1,0 -8z" />
 </vector>

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.6.7] - 2026-11-10
+
+### Changed
+- The lyric bars are back. The 2.6.5 mark - the glass word with the ripple - read as
+  three pills at launcher size, not as lyrics; it is gone. The icon wears the mark the
+  app had to 2.5.0 again: three bars of rising lyric lines, the middle one - the line
+  being sung - in the app's pink, the last one still to come, dimmer. It says "lyrics"
+  in one glance, which is the whole job. The liquid-field background stays; only the
+  mark is restored. Themed icons get the same three bars by brightness alone.
+
 ## [2.6.6] - 2026-11-10
 
 ### Changed
