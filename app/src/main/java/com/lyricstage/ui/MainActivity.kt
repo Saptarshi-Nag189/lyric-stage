@@ -10,6 +10,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -100,16 +104,27 @@ private fun App(vm: StageViewModel, accessGranted: Boolean, systemReduceMotion: 
     BackHandler(enabled = screen != Screen.STAGE) {
         screen = if (screen == Screen.SETTINGS) Screen.STAGE else Screen.SETTINGS
     }
-    when (screen) {
-        Screen.STAGE -> StageScreen(vm, systemReduceMotion, onOpenSettings = { screen = Screen.SETTINGS })
-        Screen.SETTINGS -> SettingsScreen(vm, systemReduceMotion, onBack = { screen = Screen.STAGE }, onOpen = { screen = it })
-        Screen.LOOK -> LookPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
-        Screen.PLAYBACK -> PlaybackPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
-        Screen.DATA -> DataPage(vm, onBack = { screen = Screen.SETTINGS })
-        Screen.SPOTIFY -> SpotifyPage(vm, onBack = { screen = Screen.SETTINGS })
-        Screen.DEVELOPER -> DeveloperPage(vm, onBack = { screen = Screen.SETTINGS }, onOpen = { screen = it })
-        Screen.ABOUT -> AboutScreen(vm, onBack = { screen = Screen.SETTINGS })
-        Screen.DEBUG_NOW_PLAYING -> NowPlayingDebugScreen(vm, onBack = { screen = Screen.SETTINGS })
-        Screen.DEBUG_LYRICS -> LyricsListScreen(vm, onBack = { screen = Screen.SETTINGS })
+    // one switch and one slider make the lyrics and every screen glass together; the
+    // screens around the stage then sit on the stage's own background, dimmed
+    val settings by vm.settings.collectAsStateWithLifecycle()
+    val palette by vm.palette.collectAsStateWithLifecycle()
+    val np by vm.nowPlaying.collectAsStateWithLifecycle()
+    val glass = GlassStyle(settings.glassOn && !settings.batterySaver, settings.frost)
+    CompositionLocalProvider(LocalGlass provides glass) {
+        Box(Modifier.fillMaxSize()) {
+            if (screen != Screen.STAGE) GlassBackdrop(settings, palette, np?.art, settings.reduceMotion || systemReduceMotion)
+            when (screen) {
+                Screen.STAGE -> StageScreen(vm, systemReduceMotion, onOpenSettings = { screen = Screen.SETTINGS })
+                Screen.SETTINGS -> SettingsScreen(vm, systemReduceMotion, onBack = { screen = Screen.STAGE }, onOpen = { screen = it })
+                Screen.LOOK -> LookPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
+                Screen.PLAYBACK -> PlaybackPage(vm, systemReduceMotion, onBack = { screen = Screen.SETTINGS })
+                Screen.DATA -> DataPage(vm, onBack = { screen = Screen.SETTINGS })
+                Screen.SPOTIFY -> SpotifyPage(vm, onBack = { screen = Screen.SETTINGS })
+                Screen.DEVELOPER -> DeveloperPage(vm, onBack = { screen = Screen.SETTINGS }, onOpen = { screen = it })
+                Screen.ABOUT -> AboutScreen(vm, onBack = { screen = Screen.SETTINGS })
+                Screen.DEBUG_NOW_PLAYING -> NowPlayingDebugScreen(vm, onBack = { screen = Screen.SETTINGS })
+                Screen.DEBUG_LYRICS -> LyricsListScreen(vm, onBack = { screen = Screen.SETTINGS })
+            }
+        }
     }
 }

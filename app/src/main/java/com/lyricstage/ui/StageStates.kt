@@ -33,6 +33,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.lyricstage.ui.theme.Ui
@@ -62,13 +63,24 @@ fun StagePill(
             onTimeout()
         }
     }
-    Row(
-        modifier
+    // a small capsule of the same glass as the player, a little frosted so its text reads
+    val stage = LocalStageGlass.current
+    GlassPanel(
+        frost = ((stage?.frost ?: 0f) + 0.3f).coerceAtMost(1f),
+        corner = 22.dp,
+        stageSize = stage?.size ?: IntSize.Zero,
+        field = stage?.field,
+        fallback = Ui.Scrim,
+        edge = 7.dp,
+        bend = 10.dp,
+        dim = 0.12f,
+        modifier = modifier
             .windowInsetsPadding(WindowInsets.mandatorySystemGestures)
-            .padding(bottom = 40.dp)
+            .padding(bottom = 40.dp),
+    ) {
+    Row(
+        Modifier
             .heightIn(min = 44.dp)
-            .clip(CircleShape)
-            .background(Ui.Scrim)
             .then(
                 if (timerMs > 0) Modifier.drawWithContent {
                     drawContent()
@@ -106,5 +118,6 @@ fun StagePill(
                 Text(action, color = Ui.OnAccent, fontSize = 14.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
     }
 }

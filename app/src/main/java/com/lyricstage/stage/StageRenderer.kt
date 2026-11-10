@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.util.lerp
+import com.lyricstage.background.GlassLooks
+import com.lyricstage.background.StageGlassField
 import com.lyricstage.core.lyrics.LyricLine
 import com.lyricstage.core.palette.StagePalette
 import com.lyricstage.core.stage.ENTRY_LEAD_MS
@@ -94,12 +96,13 @@ class StageRenderer {
         /** Left-to-right fill while a word is sung; off in battery saver (words light up whole). */
         sweep: Boolean = true,
         /** The field the glass words are cut from, when there is one to cut from. */
-        body: Brush? = null,
+        field: StageGlassField? = null,
     ) {
         if (li < 0 || li >= prep.plan.lines.size) return
         glassAmount = if (sweep) colours.glass else 0f
         frostAmount = colours.frost
-        fieldBody = body
+        fieldBody = field?.takeIf { it.brush != null }
+        slotBase = layer.ordinal * 256
         // the line comes and goes on its own timestamp; only word timing is shifted
         val wpos = pos - wordShiftMs
         val plan = prep.plan
@@ -181,8 +184,8 @@ class StageRenderer {
             val glassWord = fieldBody != null && g > 0.01f
             if (glassWord) {
                 drawFieldGlassWord(
-                    prep.words[li][k], p, fill,
-                    if (highlighted) accent else colours.text,
+                    slotBase + (k and 127) * 2, prep.words[li][k], p, fill,
+                    if (highlighted) accent else colours.text, highlighted,
                     ax, ay, alpha * g, clipLeft = 0f,
                 )
             }
@@ -322,38 +325,40 @@ class StageRenderer {
     /** Set from [StageColours] at the start of each line draw. */
     private var glassAmount = 0f
     private var frostAmount = 0f
-    private var fieldBody: Brush? = null
+    private var fieldBody: StageGlassField? = null
+    private var slotBase = 0
 
     /**
-     * A word of glass cut from the field, drawn flat at its place on the stage. The
-     * letters are painted with the field behind them - clear glass, the background
-     * genuinely visible through them - with a lit edge along their top, shade
-     * underneath, a sheen over the face and a milky veil that rises with the frost.
+     * A word of glass cut from the field, drawn flat at its place on the stage. A sung
+     * word is full clear glass: the field is seen through its letters, bent at their rim
+     * and lit along it. A highlighted word is the same glass, coloured. A word not sung
+     * yet is a thinner, fainter glass, and turns to the full one from left to right.
      */
     private fun DrawScope.drawFieldGlassWord(
+        slot: Int,
         tl: TextLayoutResult,
         p: WordPlacement,
         fill: Float,
         rim: Color,
+        highlighted: Boolean,
         ax: Float,
         ay: Float,
         alpha: Float,
         clipLeft: Float,
     ) {
-        val body = fieldBody ?: return
+        val field = fieldBody ?: return
         val topLeft = Offset(ax, ay + p.ascent - tl.firstBaseline)
+        val tint = if (highlighted) rim else null
         if (fill >= 1f) {
-            drawFieldGlassPass(tl, topLeft, alpha, rim, frostAmount, body, p.fontPx)
+            drawGlassWordPass(field, slot, tl, topLeft, alpha, rim, tint, frostAmount, p.fontPx, sung = true)
             return
         }
-        // the unsung part: etched glass. The body is clear, so the word is read by its
-        // rim alone; it sits above the old dim, which was tuned for solid white
-        drawFieldGlassPass(tl, topLeft, alpha * ETCH, rim, frostAmount, body, p.fontPx)
+        drawGlassWordPass(field, slot, tl, topLeft, alpha * ETCH, rim, null, frostAmount, p.fontPx, sung = false)
         if (fill > 0f) {
             val right = ax + p.width * fill - clipLeft
             if (right > ax - p.width) {
                 clipRect(left = ax - p.width, top = ay - p.height, right = right, bottom = ay + p.height * 2f) {
-                    drawFieldGlassPass(tl, topLeft, alpha, rim, frostAmount, body, p.fontPx)
+                    drawGlassWordPass(field, slot + 1, tl, topLeft, alpha, rim, tint, frostAmount, p.fontPx, sung = true)
                 }
             }
         }
@@ -494,19 +499,47 @@ class StageRenderer {
         /** Opacity of words not yet sung. */
         const val DIM = 0.32f
 
-        /** Opacity of an unsung word of etched glass: its body is clear, so the word is
-         *  read by its rim alone, above the dim tuned for solid white. */
-        const val ETCH = 0.45f
+        /** Opacity of a glass word not sung yet: a fainter pane than the sung one. */
+        const val ETCH = 0.62f
     }
 }
 
 /**
- * One pass of glass text cut from the field: the letters are painted with the field
- * behind them - clear glass, the background visible through them - over a soft shadow
- * that carries their readability, with a lit edge along their top, shade underneath, a
- * sheen over the face, and a milky veil that rises with the frost. Shared by the stage
- * and the Settings preview; the brush must be sampled at the stage's own coordinates,
- * so it is drawn flat, without a canvas transform.
+ * One pass of a glass word cut from the field. The letters are painted with the field
+ * bent through them and lit along their rim ([StageGlassField.word]), over the soft shadow
+ * the pane throws on the background. Where that glass cannot be made, the letters show
+ * the field unbent with drawn edges ([drawFieldGlassPass]). Shared by the stage and the
+ * Settings preview; the brush samples the stage's own coordinates, so the word is drawn
+ * flat, without a canvas transform.
+ */
+internal fun DrawScope.drawGlassWordPass(
+    field: StageGlassField,
+    slot: Int,
+    tl: TextLayoutResult,
+    topLeft: Offset,
+    a: Float,
+    rim: Color,
+    tint: Color?,
+    frost: Float,
+    fontPx: Float,
+    sung: Boolean,
+) {
+    if (a <= 0.01f) return
+    val brush = field.word(slot, tl, topLeft, fontPx, if (sung) GlassLooks.SUNG else GlassLooks.WAITING, tint, frost)
+    if (brush == null) {
+        field.brush?.let { drawFieldGlassPass(tl, topLeft, a, rim, frost, it, fontPx) }
+        return
+    }
+    val k = if (sung) 1f else 0.4f
+    val drop = Offset(0f, fontPx * 0.03f)
+    drawText(tl, Color.Black.copy(alpha = 0.20f * a * k), topLeft + drop, shadow = Shadow(Color.Black.copy(alpha = 0.34f * a * k), drop, fontPx * 0.10f))
+    drawText(tl, brush, topLeft, a)
+}
+
+/**
+ * The older kind of glass word, for where the bending shader cannot be built: the letters
+ * are painted with the field as it is, with a drawn lit edge along their top, shade
+ * underneath, a sheen over the face, and a milky veil that rises with the frost.
  */
 internal fun DrawScope.drawFieldGlassPass(
     tl: TextLayoutResult,
@@ -518,17 +551,11 @@ internal fun DrawScope.drawFieldGlassPass(
     fontPx: Float,
 ) {
     if (a <= 0.01f) return
-    // how far the lit edges sit off the glyph: thick letters get a deeper bevel
     val lift = (fontPx * 0.018f).coerceIn(1.5f, 4f)
-    // the shadow that carries the word over busy colour, and the underside of the
-    // glass in shade, sticking out below the letters
     drawText(tl, Color.Black.copy(alpha = 0.28f * a), topLeft + Offset(0f, 2f), a, shadow = Shadow(Color.Black.copy(alpha = 0.22f * a), Offset(0f, 2f), 8f))
     drawText(tl, Color.Black.copy(alpha = 0.22f * a), topLeft + Offset(0f, lift))
-    // the light catching the top of the letters
     drawText(tl, rim.copy(alpha = 0.50f * a), topLeft - Offset(0f, lift))
-    // the body: the field itself, visible through the letters
     drawText(tl, body, topLeft, a)
-    // a soft sheen over the upper face
     drawText(
         tl,
         Brush.verticalGradient(
@@ -538,7 +565,6 @@ internal fun DrawScope.drawFieldGlassPass(
         ),
         topLeft,
     )
-    // frost: the milky veil over the pane, rising with the slider
     if (frost > 0.02f) drawText(tl, Color.White.copy(alpha = (0.10f + 0.45f * frost) * a), topLeft)
 }
 

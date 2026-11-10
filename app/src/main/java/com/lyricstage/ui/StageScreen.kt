@@ -13,6 +13,7 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -201,6 +202,8 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
     var stageSize by remember { mutableStateOf(IntSize.Zero) }
 
     ImmersiveStage(keepOn = keepAwake)
+    val stageGlass = StageGlass(if (settings.glassOn && !saver) liquidField else null, stageSize, settings.frost)
+    CompositionLocalProvider(LocalStageGlass provides stageGlass) {
     Box(
         Modifier
             .fillMaxSize()
@@ -366,6 +369,7 @@ fun StageScreen(vm: StageViewModel, systemReduceMotion: Boolean, onOpenSettings:
                 )
             }
         }
+    }
     }
 }
 

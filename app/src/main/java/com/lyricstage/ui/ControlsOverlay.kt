@@ -115,21 +115,14 @@ fun ControlsOverlay(
                 .windowInsetsPadding(WindowInsets.statusBars.union(WindowInsets.displayCutout))
                 .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
+            // the song itself is on the player card below; up here only the two round
+            // glass buttons, the queue on the left and Settings on the right
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(56.dp).clip(RoundedCornerShape(14.dp)).background(accent), contentAlignment = Alignment.Center) {
-                    if (art != null) {
-                        Image(art, stringResource(R.string.artwork), contentScale = ContentScale.Crop, modifier = Modifier.size(56.dp))
-                    }
-                }
-                Column(Modifier.weight(1f).padding(horizontal = 12.dp)) {
-                    Text(nowPlaying.title, color = Ui.Text, fontWeight = FontWeight.Bold, fontSize = 17.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(nowPlaying.artist, color = Ui.Text.copy(alpha = 0.72f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
                 if (queue != null) {
-                    CircleIconButton(Glyph.QUEUE, stringResource(R.string.queue), { onQueue(); onInteract() }, background = Color.Black.copy(alpha = 0.35f))
-                    Spacer(Modifier.width(8.dp))
+                    StageGlassButton(Glyph.QUEUE, stringResource(R.string.queue), field, stageSize, settings.frost) { onQueue(); onInteract() }
                 }
-                CircleIconButton(Glyph.MORE, stringResource(R.string.settings), onSettings, background = Color.Black.copy(alpha = 0.35f))
+                Spacer(Modifier.weight(1f))
+                StageGlassButton(Glyph.MORE, stringResource(R.string.settings), field, stageSize, settings.frost, onSettings)
             }
             Spacer(Modifier.height(14.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -142,11 +135,15 @@ fun ControlsOverlay(
             }
         }
 
+        // the player: one clear pane of glass. The cover on the left; beside it the title
+        // and the artist, the seek line with its two times, and the five plain glyphs
         GlassPanel(
             frost = settings.frost,
-            corner = 32.dp,
+            corner = 34.dp,
             stageSize = stageSize,
             field = field,
+            edge = 10.dp,
+            bend = 26.dp,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .then(column)
@@ -154,57 +151,80 @@ fun ControlsOverlay(
                 .windowInsetsPadding(WindowInsets.mandatorySystemGestures)
                 .padding(start = 12.dp, end = 12.dp, bottom = 20.dp),
         ) {
-            Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 16.dp)) {
-            if (duration > 0) {
-                Slider(
-                    value = dragging ?: (position.toFloat() / duration).coerceIn(0f, 1f),
-                    onValueChange = {
-                        dragging = it
-                        onInteract()
-                    },
-                    onValueChangeFinished = {
-                        dragging?.let { onSeek((it * duration).toLong()) }
-                        dragging = null
-                    },
-                    enabled = nowPlaying.canSeek,
-                    colors = SliderDefaults.colors(
-                        thumbColor = Ui.Text,
-                        activeTrackColor = accent,
-                        inactiveTrackColor = Ui.Text.copy(alpha = 0.25f),
-                    ),
-                )
-                Row {
-                    Text(formatTime(dragging?.let { (it * duration).toLong() } ?: position), color = Ui.Text.copy(alpha = 0.72f), fontSize = 13.sp)
-                    Spacer(Modifier.weight(1f))
-                    Text(formatTime(duration), color = Ui.Text.copy(alpha = 0.72f), fontSize = 13.sp)
+            Row(Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(104.dp).clip(RoundedCornerShape(22.dp)).background(accent), contentAlignment = Alignment.Center) {
+                    if (art != null) {
+                        Image(art, stringResource(R.string.artwork), contentScale = ContentScale.Crop, modifier = Modifier.size(104.dp))
+                    }
+                }
+                Column(Modifier.weight(1f).padding(start = 14.dp)) {
+                    Text(nowPlaying.title, color = Ui.Text, fontWeight = FontWeight.SemiBold, fontSize = 19.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(nowPlaying.artist, color = Ui.Text.copy(alpha = 0.78f), fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (duration > 0) {
+                        Row(Modifier.height(34.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Text(formatTime(dragging?.let { (it * duration).toLong() } ?: position), color = Ui.Text.copy(alpha = 0.9f), fontSize = 12.sp)
+                            GlassSlider(
+                                value = dragging ?: (position.toFloat() / duration).coerceIn(0f, 1f),
+                                onValueChange = {
+                                    dragging = it
+                                    onInteract()
+                                },
+                                accent = Ui.Text,
+                                modifier = Modifier.weight(1f).padding(horizontal = 8.dp),
+                                enabled = nowPlaying.canSeek,
+                                inactive = Ui.Text.copy(alpha = 0.3f),
+                                onValueChangeFinished = {
+                                    dragging?.let { onSeek((it * duration).toLong()) }
+                                    dragging = null
+                                },
+                            )
+                            Text(formatTime(duration), color = Ui.Text.copy(alpha = 0.9f), fontSize = 12.sp)
+                        }
+                    } else {
+                        Spacer(Modifier.height(10.dp))
+                    }
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        val sideTint = Ui.Text.copy(alpha = 0.85f)
+                        GlyphButton(
+                            Glyph.SHUFFLE,
+                            stringResource(if (shuffleOn) R.string.shuffle_on else R.string.shuffle_off),
+                            44, if (shuffleOn) accent else sideTint,
+                        ) { onShuffle(!shuffleOn); onInteract() }
+                        TransportButton(Transport.PREVIOUS, stringResource(R.string.previous), 48, Color.Transparent, Ui.Text) { onPrevious(); onInteract() }
+                        TransportButton(
+                            if (nowPlaying.isPlaying) Transport.PAUSE else Transport.PLAY,
+                            stringResource(if (nowPlaying.isPlaying) R.string.pause else R.string.play),
+                            52, Color.Transparent, Ui.Text,
+                        ) { onPlayPause(); onInteract() }
+                        TransportButton(Transport.NEXT, stringResource(R.string.next), 48, Color.Transparent, Ui.Text) { onNext(); onInteract() }
+                        GlyphButton(
+                            if (repeatMode == 1) Glyph.REPEAT_ONE else Glyph.REPEAT,
+                            stringResource(when (repeatMode) { 1 -> R.string.repeat_one; 2 -> R.string.repeat_all; else -> R.string.repeat_off }),
+                            44, if (repeatMode != 0) accent else sideTint,
+                        ) { onRepeat(if (repeatMode == 0) 2 else if (repeatMode == 2) 1 else 0); onInteract() }
+                    }
                 }
             }
+        }
+    }
+}
 
-            Row(
-                Modifier.fillMaxWidth().padding(top = 6.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val sideTint = Ui.Text.copy(alpha = 0.8f)
-                GlyphButton(
-                    Glyph.SHUFFLE,
-                    stringResource(if (shuffleOn) R.string.shuffle_on else R.string.shuffle_off),
-                    44, if (shuffleOn) accent else sideTint,
-                ) { onShuffle(!shuffleOn); onInteract() }
-                TransportButton(Transport.PREVIOUS, stringResource(R.string.previous), 52, Color.Transparent, Ui.Text) { onPrevious(); onInteract() }
-                TransportButton(
-                    if (nowPlaying.isPlaying) Transport.PAUSE else Transport.PLAY,
-                    stringResource(if (nowPlaying.isPlaying) R.string.pause else R.string.play),
-                    72, accent, Ui.OnAccent,
-                ) { onPlayPause(); onInteract() }
-                TransportButton(Transport.NEXT, stringResource(R.string.next), 52, Color.Transparent, Ui.Text) { onNext(); onInteract() }
-                GlyphButton(
-                    if (repeatMode == 1) Glyph.REPEAT_ONE else Glyph.REPEAT,
-                    stringResource(when (repeatMode) { 1 -> R.string.repeat_one; 2 -> R.string.repeat_all; else -> R.string.repeat_off }),
-                    44, if (repeatMode != 0) accent else sideTint,
-                ) { onRepeat(if (repeatMode == 0) 2 else if (repeatMode == 2) 1 else 0); onInteract() }
-            }
-            }
+/** A round glass button over the stage: the field behind it, bent at its rim. */
+@Composable
+fun StageGlassButton(glyph: Glyph, description: String, field: LiquidGlassField?, stageSize: IntSize, frost: Float, onClick: () -> Unit) {
+    GlassPanel(
+        frost = frost,
+        corner = 24.dp,
+        stageSize = stageSize,
+        field = field,
+        fallback = Color.Black.copy(alpha = 0.35f),
+        edge = 7.dp,
+        bend = 10.dp,
+        lift = 0.10f,
+        modifier = Modifier.size(48.dp),
+    ) {
+        Box(Modifier.size(48.dp).clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+            DrawnIcon(glyph, description, Ui.Text, 22)
         }
     }
 }
@@ -215,7 +235,7 @@ private fun TransportButton(kind: Transport, description: String, sizeDp: Int, b
         Modifier.size(sizeDp.dp).clip(CircleShape).background(background).clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        TransportIcon(kind, description, tint, if (sizeDp > 60) 32 else 28)
+        TransportIcon(kind, description, tint, if (sizeDp > 50) 34 else 28)
     }
 }
 

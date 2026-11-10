@@ -90,7 +90,7 @@ fun SettingsScreen(vm: StageViewModel, systemReduceMotion: Boolean, onBack: () -
     Column(
         Modifier
             .fillMaxSize()
-            .background(Ui.Ground)
+            .background(if (LocalGlass.current.on) Color.Transparent else Ui.Ground)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
@@ -152,7 +152,7 @@ private fun SettingsPage(title: String, onBack: () -> Unit, content: @Composable
     Column(
         Modifier
             .fillMaxSize()
-            .background(Ui.Ground)
+            .background(if (LocalGlass.current.on) Color.Transparent else Ui.Ground)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
@@ -453,19 +453,7 @@ private fun PercentSlider(
     onChange: (Float) -> Unit,
 ) {
     LabelValue(title, "%.0f %%".format(value * 100))
-    Slider(
-        value,
-        onValueChange = onChange,
-        valueRange = range,
-        steps = steps,
-        colors = SliderDefaults.colors(
-            thumbColor = Ui.Text,
-            activeTrackColor = accent,
-            inactiveTrackColor = Ui.Track,
-            activeTickColor = Ui.OnAccent.copy(alpha = 0.4f),
-            inactiveTickColor = Ui.Muted.copy(alpha = 0.4f),
-        ),
-    )
+    GlassSlider(value, onChange, accent, valueRange = range, steps = steps)
 }
 
 /** "0 KB", "84 KB", "1.4 MB". Lyrics are text, so a cache rarely passes a few megabytes. */

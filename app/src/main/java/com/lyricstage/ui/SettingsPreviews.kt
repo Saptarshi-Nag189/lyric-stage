@@ -45,7 +45,7 @@ import com.lyricstage.core.stage.Ripple
 import com.lyricstage.settings.BackgroundMode
 import com.lyricstage.stage.LyricFont
 import com.lyricstage.stage.StageFonts
-import com.lyricstage.stage.drawFieldGlassPass
+import com.lyricstage.stage.drawGlassWordPass
 import com.lyricstage.stage.drawGlassText
 import com.lyricstage.ui.theme.Ui
 import kotlinx.coroutines.delay
@@ -118,6 +118,7 @@ fun BackgroundPreview(
     }
     val measurer = rememberTextMeasurer()
     val family = remember(lyricFont) { StageFonts.lyrics(lyricFont) }
+    val kept = remember(family) { PreviewText() }
     val text = Color(palette.text)
     val hl = lerp(text, Color(palette.accents.first()), 0.85f)
     // read as state inside the draw block, so every change of the switch and the slider
@@ -133,30 +134,49 @@ fun BackgroundPreview(
             field = stage?.first,
         )
         Canvas(Modifier.fillMaxSize()) {
-            fun style(sp: Float) = TextStyle(fontFamily = family, fontWeight = FontWeight.Black, fontSize = sp.sp, letterSpacing = (-0.01).em)
-            var sp = 46f
-            var sung = measurer.measure("Never gonna", style(sp))
-            var word = measurer.measure("give", style(sp))
-            val total = sung.size.width + sp.sp.toPx() * 0.28f + word.size.width
-            if (total > size.width * 0.88f) {
-                sp *= size.width * 0.88f / total
-                sung = measurer.measure("Never gonna", style(sp))
-                word = measurer.measure("give", style(sp))
+            // measured once per width: the glass keeps a height map per layout, so the
+            // layouts must stay the same objects from frame to frame
+            if (kept.width != size.width) {
+                fun style(sp: Float) = TextStyle(fontFamily = family, fontWeight = FontWeight.Black, fontSize = sp.sp, letterSpacing = (-0.01).em)
+                var sp = 46f
+                var s0 = measurer.measure("Never gonna", style(sp))
+                var w0 = measurer.measure("give", style(sp))
+                val total = s0.size.width + sp.sp.toPx() * 0.28f + w0.size.width
+                if (total > size.width * 0.88f) {
+                    sp *= size.width * 0.88f / total
+                    s0 = measurer.measure("Never gonna", style(sp))
+                    w0 = measurer.measure("give", style(sp))
+                }
+                kept.width = size.width
+                kept.sp = sp
+                kept.sung = s0
+                kept.word = w0
             }
+            val sp = kept.sp
+            val sung = kept.sung ?: return@Canvas
+            val word = kept.word ?: return@Canvas
             val px = sp.sp.toPx()
             val gap = px * 0.28f
             val shadow = Shadow(Color.Black.copy(alpha = 0.35f), Offset(0f, 2f), 12f)
             val y = (size.height - sung.size.height) / 2f
             val x = (size.width - (sung.size.width + gap + word.size.width)) / 2f
-            val body = stage?.second?.brush
+            val body = stage?.second?.takeIf { it.brush != null }
             if (body != null && glassNow.value > 0.01f) {
-                // glass cut from the field: the letters are the field itself
-                drawFieldGlassPass(sung, Offset(x, y), a = glassNow.value, rim = text, frost = frostNow.value, body = body, fontPx = px)
-                drawFieldGlassPass(word, Offset(x + sung.size.width + gap, y), a = glassNow.value, rim = hl, frost = frostNow.value, body = body, fontPx = px)
+                // glass cut from the field: the letters bend it, as on the stage
+                drawGlassWordPass(body, 0, sung, Offset(x, y), glassNow.value, text, null, frostNow.value, px, sung = true)
+                drawGlassWordPass(body, 1, word, Offset(x + sung.size.width + gap, y), glassNow.value, hl, hl, frostNow.value, px, sung = true)
             } else {
                 drawGlassText(sung, text, Offset(x, y), 1f, shadow, glassNow.value, frostNow.value, px)
                 drawGlassText(word, hl, Offset(x + sung.size.width + gap, y), 1f, shadow, glassNow.value, frostNow.value, px)
             }
         }
     }
+}
+
+/** The preview's two measured pieces of text, kept between frames. */
+private class PreviewText {
+    var width = -1f
+    var sp = 46f
+    var sung: androidx.compose.ui.text.TextLayoutResult? = null
+    var word: androidx.compose.ui.text.TextLayoutResult? = null
 }

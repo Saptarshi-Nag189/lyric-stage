@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.7.0] - 2026-11-10
+
+### Changed
+- One liquid glass for the whole app, lyrics and controls alike: the edge of every piece
+  is a bevel that bends the background through it, blue a little further than red, lit
+  from the top left with a weaker light coming back at the far edge, over a soft shadow.
+- Glass lyrics bend the background. A sung word is full clear glass: the field is seen
+  through its letters, pulled in at their rim. A highlighted word is the same glass,
+  coloured. A word not sung yet is a thinner, fainter glass, and turns to the full one
+  from left to right as it is sung. Before, the letters showed the field unbent between
+  two shifted copies, which read as grey embossing.
+- The player is one clear pane, laid out like a music player: the cover on the left,
+  beside it the title and the artist, the seek line between its two times, and five plain
+  glyphs - shuffle, previous, play, next, repeat. The queue and Settings buttons above
+  and the status pills are small pieces of the same glass.
+- Settings, its pages and About sit on the stage's own background, alive and dimmed. The
+  back button, the selected pills, the slider knobs and the main buttons are glass; the
+  cards with text are a quiet frosted pane, not glass, so they stay readable.
+- The switch is new: a clear glass capsule holding a coloured pill, with a clear lens for
+  a knob that magnifies the colour under it.
+- Frost works app-wide: one slider frosts the lyric letters, the panels on the stage and
+  the cards and controls in Settings together.
+
+### Fixed
+- A glass panel's rim no longer samples outside its own drawing, which darkened the edge.
+
 ## [2.6.7] - 2026-11-10
 
 ### Changed

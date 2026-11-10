@@ -40,8 +40,17 @@ import com.lyricstage.ui.theme.Ui
 /** A rounded group of rows or controls. */
 @Composable
 fun UiCard(modifier: Modifier = Modifier, padding: Int = 16, content: @Composable ColumnScope.() -> Unit) {
+    // with the glass on, a card is the content layer: a quiet frosted pane over the
+    // dimmed background, thicker as the frost rises, never glass itself
+    val glass = LocalGlass.current
+    val shape = RoundedCornerShape(24.dp)
+    val surface = if (glass.on) {
+        Modifier.background(Color(0xFF0C0E1C).copy(alpha = 0.44f + 0.32f * glass.frost)).border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), shape)
+    } else {
+        Modifier.background(Ui.Card)
+    }
     Column(
-        modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Ui.Card).padding(horizontal = 16.dp, vertical = padding.dp),
+        modifier.fillMaxWidth().clip(shape).then(surface).padding(horizontal = 16.dp, vertical = padding.dp),
         content = content,
     )
 }
@@ -77,12 +86,17 @@ fun PillButton(
         PillStyle.TONAL -> Ui.Raised to Ui.Text
         PillStyle.OUTLINE -> Color.Transparent to Ui.Text
     }
+    val glass = LocalGlass.current
+    val surface = when {
+        style == PillStyle.OUTLINE -> Modifier.clip(CircleShape).border(BorderStroke(1.dp, if (glass.on) Color.White.copy(alpha = 0.28f) else Ui.Line), CircleShape)
+        glass.on && style == PillStyle.PRIMARY -> Modifier.glassSurface(CircleShape, glass, bright = 0.25f, tint = bg)
+        glass.on -> Modifier.glassSurface(CircleShape, glass, bright = 0.2f)
+        else -> Modifier.clip(CircleShape).background(bg)
+    }
     Box(
         modifier
             .heightIn(min = height.dp)
-            .clip(CircleShape)
-            .background(bg)
-            .then(if (style == PillStyle.OUTLINE) Modifier.border(BorderStroke(1.dp, Ui.Line), CircleShape) else Modifier)
+            .then(surface)
             .clickable(enabled = enabled, role = Role.Button, onClick = onClick)
             .padding(horizontal = 18.dp),
         contentAlignment = Alignment.Center,
@@ -94,8 +108,11 @@ fun PillButton(
 /** One choice in a set of pills (layouts). */
 @Composable
 fun ChoicePill(text: String, selected: Boolean, accent: Color, onClick: () -> Unit, onStage: Boolean = false) {
+    val glass = LocalGlass.current
     val bg by animateColorAsState(
         when {
+            glass.on && !selected -> Color.White.copy(alpha = if (onStage) 0.14f else 0.09f)
+            glass.on -> Color.Transparent
             selected && onStage -> Ui.Text
             selected -> accent
             onStage -> Color.Black.copy(alpha = 0.35f)
@@ -104,6 +121,7 @@ fun ChoicePill(text: String, selected: Boolean, accent: Color, onClick: () -> Un
         label = "pill",
     )
     val fg = when {
+        glass.on -> Ui.Text
         selected && onStage -> Ui.Ground
         selected -> Ui.OnAccent
         else -> Ui.Text
@@ -111,9 +129,9 @@ fun ChoicePill(text: String, selected: Boolean, accent: Color, onClick: () -> Un
     Box(
         Modifier
             .height(44.dp)
-            .clip(CircleShape)
+            .then(if (glass.on && selected) Modifier.glassSurface(CircleShape, glass, bright = 0.8f) else Modifier.clip(CircleShape))
             .background(bg)
-            .then(if (!selected && !onStage) Modifier.border(BorderStroke(1.dp, Ui.Line), CircleShape) else Modifier)
+            .then(if (!selected && !onStage && !glass.on) Modifier.border(BorderStroke(1.dp, Ui.Line), CircleShape) else Modifier)
             .selectable(selected = selected, role = Role.RadioButton, onClick = onClick)
             .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center,
@@ -125,23 +143,24 @@ fun ChoicePill(text: String, selected: Boolean, accent: Color, onClick: () -> Un
 /** Two or three options in one rounded track; the chosen one is a light pill. */
 @Composable
 fun <T> Segmented(options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
+    val glass = LocalGlass.current
     Row(
-        Modifier.fillMaxWidth().clip(CircleShape).background(Ui.Ground).padding(4.dp),
+        Modifier.fillMaxWidth().clip(CircleShape).background(if (glass.on) Color.Black.copy(alpha = 0.26f) else Ui.Ground).padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         for ((value, label) in options) {
             val on = value == selected
-            val bg by animateColorAsState(if (on) Ui.Text else Color.Transparent, label = "segment")
+            val bg by animateColorAsState(if (on && !glass.on) Ui.Text else Color.Transparent, label = "segment")
             Box(
                 Modifier
                     .weight(1f)
                     .height(44.dp)
-                    .clip(CircleShape)
+                    .then(if (on && glass.on) Modifier.glassSurface(CircleShape, glass, bright = 0.8f) else Modifier.clip(CircleShape))
                     .background(bg)
                     .selectable(selected = on, role = Role.RadioButton) { onSelect(value) },
                 contentAlignment = Alignment.Center,
             ) {
-                Text(label, color = if (on) Ui.Ground else Ui.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                Text(label, color = if (glass.on) (if (on) Ui.Text else Ui.Text.copy(alpha = 0.74f)) else if (on) Ui.Ground else Ui.Muted, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
             }
         }
     }
@@ -177,6 +196,10 @@ fun ToggleRow(
 
 @Composable
 private fun SwitchTrack(checked: Boolean, accent: Color, enabled: Boolean) {
+    if (LocalGlass.current.on) {
+        GlassSwitch(checked, accent, enabled)
+        return
+    }
     val track by animateColorAsState(if (checked) accent else Ui.Line, label = "track")
     val knob by animateColorAsState(if (checked) Ui.OnAccent else Ui.Text, label = "knob")
     val x by animateDpAsState(if (checked) 20.dp else 0.dp, label = "knobX")
@@ -228,8 +251,11 @@ fun Tag(text: String) {
 /** Round 48 dp icon button. */
 @Composable
 fun CircleIconButton(glyph: Glyph, description: String, onClick: () -> Unit, modifier: Modifier = Modifier, background: Color = Ui.Card) {
+    val glass = LocalGlass.current
     Box(
-        modifier.size(48.dp).clip(CircleShape).background(background).clickable(role = Role.Button, onClick = onClick),
+        modifier.size(48.dp)
+            .then(if (glass.on) Modifier.glassSurface(CircleShape, glass, bright = 0.15f) else Modifier.clip(CircleShape).background(background))
+            .clickable(role = Role.Button, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         DrawnIcon(glyph, description, Ui.Text, 22)

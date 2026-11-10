@@ -2,17 +2,29 @@ package com.lyricstage.background
 
 import android.os.Build
 import androidx.annotation.RequiresApi
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ShaderBrush
+import androidx.compose.ui.text.TextLayoutResult
 import com.lyricstage.core.palette.StagePalette
 
 /**
- * The field the glass lyrics are cut from. The lyrics ask for [brush] each frame and paint
- * their letters with it, the way the glass panels are cut from the same field.
+ * The field the glass lyrics are cut from. The lyrics ask for a brush per word each frame
+ * and paint their letters with it, the way the glass panels are cut from the same field.
  */
 interface StageGlassField {
-    /** Paints the liquid field at full resolution; null until the field has drawn once,
-     *  and nothing is cut from it before that. */
+    /** Paints the liquid field at full resolution, unbent; null until the field has drawn
+     *  once, and nothing is cut from it before that. The fallback for [word]. */
     val brush: ShaderBrush?
+
+    /**
+     * The brush for one pass of a glass word drawn at [topLeft]: the field bent through
+     * the word's own letters and lit along their rim. [slot] names the pass, so two passes
+     * in a frame never share a shader. Null when the glass cannot be made; the caller
+     * falls back to [brush].
+     */
+    fun word(slot: Int, tl: TextLayoutResult, topLeft: Offset, fontPx: Float, look: GlassLook, tint: Color?, frost: Float): Brush?
 }
 
 /** [StageGlassField] over the shared [LiquidGlassField], for the glass lyrics. */
@@ -20,24 +32,27 @@ interface StageGlassField {
 class LiquidGlassBody(field: LiquidGlassField) : StageGlassField {
     private val f = field
     private val b = ShaderBrush(f.backdrop)
+    private val words = GlassWords(field)
     override val brush get() = if (f.ready) b else null
+    override fun word(slot: Int, tl: TextLayoutResult, topLeft: Offset, fontPx: Float, look: GlassLook, tint: Color?, frost: Float): Brush? =
+        words.brush(slot, tl, topLeft, fontPx, look, tint, frost)
 }
 
 /**
- * A glass panel - the controls card, the queue - over the liquid field. The layer's own
- * drawing is the field as it is behind the panel (aligned by [LiquidGlassField.syncPanel]);
- * this bends it at the panel's rim, the way a thick glass edge lenses what crosses it, and
- * lights the bevel: bright along the top, shade along the bottom, a soft sheen from above.
- * At zero frost the panel is clear glass - the field exactly as the background draws it,
- * no dim, no milk, no pushed colour of its own; both rise only with frost, so what sits
- * on top stays readable as it frosts.
+ * A glass panel - the player card, the queue, a button, a pill - over the liquid field,
+ * in two passes. This one is what is seen through the glass: the field behind the panel
+ * ([uField], aligned by [LiquidGlassField.syncPanel]), bent where the panel's edge is a
+ * bevel. The bevel pulls the field in from outside the panel, each colour a little
+ * differently, the way a thick glass edge lenses and splits what crosses it; the middle
+ * of the pane shows the field as it is. Frost is a blur laid over this pass.
  */
-internal const val PANEL_GLASS_AGSL = """
-uniform shader uContent;
+internal const val PANEL_BEND_AGSL = """
+uniform shader uField;
 uniform float2 uRes;
 uniform float uRadius;
-uniform float uFrost;
+uniform float uEdge;
 uniform float uBend;
+uniform float uDisp;
 
 float sdBox(float2 p, float2 hs, float r) {
     float2 q = abs(p) - hs + float2(r);
@@ -47,42 +62,73 @@ float sdBox(float2 p, float2 hs, float r) {
 half4 main(float2 fragCoord) {
     float2 hs = uRes * 0.5;
     float2 p = fragCoord - hs;
-    float inside = clamp(-sdBox(p, hs, uRadius), 0.0, 100000.0);
-    // one at the rim, gone a little way in: the middle of the panel stays clear
-    float rim = 1.0 - smoothstep(0.0, uBend * 2.5, inside);
+    float inside = max(-sdBox(p, hs, uRadius), 0.0);
+    float e = 1.0 - clamp(inside / uEdge, 0.0, 1.0);
+    float rim = e * e;
+    half3 col;
+    if (rim > 0.002) {
+        // which way is out, from the distance field itself
+        float2 g = float2(
+            sdBox(p + float2(1.0, 0.0), hs, uRadius) - sdBox(p - float2(1.0, 0.0), hs, uRadius),
+            sdBox(p + float2(0.0, 1.0), hs, uRadius) - sdBox(p - float2(0.0, 1.0), hs, uRadius));
+        float2 n = length(g) > 0.0001 ? normalize(g) : float2(0.0, -1.0);
+        float2 off = n * (rim * uBend);
+        col.r = uField.eval(fragCoord + off * (1.0 - uDisp)).r;
+        col.g = uField.eval(fragCoord + off).g;
+        col.b = uField.eval(fragCoord + off * (1.0 + uDisp)).b;
+    } else {
+        col = uField.eval(fragCoord).rgb;
+    }
+    half lum = dot(col, half3(0.299, 0.587, 0.114));
+    col = mix(half3(lum), col, 1.15);
+    return half4(clamp(col, half3(0.0), half3(1.0)), 1.0);
+}
+"""
 
-    // which way is out, from the distance field itself
+/**
+ * The second pass of a glass panel: the light on the glass itself, laid over what is seen
+ * through it and never blurred. The bevel is lit from the top left with a weaker light
+ * coming back from the far edge and a little shade under it; the pane carries a faint
+ * lift, and a dim and a milk that rise with frost so what sits on it stays readable.
+ * Premultiplied: white for the light, alpha for how much of the pane below it covers.
+ */
+internal const val PANEL_LIGHT_AGSL = """
+uniform float2 uRes;
+uniform float uRadius;
+uniform float uEdge;
+uniform float uFrost;
+uniform float uDim;
+uniform float uLift;
+uniform float uSpec;
+
+float sdBox(float2 p, float2 hs, float r) {
+    float2 q = abs(p) - hs + float2(r);
+    return length(max(q, float2(0.0))) + min(max(q.x, q.y), 0.0) - r;
+}
+
+half4 main(float2 fragCoord) {
+    float2 hs = uRes * 0.5;
+    float2 p = fragCoord - hs;
+    float inside = max(-sdBox(p, hs, uRadius), 0.0);
+    float e = 1.0 - clamp(inside / uEdge, 0.0, 1.0);
+    float rim = e * e;
+    float thin = rim * rim * rim * e;
     float2 g = float2(
         sdBox(p + float2(1.0, 0.0), hs, uRadius) - sdBox(p - float2(1.0, 0.0), hs, uRadius),
         sdBox(p + float2(0.0, 1.0), hs, uRadius) - sdBox(p - float2(0.0, 1.0), hs, uRadius));
     float2 n = length(g) > 0.0001 ? normalize(g) : float2(0.0, -1.0);
-
-    // the rim lenses the field outward
-    half3 col = uContent.eval(fragCoord + n * (rim * uBend)).rgb;
-
+    float d = dot(n, float2(-0.62, -0.78));
+    float d1 = clamp(d, 0.0, 1.0);
+    float d2 = clamp(-d, 0.0, 1.0);
+    // a hairline exactly at the edge, as a glass border reads
+    float hair = 1.0 - smoothstep(0.0, 1.6, inside);
+    float hi = (thin * (pow(d1, 1.4) * 0.95 + d2 * d2 * 0.38) + rim * d1 * 0.10 + hair * (0.10 + 0.30 * d1 + 0.12 * d2)) * uSpec;
+    float lo = rim * d2 * 0.16;
     float frost = clamp(uFrost, 0.0, 1.0);
-    // frost alone stands between the eye and the field. At zero the panel is clear glass -
-    // the field as it is, no fixed dim, no milk, no saturation push toward some colour of
-    // its own - and the darkening and the milk rise only as frost does, for what sits on
-    // top of it
-    col *= half(1.0 - 0.42 * frost);
-    half pl = dot(col, half3(0.299, 0.587, 0.114));
-    col = mix(half3(pl), col, half(1.0 + 0.12 * frost));
-    col = mix(col, half3(1.0), half(0.13 * frost));
-
-    // the bevel is lit from the top left and shaded opposite, the way the reference
-    // material is, and a bright hairline sits exactly at the edge, as a glass border reads
-    half lit = half(clamp(dot(n, float2(-0.7071, -0.7071)), 0.0, 1.0));
-    half shade = half(clamp(dot(n, float2(0.7071, 0.7071)), 0.0, 1.0));
-    col += half3(rim * lit * 0.36 + rim * rim * lit * 0.20);
-    col -= half3(rim * shade * 0.16);
-    float hair = 1.0 - smoothstep(0.0, 2.0, inside);
-    col += half3(hair * (0.08 + 0.26 * lit));
-    col -= half3(hair * 0.07 * shade);
-    // a soft sheen across the top of the panel
-    col += half3(0.05 * (1.0 - smoothstep(0.0, uRes.y * 0.55, fragCoord.y)));
-
-    return half4(col, 1.0);
+    float white = clamp(hi + uLift + 0.13 * frost, 0.0, 1.0);
+    float dark = clamp(lo + uDim + 0.30 * frost, 0.0, 0.9);
+    float a = 1.0 - (1.0 - dark) * (1.0 - white);
+    return half4(half3(white), a);
 }
 """
 

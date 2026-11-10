@@ -214,7 +214,7 @@ fun LyricStage(
             val p = prep ?: return@Canvas
             with(renderer) {
                 if (frame.line < 0) drawGapDots(p, frame.positionMs, colours, reduceMotion)
-                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs, sweep = !simple, body = glassField?.brush)
+                else drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.SETTLED, frame.wordShiftMs, sweep = !simple, field = glassField)
             }
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -227,7 +227,7 @@ fun LyricStage(
             ) {
                 frame.tick.longValue
                 val p = prep ?: return@Canvas
-                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs, sweep = !simple, body = glassField?.brush) }
+                with(renderer) { drawLine(p, frame.line, frame.positionMs, colours, reduceMotion, StageLayer.MOTION, frame.wordShiftMs, sweep = !simple, field = glassField) }
             }
         }
         if (showFps) {

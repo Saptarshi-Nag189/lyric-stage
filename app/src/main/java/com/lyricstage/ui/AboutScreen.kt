@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.res.stringResource
@@ -48,7 +49,7 @@ fun AboutScreen(vm: StageViewModel, onBack: () -> Unit) {
     Column(
         Modifier
             .fillMaxSize()
-            .background(Ui.Ground)
+            .background(if (LocalGlass.current.on) Color.Transparent else Ui.Ground)
             .safeDrawingPadding()
             .verticalScroll(rememberScrollState())
             .padding(vertical = 8.dp),
