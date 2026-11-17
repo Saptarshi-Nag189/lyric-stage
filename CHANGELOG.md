@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.7.1] - 2026-11-17
+
+### Fixed
+- Ripples look like ripples again. 2.6.6 took every specular glint off the liquid field,
+  and with it the bright arcs a ring catches as it travels, so the rings read as smudges.
+  The light is back, but only on the ripples themselves: each ring is a raised crest of
+  glass and its side facing the light flashes. The slow undulation of the field stays
+  unlit, so nothing glints that a sung word or a beat did not put there.
+- Opening or closing the controls without glass on no longer flashes a third look for a
+  moment. While the line turned to glass, the word fading out underneath was drawn as
+  the older drawn glass instead of plain text, and the frost jumped at once instead of
+  easing. The word underneath now stays plain, and the frost eases with the glass.
+
 ## [2.7.0] - 2026-11-10
 
 ### Changed

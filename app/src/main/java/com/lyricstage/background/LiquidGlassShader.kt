@@ -102,6 +102,8 @@ half4 main(float2 fragCoord) {
     // glass, broader and quicker, bending the field less and tinting it more
     float ring = 0.0;
     float glow = 0.0;
+    // the slope the ripples alone add, for the light they catch
+    float2 ripSlope = float2(0.0);
     for (int i = 0; i < 8; i++) {
         float4 rp = uRip[i];
         bool beat = rp.w < 0.0;
@@ -115,7 +117,9 @@ half4 main(float2 fragCoord) {
             float dist = length(d);
             float x = dist - age * speed;
             float env = exp(-x * x * (beat ? 60.0 : 90.0)) * exp(-age * (beat ? 1.7 : 1.25)) * amp;
-            slope += (d / max(dist, 0.001)) * sin(x * (beat ? 30.0 : 55.0)) * env * (beat ? 0.016 : 0.035) * uRipple;
+            float2 rs = (d / max(dist, 0.001)) * sin(x * (beat ? 30.0 : 55.0)) * env * (beat ? 0.016 : 0.035) * uRipple;
+            slope += rs;
+            ripSlope += rs;
             ring += env * (beat ? 1.3 : 1.0) * uRipple;
             // a wide, soft version of the same ring, for dark glass
             glow += exp(-x * x * 14.0) * exp(-age * 1.4) * amp * (beat ? 0.8 : 1.0) * uRipple;
@@ -147,10 +151,14 @@ half4 main(float2 fragCoord) {
     half3 dispersion = half3(slope.x, 0.3 * (slope.y - slope.x), -slope.y) * 1.6 * edge;
     col += mix(dispersion, half3(dot(dispersion, half3(0.299, 0.587, 0.114))), mono);
 
-    // no specular glints: a fixed lamp throwing highlights around the undulating slab
-    // reads as random light patches wandering the glass, fake next to the rings the
-    // words and beats actually raise. The glass bends and fringes light; it does not
-    // sparkle on its own. What moves on the field is only what the song puts there.
+    // the light a ripple catches: each ring is a raised crest of glass, and the side of it
+    // facing the lamp flashes - the bright arcs that make a ripple read as water. Only the
+    // ripples' own slope is lit; the slow undulation of the slab is not, so nothing
+    // glints on the field that a sung word or a beat did not put there
+    float3 rn = normalize(float3(-ripSlope * 14.0, 1.0));
+    float3 L = normalize(float3(-0.45, -0.55, 0.7));
+    float spec = pow(max(dot(reflect(-L, rn), float3(0.0, 0.0, 1.0)), 0.0), 40.0);
+    col += half(spec * 0.32) * edge;
 
     // ripples carry their own colour, already pushed apart from the background in
     // lightness: the ring mixes toward it, bounded like the pools - a fine light ring on

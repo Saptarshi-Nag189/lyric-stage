@@ -191,6 +191,10 @@ class StageRenderer {
             }
             if (!glassWord || g < 0.99f) {
                 val solid = if (glassWord) alpha * (1f - g) else alpha
+                // while the field glass fades in over it, the word underneath stays plain
+                // solid text: drawing it as the drawn kind of glass too put a third look
+                // on screen for the length of the crossfade
+                if (glassWord) glassAmount = 0f
                 withTransform({
                     translate(ax, ay)
                     val pivot = Offset(p.width / 2f, p.height / 2f)
@@ -215,6 +219,7 @@ class StageRenderer {
                         drawWord(prep.words[li][k], p, fill, colour, colours.text, solid, shadow)
                     }
                 }
+                glassAmount = g
             }
         }
     }

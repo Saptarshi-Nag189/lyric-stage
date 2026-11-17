@@ -142,8 +142,10 @@ fun LyricStage(
     val glassTarget = if (dimmed) 1f else glass
     val frostNow = if (dimmed) max(frost, OVERLAY_FROST) else frost
     val glassAnim by animateFloatAsState(glassTarget, tween(280), label = "stage-glass")
-    val colours = remember(palette, highlightIntensity, glassAnim, frostNow) {
-        StageColours(palette, highlightIntensity, glassAnim, frostNow)
+    // the frost eases with the glass, so the line does not jump to a milkier look first
+    val frostAnim by animateFloatAsState(frostNow, tween(280), label = "stage-frost")
+    val colours = remember(palette, highlightIntensity, glassAnim, frostAnim) {
+        StageColours(palette, highlightIntensity, glassAnim, frostAnim)
     }
 
     val ripple by rememberUpdatedState(onRipple)
