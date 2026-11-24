@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -89,8 +90,13 @@ private fun GlassFieldPanel(
     lift: Float,
     content: @Composable () -> Unit,
 ) {
-    // a shader that will not build leaves the plain shape, never a crash
-    val shaders = remember { runCatching { PanelShaders() }.getOrNull() }
+    // a shader that will not build leaves the plain shape, never a crash. The set comes
+    // from the field's pool and goes back to it, so opening the controls again does not
+    // build them anew
+    val shaders = remember(field) { runCatching { field.takePanelShaders { PanelShaders() } }.getOrNull() }
+    if (shaders != null) {
+        DisposableEffect(field, shaders) { onDispose { field.givePanelShaders(shaders) } }
+    }
     if (shaders == null) {
         Box(modifier.clip(shape).background(fallback)) { content() }
         return

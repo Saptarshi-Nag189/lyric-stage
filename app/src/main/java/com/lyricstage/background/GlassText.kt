@@ -174,9 +174,36 @@ internal class GlassWords(private val field: LiquidGlassField) {
 
     private val slots = HashMap<Int, Slot>()
     private val masks = IdentityHashMap<TextLayoutResult, WordMask>()
+    private val lock = Any()
 
     /** True once a shader failed to build: the caller keeps to the plain field brush. */
-    private var broken = false
+    @Volatile private var broken = false
+
+    private fun cached(tl: TextLayoutResult): WordMask? = synchronized(lock) { masks[tl] }
+
+    private fun mask(tl: TextLayoutResult, fontPx: Float): WordMask? {
+        cached(tl)?.let { return it }
+        val m = runCatching { WordMask.of(tl, fontPx) }.getOrElse {
+            broken = true
+            return null
+        }
+        synchronized(lock) {
+            masks[tl]?.let { return it }
+            if (masks.size > MAX_MASKS) masks.clear()
+            masks[tl] = m
+        }
+        return m
+    }
+
+    /**
+     * Makes the height maps of [words] ahead of time, off the main thread, so the first
+     * frame that draws them as glass - the controls opening, a new line - does not stop to
+     * blur its letters. Safe to call from any thread.
+     */
+    fun warm(words: List<Pair<TextLayoutResult, Float>>) {
+        if (broken) return
+        for ((tl, px) in words) if (cached(tl) == null) mask(tl, px)
+    }
 
     fun brush(slot: Int, tl: TextLayoutResult, topLeft: Offset, fontPx: Float, look: GlassLook, tint: Color?, frost: Float): Brush? {
         if (broken || !field.ready) return null
@@ -184,13 +211,7 @@ internal class GlassWords(private val field: LiquidGlassField) {
             broken = true
             return null
         }.also { slots[slot] = it }
-        val m = masks[tl] ?: runCatching { WordMask.of(tl, fontPx) }.getOrElse {
-            broken = true
-            return null
-        }.also {
-            if (masks.size > 160) masks.clear()
-            masks[tl] = it
-        }
+        val m = mask(tl, fontPx) ?: return null
         val sh = s.shader
         // set again each frame: the field's own uniforms have moved since the last one
         sh.setInputShader("uField", field.backdrop)
@@ -207,5 +228,10 @@ internal class GlassWords(private val field: LiquidGlassField) {
         if (tint != null) sh.setFloatUniform("uTint", tint.red, tint.green, tint.blue, 0.46f)
         else sh.setFloatUniform("uTint", 1f, 1f, 1f, 0f)
         return s.brush
+    }
+
+    private companion object {
+        /** Masks kept: a few lines' worth, so the lines around the one sung stay ready. */
+        const val MAX_MASKS = 160
     }
 }

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.7.2] - 2026-11-24
+
+### Fixed
+- Opening and closing the controls is smooth again. Since 2.7.0 the first frames of the
+  switch did heavy work on the main thread: every word on stage had its glass shape made
+  from its letters (a blur over each word) the moment it first turned to glass, and every
+  glass panel built its shaders afresh each time the controls opened. Those frames
+  stalled, so the change to the overlay stuttered. The word shapes are now made ahead,
+  off the main thread, for the line on stage and the next one; the panel shaders are
+  built once and kept for the next time the controls open.
+
 ## [2.7.1] - 2026-11-17
 
 ### Fixed

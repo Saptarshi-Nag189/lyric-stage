@@ -25,6 +25,9 @@ interface StageGlassField {
      * falls back to [brush].
      */
     fun word(slot: Int, tl: TextLayoutResult, topLeft: Offset, fontPx: Float, look: GlassLook, tint: Color?, frost: Float): Brush?
+
+    /** Prepares [words] (layout, font px) for [word] ahead of time; any thread. */
+    fun warm(words: List<Pair<TextLayoutResult, Float>>) {}
 }
 
 /** [StageGlassField] over the shared [LiquidGlassField], for the glass lyrics. */
@@ -36,6 +39,7 @@ class LiquidGlassBody(field: LiquidGlassField) : StageGlassField {
     override val brush get() = if (f.ready) b else null
     override fun word(slot: Int, tl: TextLayoutResult, topLeft: Offset, fontPx: Float, look: GlassLook, tint: Color?, frost: Float): Brush? =
         words.brush(slot, tl, topLeft, fontPx, look, tint, frost)
+    override fun warm(words: List<Pair<TextLayoutResult, Float>>) = this.words.warm(words)
 }
 
 /**
@@ -205,6 +209,23 @@ class LiquidGlassField {
         s.setFloatUniform("uRipple", strength)
         s.setFloatUniform("uRes", stageW, stageH)
         s.setFloatUniform("uOrigin", originX, originY)
+    }
+
+    /**
+     * Shaders for the glass panels, kept with the field instead of with each panel: a
+     * panel is built every time the controls open, and making its shaders afresh then -
+     * three per panel, a handful of panels - stalled the very frames the overlay fades in
+     * on. A panel takes a set when it appears and gives it back when it goes.
+     */
+    private val panelPool = ArrayList<Any>()
+
+    @Suppress("UNCHECKED_CAST")
+    fun <T : Any> takePanelShaders(make: () -> T): T = synchronized(panelPool) {
+        (panelPool.removeLastOrNull() as T?)
+    } ?: make()
+
+    fun givePanelShaders(set: Any) {
+        synchronized(panelPool) { if (panelPool.size < 8) panelPool += set }
     }
 
     private fun apply(s: android.graphics.RuntimeShader, p: StagePalette) {

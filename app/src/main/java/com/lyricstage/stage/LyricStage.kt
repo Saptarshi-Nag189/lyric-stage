@@ -12,6 +12,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.distinctUntilChanged
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -194,6 +196,27 @@ fun LyricStage(
                 if (idle > IDLE_MIN_MS) delay(idle.coerceAtMost(IDLE_MAX_MS))
             }
         }
+    }
+
+    // The glass words need a height map each, made from their letters. Making them the
+    // moment a line first turns to glass - the controls opening, a new line arriving -
+    // stopped those very frames to blur every word on the main thread, which is what made
+    // the switch to the overlay stutter. They are made ahead now, off the main thread:
+    // the line on stage and the next one, whenever the line changes.
+    LaunchedEffect(prep, glassField) {
+        val p = prep ?: return@LaunchedEffect
+        val field = glassField ?: return@LaunchedEffect
+        snapshotFlow { frame.tick.longValue; frame.line }
+            .distinctUntilChanged()
+            .collect { li ->
+                val first = li.coerceAtLeast(0)
+                withContext(Dispatchers.Default) {
+                    for (l in first..minOf(first + 1, p.words.size - 1)) {
+                        val layout = p.plan.layouts[l]
+                        field.warm(p.words[l].mapIndexed { k, tl -> tl to layout.words[k].fontPx })
+                    }
+                }
+            }
     }
 
     // while paused (without the controls) the stage dims back, holding the current line;
