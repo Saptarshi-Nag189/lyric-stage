@@ -64,7 +64,8 @@ import kotlin.math.max
  * from the field itself, the way the glass panels are cut from it: the letters are
  * painted with the field behind them, so the background is genuinely visible through
  * the glass, clear to milky with the frost slider. While the controls are open
- * ([dimmed]) the line is glass either way, instead of dimming back.
+ * ([dimmed]) the line stays glass and frosts a little more when glass is on, and fades
+ * back behind the controls when it is off.
  */
 @Composable
 fun LyricStage(
@@ -86,7 +87,7 @@ fun LyricStage(
     anchor: Long,
     /** Battery saver: words fade in whole, and the loop sleeps between changes. */
     simple: Boolean,
-    /** Controls are open: the line reads as glass rather than dimming back. */
+    /** Controls are open: with glass on the line frosts, with glass off it fades back. */
     dimmed: Boolean,
     /** The field the glass words are cut from; null when there is none. */
     glassField: StageGlassField? = null,
@@ -141,8 +142,12 @@ fun LyricStage(
     // Glass: the line is glass while the controls are open whatever the setting says, and
     // the words cut from the field take over from the drawn kind whenever there is a
     // field. The crossfade animates, so opening the controls melts the line.
-    val glassTarget = if (dimmed) 1f else glass
-    val frostNow = if (dimmed) max(frost, OVERLAY_FROST) else frost
+    // With glass on, the line stays glass and frosts a little more while the controls are
+    // open. With glass off it does what it did before glass existed: it fades back behind
+    // the controls (below), and never turns to glass at all.
+    val glassOn = glass > 0.01f
+    val glassTarget = glass
+    val frostNow = if (dimmed && glassOn) max(frost, OVERLAY_FROST) else frost
     val glassAnim by animateFloatAsState(glassTarget, tween(280), label = "stage-glass")
     // the frost eases with the glass, so the line does not jump to a milkier look first
     val frostAnim by animateFloatAsState(frostNow, tween(280), label = "stage-frost")
@@ -220,9 +225,10 @@ fun LyricStage(
     }
 
     // while paused (without the controls) the stage dims back, holding the current line;
-    // with the controls open the glass itself is the dimming
+    // with the controls open, glass on: the glass itself is the dimming; glass off: the
+    // line fades back, as it always did
     val target = when {
-        dimmed -> 1f
+        dimmed -> if (glassOn) 1f else OVERLAY_DIM
         !isPlaying -> 0.55f
         else -> 1f
     }
@@ -293,5 +299,8 @@ private const val PAUSED_TAIL_NS = 700_000_000L
 private const val SIZE_SETTLE_MS = 350L
 private const val IDLE_MIN_MS = 40L
 private const val IDLE_MAX_MS = 1_000L
+/** How far the line fades back behind the controls when glass is off, as before 2.5.0. */
+private const val OVERLAY_DIM = 0.3f
+
 /** The least frost on the overlay glass, so the line stays readable over busy colour. */
 private const val OVERLAY_FROST = 0.35f

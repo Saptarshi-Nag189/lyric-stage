@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.7.3] - 2026-11-24
+
+### Changed
+- With glass off, opening the controls fades the line back behind them, the way it did
+  before glass existed (2.0 and earlier). The line no longer turns to glass for the
+  overlay, so there is no change of look at all. With glass on, the line stays glass and
+  frosts a little more while the controls are open, as before.
+
 ## [2.7.2] - 2026-11-24
 
 ### Fixed
